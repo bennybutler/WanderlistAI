@@ -13,21 +13,22 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{
-  --gold:#BA7517;--gold-lt:#FAEEDA;--gold-md:#FAC775;--gold-dk:#7A4A00;
+  --gold:#BA7517;--gold-lt:#FAEEDA;--gold-md:#FAC775;
   --blue:#1a6eb5;--blue-lt:#e8f2fc;--blue-md:#90bde8;
   --bg:#fff;--bg2:#f7f5f0;--bg3:#efede7;
   --text:#1a1a1a;--text2:#666;--text3:#999;
-  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
   --radius:12px;--rsm:8px;
   --sb:env(safe-area-inset-bottom,0px);
   --st:env(safe-area-inset-top,0px);
   --green:#3B6D11;--green-lt:#EAF3DE;--green-bd:#C0DD97;
   --red:#A32D2D;--red-lt:#FCEBEB;--red-bd:#F7C1C1;
+  --tab-h:58px;
 }
 @media(prefers-color-scheme:dark){:root{
   --bg:#1a1914;--bg2:#252420;--bg3:#2e2c28;
   --text:#f0ede6;--text2:#9e9a90;--text3:#6e6a62;
-  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);
+  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
   --gold-lt:rgba(186,117,23,0.15);--gold-md:rgba(186,117,23,0.35);
   --blue-lt:rgba(26,110,181,0.15);--blue-md:rgba(26,110,181,0.35);
   --green-lt:rgba(59,109,17,0.15);--green-bd:rgba(59,109,17,0.35);
@@ -36,65 +37,65 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 #app{display:flex;flex-direction:column;height:100%;padding-top:var(--st);}
-/* Header */
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;gap:8px;}
 .logo{font-size:18px;font-weight:700;color:var(--gold);letter-spacing:-0.03em;white-space:nowrap;}
 .logo small{font-size:10px;font-weight:400;color:var(--text3);margin-left:3px;}
-.hdr-btn{padding:7px 12px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;}
-/* Map filter pills */
-.map-filters{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;display:flex;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);}
-.mf-btn{padding:5px 12px;border-radius:16px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text2);background:transparent;}
-.mf-btn.on{background:var(--gold);color:#fff;}
+.hdr-btn{padding:7px 12px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
 /* Tabbar */
-.tabbar{display:flex;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;padding-bottom:var(--sb);}
-.tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px 4px;font-size:10px;color:var(--text3);cursor:pointer;gap:2px;border:none;background:none;font-family:inherit;}
-.tabbtn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tabbar{display:flex;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;padding-bottom:var(--sb);height:calc(var(--tab-h) + var(--sb));}
+.tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 2px;font-size:9px;color:var(--text3);cursor:pointer;gap:2px;border:none;background:none;font-family:inherit;}
+.tabbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .tabbtn.on{color:var(--gold);}
 .tabbtn span{font-weight:500;}
 /* Screens */
 .screen{display:none;flex:1;overflow:hidden;flex-direction:column;min-height:0;}
 .screen.on{display:flex;}
+/* Map */
 #map{flex:1;z-index:0;}
-.map-fab{position:absolute;bottom:calc(68px + var(--sb));right:14px;width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(186,117,23,.4);cursor:pointer;z-index:999;}
+.map-filters{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;display:flex;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);}
+.mf-btn{padding:5px 11px;border-radius:16px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text2);background:transparent;white-space:nowrap;}
+.mf-btn.on{background:var(--gold);color:#fff;}
+.map-home-btn{position:absolute;top:10px;right:12px;z-index:900;width:36px;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);font-size:16px;}
+.map-fab{position:absolute;bottom:calc(var(--tab-h) + var(--sb) + 12px);right:12px;width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(186,117,23,.4);cursor:pointer;z-index:999;}
 /* Screen header */
 .scr-hdr{padding:12px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .scr-hdr h2{font-size:16px;font-weight:600;}
 /* City search */
-.city-search{padding:9px 13px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;}
+.city-search{padding:9px 13px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:100;}
 .city-row{display:flex;gap:7px;}
 .city-inp{flex:1;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
 .city-inp:focus{border-color:var(--gold);}
 .city-inp::placeholder{color:var(--text3);}
 .type-toggle{display:flex;border:1px solid var(--border);border-radius:20px;overflow:hidden;flex-shrink:0;}
-.tt-btn{padding:8px 10px;background:transparent;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text3);}
+.tt-btn{padding:8px 10px;background:transparent;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text3);white-space:nowrap;}
 .tt-btn.on{background:var(--gold);color:#fff;}
-.autocomplete{position:absolute;top:100%;left:13px;right:13px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);z-index:500;box-shadow:0 4px 16px rgba(0,0,0,.12);overflow:hidden;display:none;}
-.ac-item{padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.autocomplete{position:absolute;top:calc(100% - 1px);left:13px;right:13px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);z-index:500;box-shadow:0 4px 16px rgba(0,0,0,.12);overflow:hidden;display:none;max-height:240px;overflow-y:auto;}
+.ac-item{padding:10px 13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
 .ac-item:last-child{border-bottom:none;}
-.ac-item:hover,.ac-item:active{background:var(--bg2);}
+.ac-item:active{background:var(--bg2);}
 .ac-name{font-size:14px;font-weight:500;color:var(--text);}
 .ac-sub{font-size:12px;color:var(--text3);}
-.ac-pin{font-size:16px;flex-shrink:0;}
 /* Dest list */
 .scroll-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.dest-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);}
-.dest-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.dest-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
+.dest-item:active{background:var(--bg2);}
+.dest-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 .dest-icon.dest{background:var(--gold-lt);}
 .dest-icon.local{background:var(--blue-lt);}
 .dest-info{flex:1;min-width:0;}
 .dest-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dest-meta{font-size:11px;color:var(--text3);margin-top:1px;display:flex;align-items:center;gap:5px;}
-.dest-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;text-transform:uppercase;letter-spacing:.04em;}
+.dest-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;}
 .dest-badge.dest{background:var(--gold-lt);color:var(--gold);}
 .dest-badge.local{background:var(--blue-lt);color:var(--blue);}
-.dest-fly{background:var(--bg2);border:1px solid var(--border);color:var(--text2);border-radius:7px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:inherit;}
-.dest-rm{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0 2px;line-height:1;}
+.dest-fly{background:var(--bg2);border:1px solid var(--border);color:var(--text2);border-radius:7px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.dest-rm{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:28px 20px;text-align:center;gap:8px;}
 .empty-state p{font-size:14px;color:var(--text3);line-height:1.6;}
-/* Itins */
-.itin-toolbar{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+/* Trips */
+.itin-toolbar{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;}
 .group-label{font-size:12px;color:var(--text3);white-space:nowrap;}
-.group-sel{padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit;cursor:pointer;}
+.group-sel{padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit;}
 .gen-btn{padding:8px 14px;background:var(--gold);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:auto;}
 .gen-btn:disabled{opacity:.5;}
 .itin-card{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:var(--radius);padding:13px;cursor:pointer;position:relative;margin-bottom:9px;}
@@ -108,25 +109,55 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .imll{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
 .imlv{font-size:13px;font-weight:600;color:var(--text);}
 .itin-high{font-size:12px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border);padding-top:7px;}
-.share-btn{display:flex;align-items:center;gap:5px;padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;margin-top:8px;}
+.card-actions{display:flex;gap:6px;margin-top:8px;}
+.card-act-btn{display:flex;align-items:center;gap:4px;padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit;}
+.card-act-btn:active{background:var(--gold-lt);color:var(--gold);}
 /* Chat */
-.chat-wrap{display:flex;flex-direction:column;flex:1;min-height:0;}
+.chat-toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0;overflow-x:auto;}
+.chat-filter{padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:transparent;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;}
+.chat-filter.on{background:var(--gold);color:#fff;border-color:var(--gold);}
 .chat-msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;}
 .chat-msg{margin-bottom:10px;display:flex;flex-direction:column;}
 .chat-msg.user{align-items:flex-end;}
 .chat-msg.ai{align-items:flex-start;}
-.chat-bubble{max-width:82%;padding:10px 13px;border-radius:16px;font-size:14px;line-height:1.6;}
+.chat-bubble{max-width:85%;padding:10px 13px;border-radius:16px;font-size:14px;line-height:1.6;}
 .chat-msg.user .chat-bubble{background:var(--gold);color:#fff;border-bottom-right-radius:4px;}
 .chat-msg.ai .chat-bubble{background:var(--bg2);color:var(--text);border-bottom-left-radius:4px;}
-.chat-input-row{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
-.chat-input{flex:1;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
+.chat-add-btn{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:6px 11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.chat-input-row{padding:9px 11px;border-top:1px solid var(--border);display:flex;gap:7px;flex-shrink:0;}
+.chat-input{flex:1;padding:10px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
 .chat-input:focus{border-color:var(--gold);}
 .chat-input::placeholder{color:var(--text3);}
 .chat-send{width:38px;height:38px;border-radius:50%;background:var(--gold);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+/* Day planner */
+.day-planner{padding:12px;}
+.day-plan-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px;margin-bottom:9px;position:relative;}
+.day-plan-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.day-plan-meta{font-size:12px;color:var(--text3);margin-bottom:9px;}
+.day-stop{display:flex;gap:9px;align-items:flex-start;margin-bottom:8px;}
+.day-stop-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:3px;}
+.day-stop-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;}
+.day-stop-connector{width:1px;flex:1;background:var(--gold-md);margin-top:3px;min-height:16px;}
+.day-stop-info{flex:1;min-width:0;}
+.day-stop-name{font-size:13px;font-weight:500;color:var(--text);}
+.day-stop-detail{font-size:11px;color:var(--text3);margin-top:1px;}
+/* Settings */
+.settings-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+.settings-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.settings-card{background:var(--bg2);border-radius:var(--radius);padding:14px;margin-bottom:10px;border:1px solid var(--border);}
+.settings-card p{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.settings-card small{font-size:12px;color:var(--text3);line-height:1.6;display:block;margin-bottom:10px;}
+.s-inp{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:14px;outline:none;font-family:inherit;margin-bottom:9px;}
+.s-inp:focus{border-color:var(--gold);}
+.s-inp::placeholder{color:var(--text3);}
+.s-btn{width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+.s-btn.outline{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+.s-btn.outline:active{background:var(--bg2);}
+.key-ok{font-size:12px;color:var(--green);margin-top:7px;display:none;}
 /* Sheet */
 .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;}
 .sheet-bg.on{display:block;}
-.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-radius:20px 20px 0 0;z-index:1001;max-height:92vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);padding-bottom:var(--sb);}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-radius:20px 20px 0 0;z-index:1001;max-height:93vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);padding-bottom:var(--sb);}
 .sheet.on{transform:translateY(0);}
 .sheet-handle{width:38px;height:4px;background:var(--border2);border-radius:2px;margin:11px auto 0;flex-shrink:0;}
 .sheet-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 17px 10px;flex-shrink:0;}
@@ -173,12 +204,20 @@ textarea::placeholder{color:var(--text3);}
 .res-item.on .res-chk{background:var(--gold);border-color:var(--gold);color:#fff;}
 .res-name{flex:1;font-size:14px;font-weight:500;}
 .res-country{font-size:12px;color:var(--text3);}
-.res-src{font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text3);padding:1px 5px;border-radius:4px;flex-shrink:0;}
 /* Detail sheet */
+.filter-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
+.filter-pill{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;}
+.filter-pill.on{background:var(--gold);color:#fff;border-color:var(--gold);}
+.rec-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);padding:11px 13px;margin-bottom:7px;display:flex;align-items:flex-start;gap:10px;}
+.rec-icon{font-size:18px;flex-shrink:0;}
+.rec-info{flex:1;min-width:0;}
+.rec-name{font-size:14px;font-weight:500;color:var(--text);}
+.rec-detail{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5;}
+.rec-add{background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;margin-top:2px;}
 .detail-day{padding:9px 11px;background:var(--bg2);border-radius:var(--rsm);border-left:3px solid var(--gold);margin-bottom:6px;}
 .detail-day-lbl{font-size:10px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
 .detail-day-d{font-size:13px;color:var(--text);line-height:1.5;}
-.cost-boxes{display:flex;gap:8px;margin-bottom:13px;}
+.cost-boxes{display:flex;gap:8px;margin-bottom:12px;}
 .cost-box{flex:1;padding:10px 12px;border-radius:var(--rsm);border:1px solid var(--border);}
 .cost-box.lo{background:var(--green-lt);border-color:var(--green-bd);}
 .cost-box.hi{background:var(--gold-lt);border-color:var(--gold-md);}
@@ -191,19 +230,14 @@ textarea::placeholder{color:var(--text3);}
 .book-link:active{background:var(--gold-lt);}
 .book-link span{margin-left:auto;color:var(--text3);font-size:12px;}
 .section-lbl{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px;}
-/* Share toast */
-.share-toast{position:fixed;bottom:calc(68px + var(--sb) + 10px);left:14px;right:14px;background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green);padding:11px 14px;border-radius:var(--rsm);font-size:13px;z-index:2000;opacity:0;transition:all .24s;pointer-events:none;text-align:center;}
-.share-toast.on{opacity:1;}
-/* Inline share view */
-#share-view{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px;text-align:center;}
-#share-view h2{font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;}
-#share-view p{font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.6;}
-/* Spin */
+/* Spinners & toast */
 .spin{width:14px;height:14px;border:2.5px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:middle;}
 @keyframes sp{to{transform:rotate(360deg);}}
 .ld{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text3);padding:9px 0;}
-.toast{position:fixed;bottom:calc(68px + var(--sb) + 10px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:20px;font-size:13px;font-weight:500;z-index:2000;opacity:0;transition:all .22s;white-space:nowrap;pointer-events:none;}
+.toast{position:fixed;bottom:calc(var(--tab-h) + var(--sb) + 10px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:20px;font-size:13px;font-weight:500;z-index:2000;opacity:0;transition:all .22s;white-space:nowrap;pointer-events:none;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+.share-toast{position:fixed;bottom:calc(var(--tab-h) + var(--sb) + 10px);left:14px;right:14px;background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green);padding:11px 14px;border-radius:var(--rsm);font-size:13px;z-index:2000;opacity:0;transition:all .24s;pointer-events:none;text-align:center;}
+.share-toast.on{opacity:1;}
 </style>
 </head>
 <body>
@@ -218,9 +252,10 @@ textarea::placeholder{color:var(--text3);}
     <div id="map"></div>
     <div class="map-filters">
       <button class="mf-btn on" id="mf-all" onclick="setFilter('all',this)">All</button>
-      <button class="mf-btn" id="mf-dest" onclick="setFilter('dest',this)">✈ Destinations</button>
+      <button class="mf-btn" id="mf-dest" onclick="setFilter('dest',this)">✈ Trips</button>
       <button class="mf-btn" id="mf-local" onclick="setFilter('local',this)">📍 Local</button>
     </div>
+    <button class="map-home-btn" onclick="goHome()" title="Go home">🏠</button>
     <button class="map-fab" onclick="swScreen('s-list')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
     </button>
@@ -231,7 +266,7 @@ textarea::placeholder{color:var(--text3);}
     <div class="scr-hdr"><h2>My places</h2><span id="dcnt">0 saved</span></div>
     <div class="city-search">
       <div class="city-row">
-        <input class="city-inp" id="city-inp" placeholder="Search for a city, country, or place..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)">
+        <input class="city-inp" id="city-inp" placeholder="Search for a city, place, or activity..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)">
         <div class="type-toggle">
           <button class="tt-btn on" id="tt-dest" onclick="setType('dest',this)">✈</button>
           <button class="tt-btn" id="tt-local" onclick="setType('local',this)">📍</button>
@@ -239,21 +274,21 @@ textarea::placeholder{color:var(--text3);}
       </div>
       <div class="autocomplete" id="ac"></div>
     </div>
-    <div style="padding:8px 13px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);cursor:pointer;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Import backup from old version
+    <div style="padding:7px 13px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text3);cursor:pointer;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import backup
         <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
       </label>
     </div>
-    <div class="scroll-list" id="dlist"><div class="empty-state"><p>Search above to add a destination<br>or local spot you want to visit.</p></div></div>
+    <div class="scroll-list" id="dlist"><div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div></div>
   </div>
 
   <!-- TRIPS -->
   <div class="screen" id="s-itin">
     <div class="scr-hdr"><h2>My trips</h2></div>
     <div class="itin-toolbar">
-      <span class="group-label">Group size:</span>
+      <span class="group-label">Group:</span>
       <select class="group-sel" id="group-sel">
         <option value="1">Solo</option>
         <option value="2" selected>2 people</option>
@@ -269,35 +304,67 @@ textarea::placeholder{color:var(--text3);}
 
   <!-- CHAT -->
   <div class="screen" id="s-chat">
-    <div class="scr-hdr"><h2>Trip planner</h2></div>
-    <div class="chat-wrap">
-      <div class="chat-msgs" id="chat-msgs">
-        <div class="chat-msg ai"><div class="chat-bubble">Hi! I'm your AI trip planner. Tell me what kind of trip you're dreaming of — where you want to go, your vibe, budget, how long — and I'll build you a full itinerary. I can also add destinations to your map!</div></div>
-      </div>
-      <div class="chat-input-row">
-        <input class="chat-input" id="chat-inp" placeholder="Describe your dream trip..." onkeydown="if(event.key==='Enter')sendChat()">
-        <button class="chat-send" onclick="sendChat()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-      </div>
+    <div class="scr-hdr"><h2>AI trip planner</h2></div>
+    <div class="chat-toolbar">
+      <button class="chat-filter on" id="cf-all" onclick="setChatFilter('all',this)">All</button>
+      <button class="chat-filter" id="cf-touristy" onclick="setChatFilter('touristy',this)">🗺 Touristy</button>
+      <button class="chat-filter" id="cf-local" onclick="setChatFilter('local',this)">🏘 Live like a local</button>
+      <button class="chat-filter" id="cf-budget" onclick="setChatFilter('budget',this)">💰 Budget</button>
+      <button class="chat-filter" id="cf-luxury" onclick="setChatFilter('luxury',this)">✨ Luxury</button>
+    </div>
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="chat-msg ai"><div class="chat-bubble">Hi! I'm your AI trip planner 🌍<br><br>Tell me where you want to go, your vibe, budget, and how long — I'll build a full itinerary and can add destinations directly to your map.<br><br>You can also ask me about any city to get restaurant, bar, and activity recommendations!</div></div>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-inp" placeholder="Describe your dream trip..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">
+      <button class="chat-send" onclick="sendChat()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
     </div>
   </div>
 
   <!-- SETTINGS -->
   <div class="screen" id="s-settings">
     <div class="scr-hdr"><h2>Settings</h2></div>
-    <div style="padding:20px 16px;">
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;margin-bottom:16px;border:1px solid var(--border);">
-        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Anthropic API Key</p>
-        <p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;">Required for AI features. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a> → API Keys → Create Key. Your key is stored only on this device.</p>
-        <input id="api-key-inp" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:14px;outline:none;font-family:inherit;margin-bottom:10px;">
-        <button onclick="saveApiKey()" style="width:100%;padding:12px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Save key</button>
-        <p id="key-status" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">✓ API key saved</p>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div class="settings-section">
+        <div class="settings-label">AI API Key</div>
+        <div class="settings-card">
+          <p>Anthropic API Key</p>
+          <small>Required for all AI features. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a> → API Keys → Create Key. Stored only on this device, never shared.</small>
+          <input class="s-inp" id="api-key-inp" type="password" placeholder="sk-ant-api03-...">
+          <button class="s-btn" onclick="saveApiKey()">Save API key</button>
+          <p class="key-ok" id="key-ok">✓ API key saved</p>
+        </div>
       </div>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border);">
-        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Your data</p>
-        <p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;">Export all your saved places and trips as a backup file.</p>
-        <button onclick="exportData()" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text);">Download backup</button>
+      <div class="settings-section">
+        <div class="settings-label">Home city</div>
+        <div class="settings-card">
+          <p>Your home city</p>
+          <small>Used for the 🏠 Home button on the map — tap it to jump to your city and see your local saved spots.</small>
+          <input class="s-inp" id="home-city-inp" placeholder="e.g. Toronto, Canada">
+          <button class="s-btn" onclick="saveHomeCity()">Save home city</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">Install app</div>
+        <div class="settings-card">
+          <p>Add to Home Screen</p>
+          <small>Install Wanderlist on your phone so it opens like a real app — no browser bar, full screen.</small>
+          <button class="s-btn outline" onclick="showInstallInstructions()">How to install</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">Your data</div>
+        <div class="settings-card">
+          <p>Backup & restore</p>
+          <small>Download all your saved places and trips as a backup file.</small>
+          <button class="s-btn outline" onclick="exportData()" style="margin-bottom:8px;">Download backup</button>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <div style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:14px;color:var(--text2);text-align:center;">Restore from backup</div>
+            <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
+          </label>
+        </div>
       </div>
     </div>
   </div>
@@ -349,7 +416,7 @@ textarea::placeholder{color:var(--text3);}
         <img class="dz-preview" id="dz-preview" src="" alt="">
       </div>
       <input type="file" id="fup" accept="image/*" style="display:none" onchange="onFile(this)">
-      <label class="field-label">Caption (optional — improves accuracy):</label>
+      <label class="field-label">Caption (optional):</label>
       <textarea class="cap-field" id="cap" placeholder="Paste the caption, hashtags, or any text from the post..."></textarea>
       <button class="action-btn" id="scan-btn" onclick="doScan()" disabled>Scan for destinations</button>
       <div class="results-sec" id="res-photo">
@@ -359,7 +426,7 @@ textarea::placeholder{color:var(--text3);}
       </div>
     </div>
     <div class="src-panel" id="sp-url">
-      <div class="url-note">Paste an Instagram URL. Wanderlist will try to extract destination hints from the link. For best results, also paste the caption in the Caption tab.</div>
+      <div class="url-note">Paste an Instagram URL. Wanderlist will try to extract destination hints. For best results also paste the caption in the Caption tab.</div>
       <div class="url-row">
         <input id="url-inp" placeholder="https://www.instagram.com/p/..." onkeydown="if(event.key==='Enter')doURL()">
         <button style="padding:9px 12px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="doURL()">Fetch</button>
@@ -383,6 +450,14 @@ textarea::placeholder{color:var(--text3);}
   </div>
 </div>
 
+<!-- Place detail sheet -->
+<div class="sheet-bg" id="place-bg" onclick="closePlaceDetail()"></div>
+<div class="sheet" id="place-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr"><div class="sheet-title" id="place-title">Place</div><button class="sheet-close" onclick="closePlaceDetail()">×</button></div>
+  <div class="sheet-body" id="place-body"></div>
+</div>
+
 <!-- Trip detail sheet -->
 <div class="sheet-bg" id="det-bg" onclick="closeDetail()"></div>
 <div class="sheet" id="det-sheet">
@@ -391,12 +466,34 @@ textarea::placeholder{color:var(--text3);}
   <div class="sheet-body" id="det-body"></div>
 </div>
 
-<!-- Share received sheet -->
-<div class="sheet-bg" id="share-bg"></div>
-<div class="sheet" id="share-sheet">
+<!-- Install instructions sheet -->
+<div class="sheet-bg" id="install-bg" onclick="closeInstall()"></div>
+<div class="sheet" id="install-sheet">
   <div class="sheet-handle"></div>
-  <div class="sheet-hdr"><div class="sheet-title">Shared trip</div><button class="sheet-close" onclick="closeShare()">×</button></div>
-  <div class="sheet-body" id="share-body"></div>
+  <div class="sheet-hdr"><div class="sheet-title">Add to Home Screen</div><button class="sheet-close" onclick="closeInstall()">×</button></div>
+  <div class="sheet-body">
+    <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+      <p style="font-size:14px;font-weight:600;margin-bottom:10px;">📱 iPhone / iPad (Safari)</p>
+      <div class="step" style="margin-bottom:8px;"><div class="step-n">1</div><div class="step-d">Open this app in <strong>Safari</strong> (not Chrome)</div></div>
+      <div class="step" style="margin-bottom:8px;"><div class="step-n">2</div><div class="step-d">Tap the <strong>Share button</strong> (box with arrow pointing up) at the bottom</div></div>
+      <div class="step" style="margin-bottom:8px;"><div class="step-n">3</div><div class="step-d">Scroll down and tap <strong>"Add to Home Screen"</strong></div></div>
+      <div class="step"><div class="step-n">4</div><div class="step-d">Tap <strong>Add</strong> — Wanderlist appears on your home screen like a real app!</div></div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;">
+      <p style="font-size:14px;font-weight:600;margin-bottom:10px;">🤖 Android (Chrome)</p>
+      <div class="step" style="margin-bottom:8px;"><div class="step-n">1</div><div class="step-d">Open this app in <strong>Chrome</strong></div></div>
+      <div class="step" style="margin-bottom:8px;"><div class="step-n">2</div><div class="step-d">Tap the <strong>3-dot menu</strong> (top right)</div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-d">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add from chat sheet -->
+<div class="sheet-bg" id="addchat-bg" onclick="closeAddChat()"></div>
+<div class="sheet" id="addchat-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr"><div class="sheet-title">Add to Wanderlist</div><button class="sheet-close" onclick="closeAddChat()">×</button></div>
+  <div class="sheet-body" id="addchat-body"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -404,98 +501,245 @@ textarea::placeholder{color:var(--text3);}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var S={dests:[],itins:[],found:{},chatHistory:[],placeType:'dest',mapFilter:'all'};
-var map,mkrs=[],imgb64=null,imgmime=null,acResults=[],acIdx=-1,acTimer=null;
+var S={dests:[],itins:[],found:{},chatHistory:[],chatFilter:'all',placeType:'dest',mapFilter:'all'};
+var map,mkrs=[],imgb64=null,imgmime=null,acTimer=null,acResults=[];
 
 // ── Storage ───────────────────────────────────────────────
-function save(){try{localStorage.setItem('wl2_d',JSON.stringify(S.dests));localStorage.setItem('wl2_i',JSON.stringify(S.itins));}catch(e){}}
+function save(){
+  try{localStorage.setItem('wl2_d',JSON.stringify(S.dests));localStorage.setItem('wl2_i',JSON.stringify(S.itins));}catch(e){}
+}
 function load(){
   try{S.dests=JSON.parse(localStorage.getItem('wl2_d')||'[]');}catch(e){S.dests=[];}
   try{S.itins=JSON.parse(localStorage.getItem('wl2_i')||'[]');}catch(e){S.itins=[];}
-  // Migrate older versions that may have used different keys
   if(!S.dests.length){
-    try{var old=JSON.parse(localStorage.getItem('wl_dests')||'[]');if(old.length){S.dests=old.map(function(d){return Object.assign({},d,{id:d.id||d.$id||Date.now()+'-'+Math.random().toString(36).substr(2,5),type:d.type||'dest'});});save();}}catch(e){}
+    try{
+      var old=JSON.parse(localStorage.getItem('wl_dests')||'[]');
+      if(old.length){S.dests=old.map(function(d){return Object.assign({},d,{id:d.id||d.$id||uid(),type:d.type||'dest'});});save();}
+    }catch(e){}
   }
-  // Migrate older itineraries
   if(!S.itins.length){
-    try{var oldi=JSON.parse(localStorage.getItem('wl_itins')||'[]');if(oldi.length){S.itins=oldi.map(function(it){return Object.assign({},it,{_id:it._id||it._dbid||Date.now()+'-'+Math.random().toString(36).substr(2,5)});});save();}}catch(e){}
+    try{
+      var oldi=JSON.parse(localStorage.getItem('wl_itins')||'[]');
+      if(oldi.length){S.itins=oldi.map(function(it){return Object.assign({},it,{_id:it._id||it._dbid||uid()});});save();}
+    }catch(e){}
   }
 }
+function uid(){return Date.now()+'-'+Math.random().toString(36).substr(2,6);}
 
 // ── Boot ──────────────────────────────────────────────────
 window.addEventListener('load',function(){
   load();
   map=L.map('map',{zoomControl:false}).setView([25,15],2);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
   syncMap();syncList();renderItins();
-  // Check for shared itinerary in URL
+  // Load saved settings into fields
+  var k=localStorage.getItem('wl_apikey');
+  if(k)g('api-key-inp').placeholder='Key saved — paste new one to update';
+  var hc=localStorage.getItem('wl_homecity');
+  if(hc)g('home-city-inp').value=hc;
+  // Check for shared trip in URL
   var hash=window.location.hash;
   if(hash.startsWith('#share=')){
-    try{
-      var data=JSON.parse(atob(hash.slice(7)));
-      showSharedTrip(data);
-    }catch(e){}
+    try{var data=JSON.parse(atob(hash.slice(7)));showSharedTrip(data);}catch(e){}
     history.replaceState(null,'',window.location.pathname);
   }
 });
 
-// ── Map filter ────────────────────────────────────────────
+// ── Map ───────────────────────────────────────────────────
 function setFilter(f,el){
   S.mapFilter=f;
   document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  syncMap();
+  el.classList.add('on');syncMap();
 }
-
-// ── Map ───────────────────────────────────────────────────
 function micon(type){
   var c=type==='local'?'#1a6eb5':'#BA7517';
   return L.divIcon({html:'<div style="width:13px;height:13px;background:'+c+';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,.25)"></div>',iconSize:[13,13],iconAnchor:[6,13],popupAnchor:[0,-17],className:''});
 }
 function syncMap(){
+  if(!map)return;
   mkrs.forEach(function(m){map.removeLayer(m);});
-  var filtered=S.dests.filter(function(d){
-    if(S.mapFilter==='all')return true;
-    return d.type===S.mapFilter;
-  });
+  var filtered=S.dests.filter(function(d){return S.mapFilter==='all'||d.type===S.mapFilter;});
   mkrs=filtered.map(function(d){
     return L.marker([d.lat,d.lng],{icon:micon(d.type)}).addTo(map)
-      .bindPopup('<b style="font-size:14px">'+esc(d.name)+'</b><br><small>'+esc(d.country)+'</small>');
+      .bindPopup('<b style="font-size:14px">'+esc(d.name)+'</b><br><small>'+esc(d.country||'')+'</small>');
   });
   if(filtered.length)try{map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.3));}catch(e){}
 }
+function goHome(){
+  var hc=localStorage.getItem('wl_homecity');
+  if(!hc){swScreen('s-settings');toast('Set your home city in Settings first');return;}
+  // Geocode home city
+  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(hc)+'&format=json&limit=1',{headers:{'Accept-Language':'en'}})
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(!res.length){toast('Could not find your home city');return;}
+    var lat=parseFloat(res[0].lat),lng=parseFloat(res[0].lon);
+    swScreen('s-map');
+    setTimeout(function(){
+      map.invalidateSize();
+      map.flyTo([lat,lng],13,{duration:1.4});
+      // Switch to local filter
+      setFilter('local',g('mf-local'));
+    },60);
+  }).catch(function(){toast('Could not geocode home city');});
+}
+
+// ── List ──────────────────────────────────────────────────
 function syncList(){
   g('dcnt').textContent=S.dests.length+' saved';
   var el=g('dlist');
-  if(!S.dests.length){el.innerHTML='<div class="empty-state"><p>Search above to add a destination<br>or local spot you want to visit.</p></div>';return;}
+  if(!S.dests.length){el.innerHTML='<div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div>';return;}
   el.innerHTML=S.dests.map(function(d){
     var isLocal=d.type==='local';
-    var icon=isLocal?'📍':'✈️';
-    return '<div class="dest-item">'+
-      '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+icon+'</div>'+
+    return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">' +
+      '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+(isLocal?'📍':'✈️')+'</div>'+
       '<div class="dest-info">'+
         '<div class="dest-name">'+esc(d.name)+'</div>'+
-        '<div class="dest-meta"><span class="dest-badge '+(isLocal?'local':'dest')+'">'+(isLocal?'Local':'Destination')+'</span> '+esc(d.country)+'</div>'+
+        '<div class="dest-meta"><span class="dest-badge '+(isLocal?'local':'dest')+'">'+(isLocal?'Local':'Destination')+'</span>'+esc(d.country||'')+'</div>'+
       '</div>'+
-      '<button class="dest-fly" onclick="flyTo(\''+d.id+'\')">Map</button>'+
-      '<button class="dest-rm" onclick="rmDest(\''+d.id+'\')">×</button>'+
+      '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
+      '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button>'+
     '</div>';
   }).join('');
 }
 function flyTo(id){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
   swScreen('s-map');
-  setTimeout(function(){map.invalidateSize();map.flyTo([d.lat,d.lng],9,{duration:1.3});},60);
+  setTimeout(function(){map.invalidateSize();map.flyTo([d.lat,d.lng],10,{duration:1.3});},60);
 }
 
-// ── Place type toggle ─────────────────────────────────────
+// ── Place detail ──────────────────────────────────────────
+var placeRecs={};
+var placeFilter='all';
+function openPlaceDetail(id){
+  var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
+  g('place-title').textContent=d.name;
+  placeFilter='all';
+  g('place-body').innerHTML=
+    '<div class="filter-pills" id="place-pills">'+
+      '<button class="filter-pill on" onclick="setPlaceFilter(\'all\',this)">All</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'restaurants\',this)">🍽 Restaurants</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'bars\',this)">🍸 Bars</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'parks\',this)">🌳 Parks</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'activities\',this)">🎯 Activities</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
+    '</div>'+
+    '<div id="place-recs"><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
+    '<div class="section-lbl" style="margin-top:14px">Plan a day here</div>'+
+    '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')">Plan a day in '+esc(d.name)+'</button>';
+  g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
+  // Fetch recs if not cached
+  if(placeRecs[id]){renderPlaceRecs(id);return;}
+  var prompt='Give me top recommendations for '+d.name+', '+d.country+'. Include a mix of restaurants, bars, parks, and activities. For each include if it\'s budget-friendly or premium.\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|park|activity","description":"...","budget":true|false,"emoji":"..."}]';
+  ai([{role:'user',content:prompt}],function(err,text){
+    if(err){g('place-recs').innerHTML='<p style="font-size:13px;color:red">'+err+'</p>';return;}
+    try{placeRecs[id]=JSON.parse(text.replace(/```json|```/g,'').trim());renderPlaceRecs(id);}
+    catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3)">Could not load recommendations.</p>';}
+  },1500);
+}
+function setPlaceFilter(f,el){
+  placeFilter=f;
+  document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  // Re-render with filter
+  var id=null;
+  S.dests.forEach(function(d){if(g('place-title').textContent===d.name)id=d.id;});
+  if(id)renderPlaceRecs(id);
+}
+function renderPlaceRecs(id){
+  var recs=placeRecs[id]||[];
+  var filtered=recs.filter(function(r){
+    if(placeFilter==='all')return true;
+    if(placeFilter==='budget')return r.budget;
+    return r.type===placeFilter;
+  });
+  if(!filtered.length){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">No results for this filter.</p>';return;}
+  g('place-recs').innerHTML=filtered.map(function(r){
+    return '<div class="rec-card">'+
+      '<span class="rec-icon">'+esc(r.emoji||'📍')+'</span>'+
+      '<div class="rec-info">'+
+        '<div class="rec-name">'+esc(r.name)+'</div>'+
+        '<div class="rec-detail">'+esc(r.description)+'&nbsp;'+(r.budget?'<span style="color:var(--green);font-size:11px">💰 Budget-friendly</span>':'<span style="color:var(--gold);font-size:11px">✨ Premium</span>')+'</div>'+
+      '</div>'+
+      '<button class="rec-add" onclick="addRecToLocal(\''+esc(r.name)+'\',\''+esc(id)+'\')">+ Add</button>'+
+    '</div>';
+  }).join('');
+}
+function addRecToLocal(name,destId){
+  var dest=S.dests.find(function(x){return x.id===destId;});
+  if(!dest)return;
+  // Add as local activity at same location
+  if(!S.dests.find(function(x){return x.name.toLowerCase()===name.toLowerCase();})){
+    S.dests.push({id:uid(),name:name,country:dest.country||'',lat:dest.lat,lng:dest.lng,type:'local'});
+    save();syncMap();syncList();toast('Added to Local spots!');
+  } else {toast('Already saved');}
+}
+function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet').classList.remove('on');}
+
+// ── Day planner ───────────────────────────────────────────
+function planDay(destId){
+  var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
+  var hours=prompt('How many hours do you want to plan for?','6');
+  if(!hours)return;
+  g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Planning your day…</div>';
+  var prompt='Create a '+hours+'-hour day itinerary for '+d.name+', '+d.country+'. Include specific places, walking times between spots, meal suggestions.\nReturn ONLY valid JSON: {"title":"...","hours":'+hours+',"stops":[{"time":"12:00pm","name":"...","description":"...","walk_to_next":"10 min walk"}]}';
+  ai([{role:'user',content:prompt}],function(err,text){
+    if(err){g('place-recs').innerHTML='<p style="font-size:13px;color:red">'+err+'</p>';return;}
+    try{
+      var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
+      var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:12px;">'+
+        '<div style="font-size:14px;font-weight:600;color:var(--gold-dk)">'+esc(plan.title)+'</div>'+
+        '<div style="font-size:12px;color:var(--gold)">'+esc(plan.hours)+' hours</div>'+
+      '</div>';
+      (plan.stops||[]).forEach(function(s,i){
+        html+='<div class="day-stop">'+
+          '<div class="day-stop-line">'+
+            '<div class="day-stop-dot"></div>'+
+            (i<plan.stops.length-1?'<div class="day-stop-connector"></div>':'')+
+          '</div>'+
+          '<div class="day-stop-info">'+
+            '<div style="font-size:11px;color:var(--text3);margin-bottom:1px">'+esc(s.time)+'</div>'+
+            '<div class="day-stop-name">'+esc(s.name)+'</div>'+
+            '<div class="day-stop-detail">'+esc(s.description)+'</div>'+
+            (s.walk_to_next?'<div style="font-size:11px;color:var(--gold);margin-top:4px">→ '+esc(s.walk_to_next)+'</div>':'')+
+          '</div>'+
+        '</div>';
+      });
+      html+='<button style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;cursor:pointer;font-family:inherit;color:var(--text2);margin-top:10px;" onclick="shareDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">Share this day plan</button>';
+      g('place-recs').innerHTML=html;
+    }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3)">Could not plan the day.</p>';}
+  },1500);
+}
+function shareDayPlan(encoded){
+  var plan=JSON.parse(decodeURIComponent(encoded));
+  var text=plan.title+'\n\n'+plan.stops.map(function(s){return s.time+' — '+s.name+': '+s.description+(s.walk_to_next?'\n→ '+s.walk_to_next:'');}).join('\n\n');
+  if(navigator.share){navigator.share({title:plan.title,text:text}).catch(function(){});}
+  else if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){showShareToast('Day plan copied!');});}
+}
+
+// ── Places CRUD ───────────────────────────────────────────
 function setType(t,el){
   S.placeType=t;
   document.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
 }
+function addDests(arr){
+  var n=0;
+  arr.forEach(function(d){
+    if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase();})){
+      S.dests.push({id:uid(),name:d.name,country:d.country||'',lat:d.lat,lng:d.lng,type:d.type||'dest'});n++;
+    }
+  });
+  if(!n){toast('Already saved');return;}
+  save();syncMap();syncList();toast('Added '+n+' place'+(n!==1?'s':''));
+}
+function rmDest(id){
+  S.dests=S.dests.filter(function(d){return d.id!==id;});
+  save();syncMap();syncList();toast('Removed');
+}
 
-// ── City autocomplete (Nominatim) ─────────────────────────
+// ── Autocomplete ──────────────────────────────────────────
 function onCityInput(){
   var q=g('city-inp').value.trim();
   clearTimeout(acTimer);
@@ -503,11 +747,10 @@ function onCityInput(){
   acTimer=setTimeout(function(){fetchAC(q);},300);
 }
 function fetchAC(q){
-  var url='https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=6&addressdetails=1';
-  fetch(url,{headers:{'Accept-Language':'en'}})
+  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=6&addressdetails=1',{headers:{'Accept-Language':'en'}})
   .then(function(r){return r.json();})
-  .then(function(results){
-    acResults=results.filter(function(r){return r.lat&&r.lon;});
+  .then(function(res){
+    acResults=res.filter(function(r){return r.lat&&r.lon;});
     renderAC();
   }).catch(function(){hideAC();});
 }
@@ -519,131 +762,92 @@ function renderAC(){
     var name=r.display_name.split(',')[0];
     var sub=r.display_name.split(',').slice(1,3).join(',').trim();
     return '<div class="ac-item" onclick="selectAC('+i+')">'+
-      '<span class="ac-pin">'+(S.placeType==='local'?'📍':'✈️')+'</span>'+
+      '<span style="font-size:16px">'+(S.placeType==='local'?'📍':'✈️')+'</span>'+
       '<div><div class="ac-name">'+esc(name)+'</div><div class="ac-sub">'+esc(sub)+'</div></div>'+
     '</div>';
   }).join('');
 }
-function hideAC(){g('ac').style.display='none';acResults=[];acIdx=-1;}
+function hideAC(){g('ac').style.display='none';acResults=[];}
 function onCityKey(e){
-  if(e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,acResults.length-1);highlightAC();}
-  else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,-1);highlightAC();}
-  else if(e.key==='Enter'&&acIdx>=0){selectAC(acIdx);}
-  else if(e.key==='Escape'){hideAC();}
-}
-function highlightAC(){
-  var items=g('ac').querySelectorAll('.ac-item');
-  items.forEach(function(el,i){el.style.background=i===acIdx?'var(--bg3)':'';});
+  if(e.key==='Escape')hideAC();
 }
 function selectAC(i){
   var r=acResults[i];if(!r)return;
   var name=r.display_name.split(',')[0];
-  var country=r.address&&r.address.country?r.address.country:(r.display_name.split(',').pop().trim());
+  var country=r.address&&r.address.country?r.address.country:r.display_name.split(',').pop().trim();
   addDests([{name:name,country:country,lat:parseFloat(r.lat),lng:parseFloat(r.lon),type:S.placeType}]);
-  g('city-inp').value='';
-  hideAC();
-}
-
-// ── Destinations ──────────────────────────────────────────
-function addDests(arr){
-  var n=0;
-  arr.forEach(function(d){
-    if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase();})){
-      S.dests.push({id:Date.now()+'-'+Math.random().toString(36).substr(2,5),name:d.name,country:d.country||'',lat:d.lat,lng:d.lng,type:d.type||'dest'});
-      n++;
-    }
-  });
-  if(!n){toast('Already saved');return;}
-  save();syncMap();syncList();
+  g('city-inp').value='';hideAC();
   swScreen('s-list');
-  toast('Added '+n+' place'+(n!==1?'s':''));
-}
-function rmDest(id){
-  S.dests=S.dests.filter(function(d){return d.id!==id;});
-  save();syncMap();syncList();toast('Removed');
 }
 
 // ── Itineraries ───────────────────────────────────────────
 function doGenItins(){
   var destinations=S.dests.filter(function(d){return d.type==='dest';});
-  if(destinations.length<2){toast('Add at least 2 destinations first');return;}
+  if(destinations.length<2){toast('Add at least 2 destinations (✈) first');return;}
   var btn=g('genbtn');btn.disabled=true;btn.textContent='Planning…';
   g('ilist').innerHTML='<div class="ld" style="justify-content:center;padding:28px 0"><span class="spin"></span> Crafting your trips…</div>';
   var group=g('group-sel').value;
   var ds=destinations.map(function(d){return d.name+', '+d.country;}).join('; ');
-  var prompt='Create 3-4 trip itineraries for '+group+' traveller'+(group>1?'s':'')+' grouping geographically nearby destinations from: '+ds+'.\n'+
-    'Group by geographic region and travel vibe (e.g. Southeast Asia, Mediterranean Europe etc — do NOT mix continents in one trip).\n'+
-    'For each itinerary consider: ease of travel between cities, flight connections, best travel season, and overall vibe.\n'+
-    'Include both a budget and a premium cost estimate per person.\n'+
-    'Return ONLY valid JSON array, no markdown:\n'+
-    '[{"id":"1","title":"...","theme":"...","region":"...","destinations":["City1","City2"],"duration_days":12,'+
-    '"cost_budget_usd":2000,"cost_premium_usd":5000,"best_season":"Apr–Jun","worst_season":"Dec–Feb",'+
-    '"highlights":"2-3 sentences about this trip","days":[{"day":"Day 1–2","location":"City1","description":"What to do and see"}]}]';
+  var prompt='Create 3-4 trip itineraries for '+group+' traveller'+(group>1?'s':'')+' using destinations from: '+ds+'.\n'+
+    'Rules: Group only geographically close destinations (same continent/region). Never mix Asia with Europe etc.\n'+
+    'Consider: flight connections, ease of travel, seasonal weather, overall vibe.\n'+
+    'Return ONLY valid JSON, no markdown:\n'+
+    '[{"id":"1","title":"...","theme":"...","region":"Southeast Asia","destinations":["City1"],"duration_days":12,'+
+    '"cost_budget_usd":1800,"cost_premium_usd":4500,"best_season":"Nov-Mar","worst_season":"Jun-Sep",'+
+    '"highlights":"2-3 sentence description","days":[{"day":"Day 1-2","location":"City","description":"What to do"}]}]';
   ai([{role:'user',content:prompt}],function(err,text){
     btn.disabled=false;btn.textContent='Generate trips';
-    if(err){g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+err+'</p></div>';return;}
+    if(err){g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+esc(err)+'</p></div>';return;}
     try{
       var newItins=JSON.parse(text.replace(/```json|```/g,'').trim());
-      newItins.forEach(function(it){it._id=Date.now()+'-'+Math.random().toString(36).substr(2,5);});
+      newItins.forEach(function(it){it._id=uid();});
       S.itins=newItins.concat(S.itins);
       save();renderItins();toast('Trips saved!');
     }catch(e){g('ilist').innerHTML='<div class="empty-state"><p>Could not parse. Try again.</p></div>';}
   },2500);
 }
 function renderItins(){
-  if(!S.itins.length){g('ilist').innerHTML='<div class="empty-state"><p>Save 2+ destinations then tap<br>"Generate trips" to create AI plans.</p></div>';return;}
+  if(!S.itins.length){g('ilist').innerHTML='<div class="empty-state"><p>Save 2+ destinations then tap<br>"Generate trips".</p></div>';return;}
   g('ilist').innerHTML=S.itins.map(function(it){
     var id=it._id||'';
-    return '<div class="itin-card" onclick="openDetail(\''+id+'\')">'+(id?'<button class="itin-del" onclick="delItin(\''+id+'\',event)">×</button>':'')+
-    '<div class="itin-season">'+esc(it.region||'')+(it.best_season?' · Best: '+esc(it.best_season):'')+'</div>'+
+    return '<div class="itin-card" onclick="openDetail(\''+id+'\')">'+(id?'<button class="itin-del" onclick="event.stopPropagation();delItin(\''+id+'\')">×</button>':'')+
+    '<div class="itin-season">'+esc(it.region||'')+(it.best_season?' · '+esc(it.best_season):'')+'</div>'+
     '<div class="itin-title">'+esc(it.title||'')+'</div>'+
     '<div class="itin-tags">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
     '<div class="itin-meta">'+
-      '<div class="iml"><span class="imll">Duration</span><span class="imlv">'+(it.duration_days||'')+'d</span></div>'+
+      '<div class="iml"><span class="imll">Days</span><span class="imlv">'+(it.duration_days||'')+'</span></div>'+
       '<div class="iml"><span class="imll">Budget</span><span class="imlv">$'+(it.cost_budget_usd||0).toLocaleString()+'</span></div>'+
       '<div class="iml"><span class="imll">Premium</span><span class="imlv">$'+(it.cost_premium_usd||0).toLocaleString()+'</span></div>'+
     '</div>'+
     '<div class="itin-high">'+esc(it.highlights||'')+'</div>'+
-    '<button class="share-btn" onclick="shareItin(\''+id+'\',event)">'+
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'+
-      'Share trip'+
-    '</button>'+
+    '<div class="card-actions">'+
+      '<button class="card-act-btn" onclick="event.stopPropagation();shareItin(\''+id+'\')">'+
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'+
+        'Share'+
+      '</button>'+
+    '</div>'+
     '</div>';
   }).join('');
 }
-function delItin(id,e){
-  e.stopPropagation();
+function delItin(id){
   S.itins=S.itins.filter(function(x){return x._id!==id;});
   save();renderItins();toast('Deleted');
 }
-function shareItin(id,e){
-  e.stopPropagation();
+function shareItin(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
-  var encoded=btoa(JSON.stringify(it));
+  var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(it))));
   var url=window.location.origin+window.location.pathname+'#share='+encoded;
-  if(navigator.share){
-    navigator.share({title:it.title,text:'Check out this trip: '+it.title,url:url}).catch(function(){});
-  } else if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(function(){showShareToast('Link copied! Send it to your friends.');});
-  } else {
-    showShareToast('Share link: '+url.substr(0,40)+'…');
-  }
-}
-function showShareToast(msg){
-  var el=g('share-toast');el.textContent=msg;el.classList.add('on');
-  setTimeout(function(){el.classList.remove('on');},3500);
+  if(navigator.share){navigator.share({title:it.title,text:'Check out this trip: '+it.title,url:url}).catch(function(){});}
+  else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Share link copied! Send it to friends.');});}
 }
 function openDetail(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
+  var group=parseInt(g('group-sel').value)||2;
   g('det-title').textContent=it.title||'Trip';
-  g('det-body').innerHTML=renderDetailBody(it,true);
-  g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
-}
-function renderDetailBody(it,showShare){
-  var group=g('group-sel')?parseInt(g('group-sel').value)||2:2;
-  return '<div class="itin-tags" style="margin-bottom:10px">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
-    '<p style="font-size:13px;color:var(--text2);margin-bottom:12px">'+(it.duration_days||'')+' days · '+esc(it.region||'')+' · '+esc(it.best_season||'')+'</p>'+
-    (it.worst_season?'<p style="font-size:12px;color:var(--text3);margin-bottom:12px">Avoid: '+esc(it.worst_season)+'</p>':'')+
+  g('det-body').innerHTML=
+    '<div class="itin-tags" style="margin-bottom:10px">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
+    '<p style="font-size:13px;color:var(--text2);margin-bottom:4px">'+(it.duration_days||'')+' days · '+esc(it.region||'')+' · '+esc(it.best_season||'')+'</p>'+
+    (it.worst_season?'<p style="font-size:12px;color:var(--text3);margin-bottom:12px">Avoid: '+esc(it.worst_season)+'</p>':'<div style="margin-bottom:12px"></div>')+
     '<div class="cost-boxes">'+
       '<div class="cost-box lo"><div class="cost-lbl">Budget / person</div><div class="cost-val">$'+(it.cost_budget_usd||0).toLocaleString()+'</div><div class="cost-note">Hostels, local food, budget flights</div></div>'+
       '<div class="cost-box hi"><div class="cost-lbl">Premium / person</div><div class="cost-val">$'+(it.cost_premium_usd||0).toLocaleString()+'</div><div class="cost-note">Hotels, dining, direct flights</div></div>'+
@@ -652,71 +856,113 @@ function renderDetailBody(it,showShare){
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
     '<div class="section-lbl">Book your trip</div>'+
     [['✈ Flights','https://www.skyscanner.com'],['🏨 Hotels','https://www.booking.com'],['🏠 Stays','https://www.airbnb.com'],['🎟 Tours & excursions','https://www.viator.com'],['🍽 Restaurants','https://www.opentable.com']].map(function(b){return'<a class="book-link" href="'+b[1]+'" target="_blank">'+b[0]+'<span>→</span></a>';}).join('');
+  g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
 }
 function closeDetail(){g('det-bg').classList.remove('on');g('det-sheet').classList.remove('on');}
-
-// ── Shared trip ───────────────────────────────────────────
 function showSharedTrip(it){
-  g('share-body').innerHTML=
-    '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Someone shared this trip with you. Add it to your Wanderlist!</p>'+
-    renderDetailBody(it,false)+
-    '<button class="action-btn" style="margin-top:14px" onclick="addSharedTrip()">Save this trip</button>';
-  window._sharedTrip=it;
-  g('share-bg').classList.add('on');g('share-sheet').classList.add('on');
-}
-function closeShare(){g('share-bg').classList.remove('on');g('share-sheet').classList.remove('on');}
-function addSharedTrip(){
-  if(!window._sharedTrip)return;
-  var it=Object.assign({},window._sharedTrip,{_id:Date.now()+'-'+Math.random().toString(36).substr(2,5)});
-  S.itins.unshift(it);save();renderItins();closeShare();
-  swScreen('s-itin');toast('Trip added!');
+  var ok=confirm('"'+it.title+'" was shared with you. Add it to your Wanderlist?');
+  if(!ok)return;
+  it._id=uid();S.itins.unshift(it);save();renderItins();swScreen('s-itin');toast('Trip added!');
 }
 
 // ── Chat ──────────────────────────────────────────────────
-var chatSys='You are an expert travel planner for the Wanderlist app. The user has these saved destinations: {{DESTS}}.\n'+
-  'Help them plan trips, suggest itineraries, answer travel questions.\n'+
-  'If you suggest specific destinations to visit, end your message with a JSON block like this (and ONLY if suggesting places):\n'+
-  '```json\n[{"name":"Paris","country":"France","lat":48.8566,"lng":2.3522}]\n```\n'+
-  'Keep responses concise and friendly.';
-
+var chatVibe='all';
+function setChatFilter(f,el){
+  chatVibe=f;
+  document.querySelectorAll('.chat-filter').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+}
+var chatSystem=function(){
+  var dests=S.dests.filter(function(d){return d.type==='dest';}).map(function(d){return d.name+', '+d.country;}).join('; ')||'none yet';
+  var vibe=chatVibe==='all'?'any style':chatVibe==='touristy'?'popular tourist spots and must-sees':chatVibe==='local'?'living like a local, off the beaten path, local restaurants and hidden gems':chatVibe==='budget'?'budget-friendly options':chatVibe==='luxury'?'luxury and premium experiences':'any style';
+  return 'You are an expert travel planner for the Wanderlist app. User\'s saved destinations: '+dests+'.\n'+
+    'Travel style preference: '+vibe+'.\n'+
+    'Help plan trips, suggest itineraries, give city recommendations.\n'+
+    'When you mention specific places to visit, restaurants, bars, or activities, wrap them in a special block at the end:\n'+
+    '```places\n[{"name":"...","country":"...","lat":0,"lng":0,"type":"dest|local","category":"restaurant|bar|activity|destination"}]\n```\n'+
+    'Keep responses friendly and concise. You can suggest adding places directly to their Wanderlist.';
+};
 function sendChat(){
   var inp=g('chat-inp'),msg=inp.value.trim();if(!msg)return;
   inp.value='';
-  addChatMsg('user',msg);
+  addChatBubble('user',msg);
   S.chatHistory.push({role:'user',content:msg});
-  var typing=addChatMsg('ai','<span class="spin"></span>',true);
-  var dests=S.dests.filter(function(d){return d.type==='dest';}).map(function(d){return d.name+', '+d.country;}).join('; ')||'none yet';
-  var sys=chatSys.replace('{{DESTS}}',dests);
-  var msgs=S.chatHistory.slice(-8);
-  ai(msgs,function(err,text){
+  var typing=addChatBubble('ai','<span class="spin"></span>',true);
+  ai(S.chatHistory.slice(-10),function(err,text){
     typing.remove();
-    if(err){addChatMsg('ai','Sorry, I had an error. Please try again.');return;}
-    // Extract any destination JSON
-    var jsonMatch=text.match(/```json\s*([\s\S]*?)\s*```/);
-    var displayText=text.replace(/```json[\s\S]*?```/g,'').trim();
-    addChatMsg('ai',displayText);
+    if(err){addChatBubble('ai','Sorry, there was an error: '+err);return;}
+    // Extract places block
+    var placesMatch=text.match(/```places\s*([\s\S]*?)\s*```/);
+    var displayText=text.replace(/```places[\s\S]*?```/g,'').trim();
+    var bubble=addChatBubble('ai',displayText.replace(/\n/g,'<br>'));
     S.chatHistory.push({role:'assistant',content:text});
-    if(jsonMatch){
+    if(placesMatch){
       try{
-        var places=JSON.parse(jsonMatch[1]);
+        var places=JSON.parse(placesMatch[1]);
         if(places.length){
-          addDests(places.map(function(p){return Object.assign({},p,{type:'dest'});}));
+          var btn=document.createElement('button');
+          btn.className='chat-add-btn';
+          btn.innerHTML='+ Add '+places.length+' place'+(places.length>1?'s':'')+' to Wanderlist';
+          btn.onclick=function(){openAddChat(places);};
+          bubble.querySelector('.chat-bubble').appendChild(btn);
         }
       }catch(e){}
     }
-  },800,sys);
+  },1000,chatSystem());
 }
-function addChatMsg(role,html,isTemp){
-  var wrap=document.createElement('div');
-  wrap.className='chat-msg '+role;
-  var bub=document.createElement('div');
-  bub.className='chat-bubble';
-  bub.innerHTML=html;
-  wrap.appendChild(bub);
-  g('chat-msgs').appendChild(wrap);
+function addChatBubble(role,html,isTemp){
+  var wrap=document.createElement('div');wrap.className='chat-msg '+role;
+  var bub=document.createElement('div');bub.className='chat-bubble';bub.innerHTML=html;
+  wrap.appendChild(bub);g('chat-msgs').appendChild(wrap);
   g('chat-msgs').scrollTop=g('chat-msgs').scrollHeight;
   return wrap;
 }
+var pendingPlaces=[];
+function openAddChat(places){
+  pendingPlaces=places;
+  g('addchat-body').innerHTML=
+    '<p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Select places to add and choose destination (✈) or local (📍):</p>'+
+    places.map(function(p,i){
+      var t=p.type||'dest';
+      return '<div class="res-item on" id="acp-'+i+'" onclick="togACP('+i+')" style="margin-bottom:6px;">'+
+        '<div class="res-chk">✓</div>'+
+        '<span style="flex:1;font-size:14px;font-weight:500">'+esc(p.name)+'</span>'+
+        '<div class="type-toggle" onclick="event.stopPropagation()">'+
+          '<button class="tt-btn'+(t==='dest'?' on':'')+'" onclick="setACPType('+i+',\'dest\',this)">✈</button>'+
+          '<button class="tt-btn'+(t==='local'?' on':'')+'" onclick="setACPType('+i+',\'local\',this)">📍</button>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+    '<button class="action-btn" style="margin-top:10px" onclick="confirmAddChat()">Add selected</button>';
+  g('addchat-bg').classList.add('on');g('addchat-sheet').classList.add('on');
+}
+function togACP(i){
+  var el=g('acp-'+i);el.classList.toggle('on');
+  var chk=el.querySelector('.res-chk');chk.textContent=el.classList.contains('on')?'✓':'';
+}
+function setACPType(i,t,el){
+  pendingPlaces[i].type=t;
+  var parent=g('acp-'+i);
+  parent.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+}
+function confirmAddChat(){
+  var toAdd=pendingPlaces.filter(function(_,i){return g('acp-'+i)&&g('acp-'+i).classList.contains('on');});
+  if(!toAdd.length){toast('Select at least one place');return;}
+  // Geocode any with lat=0
+  var promises=toAdd.map(function(p){
+    if(p.lat&&p.lng&&p.lat!==0)return Promise.resolve(p);
+    return fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(p.name+' '+p.country)+'&format=json&limit=1',{headers:{'Accept-Language':'en'}})
+      .then(function(r){return r.json();})
+      .then(function(res){if(res.length){p.lat=parseFloat(res[0].lat);p.lng=parseFloat(res[0].lon);}return p;})
+      .catch(function(){return p;});
+  });
+  Promise.all(promises).then(function(places){
+    var valid=places.filter(function(p){return p.lat&&p.lng;});
+    addDests(valid);closeAddChat();swScreen('s-list');
+  });
+}
+function closeAddChat(){g('addchat-bg').classList.remove('on');g('addchat-sheet').classList.remove('on');}
 
 // ── Import ────────────────────────────────────────────────
 function openImport(){g('import-bg').classList.add('on');g('import-sheet').classList.add('on');}
@@ -744,7 +990,7 @@ function doScan(){
   g('rl-photo').innerHTML='<div class="ld"><span class="spin"></span>Reading photo…</div>';
   ai([{role:'user',content:[
     {type:'image',source:{type:'base64',media_type:imgmime,data:imgb64}},
-    {type:'text',text:'Find ALL travel destinations in this image: text overlays, location tags, hashtags, landmarks, scene.\nCaption: "'+cap+'"\nReturn ONLY valid JSON: [{"name":"Paris","country":"France","lat":48.8566,"lng":2.3522,"source":"caption"}]. Return [] if none.'}
+    {type:'text',text:'Find ALL travel destinations in this image from: text overlays, location tags, hashtags, landmarks, scene context.\nCaption: "'+cap+'"\nReturn ONLY valid JSON: [{"name":"Paris","country":"France","lat":48.8566,"lng":2.3522,"source":"caption"}]. Return [] if none.'}
   ]}],function(err,text){
     btn.disabled=false;btn.textContent='Scan for destinations';
     if(err){setErr('rl-photo',err);return;}parseRes(text,'photo');
@@ -754,14 +1000,14 @@ function doURL(){
   var url=g('url-inp').value.trim();if(!url)return;
   g('res-url').style.display='block';
   g('rl-url').innerHTML='<div class="ld"><span class="spin"></span>Fetching…</div>';
-  ai([{role:'user',content:'A user shared this social media URL: '+url+'\nBased on the URL and any geographic hints in the slug, extract destination names. Return ONLY valid JSON: [{"name":"...","country":"...","lat":0,"lng":0,"source":"url"}] or [].'}],
+  ai([{role:'user',content:'Social media URL: '+url+'\nExtract any geographic destination hints from the URL slug. Return ONLY valid JSON: [{"name":"...","country":"...","lat":0,"lng":0,"source":"url"}] or [].'}],
   function(err,text){
     try{
       var arr=JSON.parse((text||'[]').replace(/```json|```/g,'').trim());
       if(!arr.length)throw 0;
       S.found['url']=arr;S.found['url_sel']=new Set(arr.map(function(_,i){return i;}));
       renderRes('rl-url','url');
-    }catch(e){g('rl-url').innerHTML='<p style="font-size:13px;color:var(--text3);line-height:1.6;padding:6px 0">No destination hints found. Try the Caption tab — paste the post caption there instead.</p>';}
+    }catch(e){g('rl-url').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0;line-height:1.6">No hints found. Try pasting the caption in the Caption tab instead.</p>';}
   });
 }
 function doText(){
@@ -775,41 +1021,82 @@ function parseRes(raw,key){
   try{
     var arr=JSON.parse(raw.replace(/```json|```/g,'').trim());
     S.found[key]=arr;S.found[key+'_sel']=new Set(arr.map(function(_,i){return i;}));
-    if(!arr.length)g('rl-'+key).innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">No destinations found. Try adding the caption.</p>';
+    S.found[key+'_types']={};
+    if(!arr.length){g('rl-'+key).innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">No destinations found.</p>';}
     else renderRes('rl-'+key,key);
   }catch(e){setErr('rl-'+key,'Could not parse. Try again.');}
 }
 function renderRes(elId,key){
-  var arr=S.found[key]||[],sel=S.found[key+'_sel']||new Set();
-  var types=S.found[key+'_types']||{};
+  var arr=S.found[key]||[],sel=S.found[key+'_sel']||new Set(),types=S.found[key+'_types']||{};
   g(elId).innerHTML=arr.map(function(d,i){
     var t=types[i]||'dest';
     return '<div class="res-item'+(sel.has(i)?' on':'')+'" onclick="togRes(\''+key+'\','+i+')">' +
-      '<div class="res-chk">'+(sel.has(i)?'✓':'')+'</div>' +
-      '<span class="res-name">'+esc(d.name)+'</span>' +
-      '<span class="res-country">'+esc(d.country)+'</span>' +
-      '<div class="type-toggle" style="margin-left:4px" onclick="event.stopPropagation()">'+
-        '<button class="tt-btn'+(t==='dest'?' on':'')+'" onclick="setResType(\''+key+'\','+i+',\'dest\')">✈</button>'+
-        '<button class="tt-btn'+(t==='local'?' on':'')+'" onclick="setResType(\''+key+'\','+i+',\'local\')">📍</button>'+
+      '<div class="res-chk">'+(sel.has(i)?'✓':'')+'</div>'+
+      '<span class="res-name">'+esc(d.name)+'</span>'+
+      '<span class="res-country">'+esc(d.country||'')+'</span>'+
+      '<div class="type-toggle" onclick="event.stopPropagation()">'+
+        '<button class="tt-btn'+(t==='dest'?' on':'')+'" onclick="setResType(\''+key+'\','+i+',\'dest\',this)">✈</button>'+
+        '<button class="tt-btn'+(t==='local'?' on':'')+'" onclick="setResType(\''+key+'\','+i+',\'local\',this)">📍</button>'+
       '</div>'+
     '</div>';
   }).join('');
 }
-function setResType(key,i,t){
+function togRes(key,i){var sel=S.found[key+'_sel'];if(!sel)return;sel.has(i)?sel.delete(i):sel.add(i);renderRes('rl-'+key,key);}
+function setResType(key,i,t,el){
   if(!S.found[key+'_types'])S.found[key+'_types']={};
   S.found[key+'_types'][i]=t;
   renderRes('rl-'+key,key);
 }
-function togRes(key,i){var sel=S.found[key+'_sel'];if(!sel)return;sel.has(i)?sel.delete(i):sel.add(i);renderRes('rl-'+key,key);}
 function addSelected(key){
   var arr=S.found[key]||[],sel=S.found[key+'_sel']||new Set(),types=S.found[key+'_types']||{};
-  var chosen=arr.filter(function(_,i){return sel.has(i);});
-  if(!chosen.length){toast('Select at least one destination');return;}
-  addDests(chosen.map(function(d,i){
+  var chosen=arr.filter(function(_,i){return sel.has(i);}).map(function(d,idx){
     var origIdx=arr.indexOf(d);
     return Object.assign({},d,{type:types[origIdx]||'dest'});
-  }));
-  closeImport();swScreen('s-map');
+  });
+  if(!chosen.length){toast('Select at least one');return;}
+  addDests(chosen);closeImport();swScreen('s-map');
+}
+
+// ── Settings ──────────────────────────────────────────────
+function saveApiKey(){
+  var key=g('api-key-inp').value.trim();
+  if(!key){toast('Please paste your API key');return;}
+  localStorage.setItem('wl_apikey',key);
+  g('api-key-inp').value='';
+  g('api-key-inp').placeholder='Key saved — paste new one to update';
+  g('key-ok').style.display='block';
+  setTimeout(function(){g('key-ok').style.display='none';},3000);
+  toast('API key saved!');
+}
+function saveHomeCity(){
+  var city=g('home-city-inp').value.trim();
+  if(!city){toast('Enter a city name');return;}
+  localStorage.setItem('wl_homecity',city);
+  toast('Home city saved!');
+}
+function showInstallInstructions(){
+  g('install-bg').classList.add('on');g('install-sheet').classList.add('on');
+}
+function closeInstall(){g('install-bg').classList.remove('on');g('install-sheet').classList.remove('on');}
+function exportData(){
+  var data=JSON.stringify({dests:S.dests,itins:S.itins},null,2);
+  var blob=new Blob([data],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='wanderlist-backup.json';a.click();
+}
+function importBackup(inp){
+  if(!inp.files[0])return;
+  var r=new FileReader();
+  r.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      var nd=0,ni=0;
+      if(data.dests){data.dests.forEach(function(d){if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase();})){S.dests.push(Object.assign({},d,{id:d.id||d.$id||uid(),type:d.type||'dest'}));nd++;}});}
+      if(data.itins){data.itins.forEach(function(it){var id=it._id||it._dbid||uid();if(!S.itins.find(function(x){return x._id===id;})){S.itins.push(Object.assign({},it,{_id:id}));ni++;}});}
+      save();syncMap();syncList();renderItins();
+      toast('Imported '+nd+' places and '+ni+' trips!');
+    }catch(e){toast('Could not read backup file');}
+  };r.readAsText(inp.files[0]);
 }
 
 // ── Screens ───────────────────────────────────────────────
@@ -821,61 +1108,12 @@ function swScreen(s){
   if(tb)g(tb).classList.add('on');
   if(s==='s-map')setTimeout(function(){map&&map.invalidateSize();},60);
   if(s==='s-list')setTimeout(function(){g('city-inp')&&g('city-inp').focus();},200);
-  if(s==='s-settings'){var k=localStorage.getItem('wl_apikey');if(k)g('api-key-inp').placeholder='Key saved — paste a new one to update';}
 }
 
-function importBackup(inp){
-  if(!inp.files[0])return;
-  var r=new FileReader();
-  r.onload=function(e){
-    try{
-      var data=JSON.parse(e.target.result);
-      var nd=0,ni=0;
-      if(data.dests&&data.dests.length){
-        data.dests.forEach(function(d){
-          if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase();})){
-            S.dests.push({id:d.id||d.$id||Date.now()+'-'+Math.random().toString(36).substr(2,5),name:d.name,country:d.country||'',lat:d.lat,lng:d.lng,type:d.type||'dest'});
-            nd++;
-          }
-        });
-      }
-      if(data.itins&&data.itins.length){
-        data.itins.forEach(function(it){
-          var id=it._id||it._dbid||Date.now()+'-'+Math.random().toString(36).substr(2,5);
-          if(!S.itins.find(function(x){return x._id===id;})){
-            S.itins.push(Object.assign({},it,{_id:id}));
-            ni++;
-          }
-        });
-      }
-      save();syncMap();syncList();renderItins();
-      toast('Imported '+nd+' places and '+ni+' trips!');
-    }catch(e){toast('Could not read backup file');}
-  };
-  r.readAsText(inp.files[0]);
-}
-function saveApiKey(){
-  var key=g('api-key-inp').value.trim();
-  if(!key){toast('Please paste your API key');return;}
-  localStorage.setItem('wl_apikey',key);
-  g('key-status').style.display='block';
-  g('api-key-inp').value='';
-  setTimeout(function(){g('key-status').style.display='none';},3000);
-  toast('API key saved!');
-}
-function exportData(){
-  var data=JSON.stringify({dests:S.dests,itins:S.itins},null,2);
-  var blob=new Blob([data],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='wanderlist-backup.json';a.click();
-}
+// ── AI ────────────────────────────────────────────────────
 function ai(msgs,cb,maxTok,sys){
   var key=localStorage.getItem('wl_apikey');
-  if(!key){
-    cb('No API key set. Go to Settings (⚙) to add your Anthropic API key.',null);
-    swScreen('s-settings');
-    return;
-  }
+  if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);swScreen('s-settings');return;}
   var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||1000,messages:msgs};
   if(sys)body.system=sys;
   fetch('https://api.anthropic.com/v1/messages',{
@@ -896,8 +1134,8 @@ function ai(msgs,cb,maxTok,sys){
 function g(id){return document.getElementById(id);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function setErr(elId,msg){g(elId).innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+msg+'</p>';}
-function toast(msg){var el=g('toast');el.textContent=msg;el.classList.add('on');setTimeout(function(){el.classList.remove('on');},2500);}
-// Unregister old service workers
+function toast(msg){var el=g('toast');el.textContent=msg;el.classList.add('on');setTimeout(function(){el.classList.remove('on');},2600);}
+function showShareToast(msg){var el=g('share-toast');el.textContent=msg;el.classList.add('on');setTimeout(function(){el.classList.remove('on');},3500);}
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister();});});}
 </script>
 </body>
