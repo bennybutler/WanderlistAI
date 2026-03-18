@@ -673,18 +673,21 @@ function goHome(){
 }
 function flyToHome(lat,lng){
   swScreen('s-map');
+  // Use a single timeout - don't let syncMap() override the flyTo
   setTimeout(function(){
     if(!map)return;
     map.invalidateSize();
-    map.flyTo([lat,lng],13,{duration:1.2});
-  },100);
-  setTimeout(function(){
+    // Set filter state BEFORE syncMap so fitBounds doesn't override our zoom
     S.mapFilter='local';
     document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
-    var localBtn=g('mf-local');
-    if(localBtn)localBtn.classList.add('on');
+    var localBtn=g('mf-local');if(localBtn)localBtn.classList.add('on');
+    // syncMap with local filter - suppress fitBounds by temporarily patching
+    var saved=map.fitBounds;map.fitBounds=function(){};
     syncMap();
-  },400);
+    map.fitBounds=saved;
+    // Now fly to home
+    map.setView([lat,lng],14);
+  },200);
 }
 
 // ── List ──────────────────────────────────────────────────
@@ -871,7 +874,8 @@ function runDayPlan(destId){
   var useSaved=(g('dp-use-saved')&&g('dp-use-saved').classList.contains('on'))&&spots.length>0;
   var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
   g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Building your '+hours+'-hour day…</div>';
-  var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+
+  var area=g('dp-area')?g('dp-area').value.trim():'';
+  var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+(area?'Focus on the '+area+' neighbourhood/area. Include specific streets and local gems there.\n':'')+
     'Start time: '+start+'. Vibe: '+vibe+'. Include: '+cats.join(', ')+'.\n'+
     (savedLocal.length?'MUST incorporate these saved spots: '+savedLocal.join(', ')+'.\n':'')+
     'Make it feel like advice from a friend who lives there — specific place names, what to order, hidden gems.\n'+
@@ -887,12 +891,14 @@ function runDayPlan(destId){
     try{
       var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
       plan.city=plan.city||currentPlanCity||d&&d.name||'';
+      plan._destId=destId;
       currentPlanData=plan;
       var typeColors={'food':'#BA7517','drinks':'#1a6eb5','culture':'#7A4A00','shopping':'#A32D2D','nature':'#3B6D11','default':'#BA7517'};
       var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'+
         '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
         '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(plan.start)+' · '+esc(String(plan.hours))+' hours · '+esc(plan.vibe||vibe)+'</div></div>'+
         '<div style="display:flex;gap:5px;flex-shrink:0">'+
+        '<button style="padding:5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2)" onclick="refreshDayPlan()">🔄 Refresh</button>'+
         '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="saveDayPlan()">💾 Save</button>'+
         '<button style="padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2)" onclick="shareDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">Share</button>'+
         '</div>'+
@@ -917,6 +923,14 @@ function runDayPlan(destId){
       g('place-recs').innerHTML=html;
     }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
   },1800);
+}
+function refreshDayPlan(){
+  if(!currentPlanData)return;
+  // Re-run with same settings
+  var destId=currentPlanData._destId||'';
+  var d=S.dests.find(function(x){return x.id===destId||x.name===currentPlanCity;});
+  if(d)runDayPlan(d.id);
+  else toast('Could not refresh — open Plan a day again');
 }
 function saveDayPlan(){
   var plan=currentPlanData;
@@ -1300,15 +1314,22 @@ function selDetCity(el,city,itinId){
   var ppnBudget=Math.max(50,Math.round(totalBudgetAccom/cityNights));
   var ppnPrem=Math.max(100,Math.round(totalPremAccom/cityNights));
   // Airbnb total price = per night (they show total not per person)
-  var airBudgetMin=Math.round(ppnBudget*0.7);
-  var airBudgetMax=Math.round(ppnBudget*1.4);
-  var airPremMin=Math.round(ppnPrem*0.8);
+  // Total nightly price for whole place = per-person-per-night * group
+  // Budget: aim for ppnBudget per person, so total = ppnBudget * group
+  // Airbnb max = budget cap, min = 60% of budget (so we see options)
+  var airBudgetTotal=Math.round(ppnBudget*group);
+  var airBudgetMin=Math.max(30,Math.round(airBudgetTotal*0.5));
+  var airBudgetMax=Math.round(airBudgetTotal*1.3);
+  var airPremTotal=Math.round(ppnPrem*group);
+  var airPremMin=Math.round(airPremTotal*0.7);
+  var airPremMax=Math.round(airPremTotal*1.4);
   var links=[
-    ['✈ Google Flights ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&date2='+coutStr+'&adults=1'],
+    ['✈ Outbound flight to '+city+' ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&adults=1'],
+    ['✈ Return flight from '+city+' to home ('+coutStr+')','https://www.google.com/travel/flights?q=Flights+from+'+destEnc+'+to+'+fromEnc+'&date1='+coutStr+'&adults=1'],
     ['🏨 Budget hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
     ['🏨 Premium hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-    ['🏠 Airbnb budget ($'+airBudgetMin+'–$'+airBudgetMax+'/night total)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airBudgetMin+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airPremMin+'+/night total)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb budget (max $'+airBudgetMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'-$'+airPremMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt'],
     ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
   ];
@@ -1466,7 +1487,7 @@ function openDetail(id){
         ['✈ Skyscanner','https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/'+cin.replace(/-/g,'')+'/'+cout.replace(/-/g,'')+'/?adults=1'],
         ['🏨 Booking.com (budget 2-3★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
         ['🏨 Booking.com (premium 4-5★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-        ['🏠 Airbnb (entire home, '+grp+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire+home%2Fapt'],
+        ['🏠 Airbnb (select city above for price filters)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire+home%2Fapt'],
         ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+grp],
         ['🎟 Viator (tours & activities)','https://www.viator.com/searchResults/all?text='+destEnc]
       ];
@@ -1493,15 +1514,16 @@ function sendItinChat(id){
       return;
     }
     try{
-      var updated=JSON.parse(text.replace(/```json|```/g,'').trim());
-      updated._id=it._id;updated._group=it._group;updated._type='trip';updated._from=it._from;updated._spent=it._spent;
-      var idx2=S.itins.findIndex(function(x){return x._id===id;});
-      if(idx2>-1)S.itins[idx2]=updated;
+      var parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+      // Only update days, title if present - preserve costs, region, destinations etc
+      if(parsed.days){it.days=parsed.days;}
+      if(parsed.title&&parsed.title!==it.title){it.title=parsed.title;}
+      if(parsed.duration_days){it.duration_days=parsed.duration_days;}
       save();renderItins();
-      if(msgs)msgs.innerHTML+='<div style="color:var(--green);margin-bottom:5px">✓ Itinerary updated! Close and reopen to see changes.</div>';
+      if(msgs)msgs.innerHTML+='<div style="color:var(--green);background:var(--green-lt);padding:6px 9px;border-radius:var(--rsm);margin-bottom:5px;font-size:12px">✓ Updated! Close and reopen trip to see full changes.</div>';
       msgs.scrollTop=msgs.scrollHeight;
     }catch(e){
-      if(msgs)msgs.innerHTML+='<div style="margin-bottom:5px">'+esc(text.substring(0,200))+'</div>';
+      if(msgs)msgs.innerHTML+='<div style="margin-bottom:5px;font-size:12px">'+esc(text.substring(0,300))+'</div>';
     }
   },2500,sys);
 }
