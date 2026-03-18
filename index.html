@@ -574,29 +574,58 @@ function setFilter(f,el){
   document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
   if(el)el.classList.add('on');
   syncMap();
-  if(f==='routes'){
-    // Draw routes for all trips
-    S.itins.filter(function(it){return(it._type||'trip')==='trip';}).forEach(function(it){drawRouteLines(it);});
-  }
+  if(f==='routes'){showRoutePicker();}
+}
+function showRoutePicker(){
+  var trips=S.itins.filter(function(it){return(it._type||'trip')==='trip';});
+  if(!trips.length){toast('No trips yet — generate some first');setFilter('all',g('mf-all'));return;}
+  if(trips.length===1){drawRouteLines(trips[0]);return;}
+  var el2=document.getElementById('route-picker');if(el2)el2.remove();
+  var div=document.createElement('div');
+  div.id='route-picker';
+  div.style.cssText='position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:950;background:var(--bg);border:1px solid var(--border2);border-radius:12px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);min-width:200px;max-width:300px';
+  var p=document.createElement('p');p.style.cssText='font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600';p.textContent='Select trip to show route:';div.appendChild(p);
+  trips.forEach(function(it,i){
+    var row=document.createElement('div');
+    row.style.cssText='padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;margin-bottom:4px;background:var(--bg2);border:1px solid var(--border)';
+    row.textContent=it.title||('Trip '+(i+1));
+    row.addEventListener('click',function(){pickRoute(it._id);});
+    div.appendChild(row);
+  });
+  var btn=document.createElement('button');
+  btn.style.cssText='width:100%;margin-top:6px;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit';
+  btn.textContent='Cancel';btn.addEventListener('click',function(){div.remove();setFilter('all',g('mf-all'));});
+  div.appendChild(btn);
+  document.getElementById('s-map').appendChild(div);
 }
 function drawRouteLines(itin){
   var dests=itin.destinations||[];
   if(dests.length<2)return;
-  var coords=[];
+  var coords=[];var labels=[];
   dests.forEach(function(dname){
     var clean=dname.split(',')[0].trim().toLowerCase();
     var d=S.dests.find(function(x){return x.name.toLowerCase()===clean||x.name.toLowerCase().indexOf(clean)>-1;});
-    if(d){var la=parseFloat(d.lat),lo=parseFloat(d.lng);if(isFinite(la)&&isFinite(lo))coords.push([la,lo]);}
+    if(d){var la=parseFloat(d.lat),lo=parseFloat(d.lng);if(isFinite(la)&&isFinite(lo)){coords.push([la,lo]);labels.push(dname.split(',')[0].trim());}}
   });
-  if(coords.length<2)return;
+  if(coords.length<2){toast('Save the destination cities first so routes can be drawn');return;}
+  // Draw numbered city labels
+  coords.forEach(function(co,i){
+    var lbl=L.marker(co,{icon:L.divIcon({html:'<div style="background:#fff;border:2px solid #BA7517;border-radius:12px;padding:3px 8px;font-size:11px;font-weight:700;color:#BA7517;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2)">'+(i+1)+'. '+labels[i]+'</div>',className:'',iconAnchor:[0,0]})}).addTo(map);
+    routeLines.push(lbl);
+  });
   for(var i=0;i<coords.length-1;i++){
-    var line=L.polyline([coords[i],coords[i+1]],{color:'#BA7517',weight:3,opacity:0.85,dashArray:'8 5'}).addTo(map);
-    // Add numbered circle at start of each segment
+    var line=L.polyline([coords[i],coords[i+1]],{color:'#BA7517',weight:3,opacity:0.9,dashArray:'8 5'}).addTo(map);
     var midLat=(coords[i][0]+coords[i+1][0])/2,midLng=(coords[i][1]+coords[i+1][1])/2;
-    var arrow=L.marker([midLat,midLng],{icon:L.divIcon({html:'<div style="background:#BA7517;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">→</div>',iconSize:[18,18],iconAnchor:[9,9],className:''})}).addTo(map);
+    var arrow=L.marker([midLat,midLng],{icon:L.divIcon({html:'<div style="background:#BA7517;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">›</div>',iconSize:[22,22],iconAnchor:[11,11],className:''})}).addTo(map);
     routeLines.push(line);routeLines.push(arrow);
   }
   if(coords.length)try{map.fitBounds(L.latLngBounds(coords).pad(0.3));}catch(e){}
+}
+function pickRoute(id){
+  var el=document.getElementById('route-picker');
+  if(el)el.remove();
+  var it=S.itins.find(function(x){return x._id===id;});
+  if(it)drawRouteLines(it);
 }
 function micon(type){
   var c=type==='local'?'#1a6eb5':'#BA7517';
@@ -645,10 +674,17 @@ function goHome(){
 function flyToHome(lat,lng){
   swScreen('s-map');
   setTimeout(function(){
+    if(!map)return;
     map.invalidateSize();
-    map.setView([lat,lng],13);
-    setFilter('local',g('mf-local'));
-  },150);
+    map.flyTo([lat,lng],13,{duration:1.2});
+  },100);
+  setTimeout(function(){
+    S.mapFilter='local';
+    document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
+    var localBtn=g('mf-local');
+    if(localBtn)localBtn.classList.add('on');
+    syncMap();
+  },400);
 }
 
 // ── List ──────────────────────────────────────────────────
@@ -770,47 +806,47 @@ function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet'
 // ── Day planner ───────────────────────────────────────────
 function planDay(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
-  // Show inline day planner UI instead of browser prompt
-  var savedSpots=S.dests.filter(function(x){return x.type==='local'&&x.country===d.country;});
+  var savedSpots=S.dests.filter(function(x){
+    return x.type==='local'&&(x.country===d.country||x.name.toLowerCase().indexOf(d.name.toLowerCase())>-1);
+  });
   window._dpSaved=savedSpots;
+  window._dpUseSaved=false;
   currentPlanCity=d.name;
   g('place-recs').innerHTML=
     '<div style="background:var(--bg2);border-radius:var(--rsm);padding:13px;margin-bottom:10px;border:1px solid var(--border);">'+
       '<p style="font-size:13px;font-weight:600;margin-bottom:10px;">🗓 Plan a day in '+esc(d.name)+'</p>'+
-      '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">'+
-        '<span style="font-size:12px;color:var(--text3);white-space:nowrap">Start time:</span>'+
-        '<select id="dp-start" style="flex:1;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
-          '<option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>1:00pm</option><option>3:00pm</option><option>6:00pm</option>'+
-        '</select>'+
-        '<span style="font-size:12px;color:var(--text3);white-space:nowrap">Hours:</span>'+
-        '<select id="dp-hours" style="flex:1;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
-          '<option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>10</option><option>12</option>'+
-        '</select>'+
+      '<div style="display:flex;gap:8px;margin-bottom:10px;">'+
+        '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Start time</div>'+
+        '<select id="dp-start" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
+          '<option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option>'+
+        '</select></div>'+
+        '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Hours out</div>'+
+        '<select id="dp-hours" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
+          '<option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option><option>10</option>'+
+        '</select></div>'+
       '</div>'+
-      '<p style="font-size:12px;color:var(--text3);margin-bottom:7px">Vibe:</p>'+
-      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;" id="dp-vibes">'+
-        '<button class="filter-pill on" onclick="togDPVibe(this)">🗺 Touristy</button>'+
-        '<button class="filter-pill" onclick="togDPVibe(this)">🏘 Local spots</button>'+
-        '<button class="filter-pill" onclick="togDPVibe(this)">🍽 Food-focused</button>'+
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Vibe:</div>'+
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;" id="dp-vibes">'+
+        '<button class="filter-pill on" onclick="togDPVibe(this)">🗺 Sightseeing</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🏘 Local</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button>'+
         '<button class="filter-pill" onclick="togDPVibe(this)">🌳 Outdoors</button>'+
         '<button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button>'+
       '</div>'+
-      '<p style="font-size:12px;color:var(--text3);margin-bottom:7px">Include (optional):</p>'+
-      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;" id="dp-cats">'+
-        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🍳 Brunch</button>'+
-        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🍺 Drinks</button>'+
-        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🎨 Culture</button>'+
-        '<button class="filter-pill" onclick="this.classList.toggle(\'on\')">🛍 Shopping</button>'+
-        '<button class="filter-pill" onclick="this.classList.toggle(\'on\')">🌊 Nature</button>'+
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Recommendations from:</div>'+
+      '<div style="display:flex;gap:7px;margin-bottom:12px;">'+
+        '<button id="dp-use-ai" class="filter-pill on" onclick="setDPMode(this,false)">🤖 AI recommendations</button>'+
+        (savedSpots.length?
+          '<button id="dp-use-saved" class="filter-pill" onclick="setDPMode(this,true)">📍 My saved spots ('+savedSpots.length+')</button>'
+        :'')+
       '</div>'+
-      (savedSpots.length?
-        '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;margin-top:8px">Include my saved spots:</div>'+
-        '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="dp-saved">'+
-          savedSpots.slice(0,8).map(function(s,i){return'<button class="filter-pill on" id="dps-'+i+'" onclick="this.classList.toggle(\'on\')">'+esc(s.name)+'</button>';}).join('')+
-        '</div>'
-      :'')+
       '<button style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="runDayPlan(\''+destId+'\')">Build my day →</button>'+
     '</div>';
+}
+function setDPMode(el,useSaved){
+  document.querySelectorAll('#dp-use-saved,#dp-use-ai').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  window._dpUseSaved=useSaved;
 }
 function togDPSrc(el,useSaved){
   document.querySelectorAll('#dp-src .filter-pill').forEach(function(b){b.classList.remove('on');});
@@ -831,10 +867,9 @@ function runDayPlan(destId){
   var cats=[];
   document.querySelectorAll('#dp-cats .filter-pill.on').forEach(function(b){cats.push(b.textContent.trim());});
   // Include any saved local spots for this area
-  // Use saved spots if toggle is on
-  var useSaved=window._dpUseSaved!==false&&savedSpots&&savedSpots.length>0;
-  var includedSaved=useSaved?(savedSpots||[]).map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
-  var savedLocal=includedSaved;
+  var spots=window._dpSaved||[];
+  var useSaved=(g('dp-use-saved')&&g('dp-use-saved').classList.contains('on'))&&spots.length>0;
+  var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
   g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Building your '+hours+'-hour day…</div>';
   var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+
     'Start time: '+start+'. Vibe: '+vibe+'. Include: '+cats.join(', ')+'.\n'+
@@ -851,6 +886,8 @@ function runDayPlan(destId){
     }
     try{
       var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
+      plan.city=plan.city||currentPlanCity||d&&d.name||'';
+      currentPlanData=plan;
       var typeColors={'food':'#BA7517','drinks':'#1a6eb5','culture':'#7A4A00','shopping':'#A32D2D','nature':'#3B6D11','default':'#BA7517'};
       var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'+
         '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
@@ -960,28 +997,65 @@ function fetchAC(q){
   }
 }
 function fetchLocalAC(q){
-  var doNom=function(){
-    var hc=localStorage.getItem('wl_homecity')||'';
-    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q+(hc?' near '+hc:''))+'&format=json&limit=7&addressdetails=1',{headers:{'Accept-Language':'en'}})
-    .then(function(r){return r.json();}).then(function(res){acResults=res.filter(function(r){return r.lat&&r.lon;});acResults.forEach(function(r){r._isLocal=true;});renderAC();}).catch(function(){hideAC();});
-  };
+  var hc=localStorage.getItem('wl_homecity')||'';
   var cached=localStorage.getItem('wl_homecoords');
+  
+  // Strategy: try TWO approaches in parallel and show first result
+  // 1. Nominatim with home city context (fast, good for named places)
+  // 2. Overpass for category searches (restaurant, bar etc near home)
+  
+  var nomDone=false,opDone=false;
+  
+  function nomSearch(){
+    var searchQ=q+' '+hc;
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(searchQ)+'&format=json&limit=8&addressdetails=1',{headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(nomDone)return;nomDone=true;
+      var results=res.filter(function(r){return r.lat&&r.lon;});
+      if(results.length){acResults=results;renderAC();}
+      else if(opDone&&!acResults.length){hideAC();}
+    }).catch(function(){nomDone=true;if(opDone&&!acResults.length)hideAC();});
+  }
+  
+  // Run nominatim search always
+  nomSearch();
+  
+  // Also try Overpass if we have home coords
   if(cached){
     try{
       var co=JSON.parse(cached);
-      var qe=q.replace(/[^a-zA-Z0-9 ]/g,".");
-      var op='[out:json][timeout:10];(node["name"~"'+qe+'",i](around:25000,'+co.lat+','+co.lng+');way["name"~"'+qe+'",i](around:25000,'+co.lat+','+co.lng+'););out center 8;';
-      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(op)})
+      // Build category-aware Overpass query
+      var catMap={restaurant:'restaurant',restaurants:'restaurant',bar:'bar',bars:'bar',pub:'pub',pubs:'pub',
+        cafe:'cafe',coffee:'cafe',park:'park',parks:'park',gym:'gym',club:'nightclub',clubs:'nightclub',
+        brunch:'restaurant',lunch:'restaurant',dinner:'restaurant',drinks:'bar',nightlife:'bar'};
+      var qLower=q.toLowerCase().trim();
+      var amenityType=catMap[qLower];
+      var opQuery;
+      if(amenityType){
+        // Category search - return up to 15 nearby
+        opQuery='[out:json][timeout:8];(node["amenity"="'+amenityType+'"](around:5000,'+co.lat+','+co.lng+');way["amenity"="'+amenityType+'"](around:5000,'+co.lat+','+co.lng+'););out center 15;';
+      } else {
+        // Name search
+        var qSafe=q.replace(/[^a-zA-Z0-9\s]/g,'').trim();
+        if(!qSafe){opDone=true;return;}
+        opQuery='[out:json][timeout:8];(node["name"~"'+qSafe+'",i](around:15000,'+co.lat+','+co.lng+');way["name"~"'+qSafe+'",i](around:15000,'+co.lat+','+co.lng+'););out center 10;';
+      }
+      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(opQuery)})
       .then(function(r){return r.json();})
       .then(function(data){
+        if(opDone)return;opDone=true;
         var els=(data.elements||[]).filter(function(el){return el.tags&&el.tags.name;});
-        if(els.length){
-          acResults=els.map(function(el){return{lat:el.lat||(el.center&&el.center.lat)||0,lon:el.lon||(el.center&&el.center.lon)||0,display_name:el.tags.name,tags:el.tags,_overpass:true};}).filter(function(r){return r.lat&&r.lon;});
+        if(els.length&&(!nomDone||!acResults.length)){
+          acResults=els.map(function(el){
+            return{lat:el.lat||(el.center&&el.center.lat)||0,lon:el.lon||(el.center&&el.center.lon)||0,
+              display_name:el.tags.name,tags:el.tags,_overpass:true};
+          }).filter(function(r){return r.lat&&r.lon;});
           renderAC();
-        }else{doNom();}
-      }).catch(function(){doNom();});
-    }catch(e){doNom();}
-  }else{doNom();}
+        }
+      }).catch(function(){opDone=true;});
+    }catch(e){}
+  }
 }
 function getOPCat(tags){
   var a=tags.amenity,l=tags.leisure,t=tags.tourism;
@@ -1153,6 +1227,17 @@ function openDayDetail(id){
   });
   g('det-body').innerHTML=html;
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
+  // Wire city buttons via event delegation
+  setTimeout(function(){
+    var body=g('det-body');if(!body)return;
+    body.addEventListener('click',function(e){
+      var btn=e.target.closest('.det-city-btn');if(!btn)return;
+      var city=btn.dataset.city,itid=btn.dataset.id;
+      body.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
+      btn.classList.add('on');
+      selDetCity(btn,city,itid);
+    });
+  },50);
 }
 function shareSavedDay(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
@@ -1170,38 +1255,70 @@ function _shareItinOld(id){
 }
 function selDetCity(el,city,itinId){
   document.querySelectorAll('#det-city-sel .filter-pill').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  // Rebuild booking links for this city
+  if(el)el.classList.add('on');
   var it=S.itins.find(function(x){return x._id===itinId;});if(!it)return;
   var group=it._group||2;
-  var nights=it.duration_days||7;
-  // Find days for this city
-  var cityDays=(it.days||[]).filter(function(d){return d.location&&d.location.toLowerCase().indexOf(city.toLowerCase())>-1;});
-  var cityNights=cityDays.length||Math.round(nights/(it.destinations||['x']).length)||2;
-  var dates=getSeasonDates(it.best_season,cityNights);
-  var cin=dates.in,cout=dates.out;
+  var totalNights=it.duration_days||7;
+  var numDests=(it.destinations||['x']).length;
+  // Figure out nights in this city from day-by-day
+  var cityDays=(it.days||[]).filter(function(d){
+    return d.location&&d.location.toLowerCase().indexOf(city.toLowerCase())>-1;
+  });
+  // Parse day ranges like "Day 1-3" = 3 nights
+  var cityNights=0;
+  cityDays.forEach(function(d){
+    var m=d.day.match(/Day\s*(\d+)\s*[-–]\s*(\d+)/i);
+    if(m){cityNights+=parseInt(m[2])-parseInt(m[1])+1;}
+    else{cityNights+=1;}
+  });
+  if(cityNights<1)cityNights=Math.max(1,Math.round(totalNights/numDests));
+  // Get dates: offset from trip start based on city position
+  var cityIdx=(it.destinations||[]).findIndex(function(d){return d.split(',')[0].trim().toLowerCase().indexOf(city.toLowerCase())>-1;});
+  if(cityIdx<0)cityIdx=0;
+  // Calc offset nights for this city
+  var nightsBefore=0;
+  (it.destinations||[]).slice(0,cityIdx).forEach(function(dn){
+    var prev=(it.days||[]).filter(function(d){return d.location&&d.location.toLowerCase().indexOf(dn.split(',')[0].trim().toLowerCase())>-1;});
+    var n=0;prev.forEach(function(d){var m=d.day.match(/Day\s*(\d+)\s*[-–]\s*(\d+)/i);if(m)n+=parseInt(m[2])-parseInt(m[1])+1;else n+=1;});
+    nightsBefore+=n||Math.round(totalNights/numDests);
+  });
+  var tripStart=getSeasonDates(it.best_season,totalNights);
+  var baseDate=new Date(tripStart.in);
+  var cin=new Date(baseDate.getTime()+nightsBefore*86400000);
+  var cout=new Date(cin.getTime()+cityNights*86400000);
+  var fmt=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  var cinStr=fmt(cin),coutStr=fmt(cout);
   var destEnc=encodeURIComponent(city);
   var fromEnc=encodeURIComponent(it._from||'');
-  var b=it.costs?it.costs.budget:{accommodation_pp:100*cityNights};
-  var p=it.costs?it.costs.premium:{accommodation_pp:200*cityNights};
-  var ppn_b=Math.round((b.accommodation_pp||100*cityNights)/cityNights);
-  var ppn_p=Math.round((p.accommodation_pp||200*cityNights)/cityNights);
-  var airbnbMin=Math.round(ppn_b*0.7);
-  var airbnbMax=Math.round(ppn_b*1.4);
-  var airbnbMinP=Math.round(ppn_p*0.7);
-  var airbnbMaxP=Math.round(ppn_p*1.4);
+  // Airbnb price: total accommodation cost ÷ nights ÷ group (since it's shared)
+  var b=it.costs?it.costs.budget:{accommodation_pp:150};
+  var p=it.costs?it.costs.premium:{accommodation_pp:300};
+  // Total accommodation budget for this city = per-person cost × group size ÷ num destinations
+  var totalBudgetAccom=Math.round((b.accommodation_pp||150)*group/numDests);
+  var totalPremAccom=Math.round((p.accommodation_pp||300)*group/numDests);
+  // Per-night total
+  var ppnBudget=Math.max(50,Math.round(totalBudgetAccom/cityNights));
+  var ppnPrem=Math.max(100,Math.round(totalPremAccom/cityNights));
+  // Airbnb total price = per night (they show total not per person)
+  var airBudgetMin=Math.round(ppnBudget*0.7);
+  var airBudgetMax=Math.round(ppnBudget*1.4);
+  var airPremMin=Math.round(ppnPrem*0.8);
   var links=[
-    ['🔍 Google Flights — '+city,'https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1'],
-    ['🏨 Budget hotels ('+cin+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
-    ['🏨 Premium hotels ('+cin+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-    ['🏠 Airbnb budget ($'+airbnbMin+'-$'+airbnbMax+'/night)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+airbnbMin+'&price_max='+airbnbMax+'&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airbnbMinP+'+/night)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+airbnbMinP+'&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group],
+    ['✈ Google Flights ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&date2='+coutStr+'&adults=1'],
+    ['🏨 Budget hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
+    ['🏨 Premium hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
+    ['🏠 Airbnb budget ($'+airBudgetMin+'–$'+airBudgetMax+'/night total)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airBudgetMin+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'+/night total)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
   ];
   var bookEl=g('det-book-links');
   if(bookEl){
-    bookEl.innerHTML='<p style="font-size:11px;color:var(--text3);margin-bottom:7px">'+city+' · '+cityNights+' nights · '+cin+' to '+cout+'</p>'+
+    bookEl.innerHTML=
+      '<div style="background:var(--blue-lt);border-radius:var(--rsm);padding:8px 11px;margin-bottom:9px;font-size:12px;color:var(--blue);line-height:1.5">'+
+        '<b>'+city+'</b> · '+cityNights+' nights · Check-in: '+cinStr+' · Check-out: '+coutStr+
+        '<br><span style="font-size:11px;color:var(--text3)">Airbnb prices are total/night for '+group+' guests (entire home)</span>'+
+      '</div>'+
       links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
   }
 }
@@ -1269,7 +1386,7 @@ function openDetail(id){
         '<div style="margin-bottom:10px">'+
           '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;font-weight:600">SELECT CITY TO SEARCH:</div>'+
           '<div style="display:flex;gap:5px;flex-wrap:wrap" id="det-city-sel">'+
-            (it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="filter-pill'+(i===0?' on':'')+'" onclick="selDetCity(this,&quot;'+dn+'&quot;,&quot;'+id+'&quot;)" style="font-size:11px">'+dn+'</button>';}).join('')+
+            (it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="det-city-btn filter-pill'+(i===0?' on':'')+'" data-city="'+esc(dn)+'" data-id="'+esc(id)+'" style="font-size:11px">'+esc(dn)+'</button>';}).join('')+
           '</div>'+
         '</div>'+
         '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;line-height:1.5">'+
@@ -1315,6 +1432,22 @@ function openDetail(id){
     costHtml+
     '<div class="section-lbl">Day by day</div>'+
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
+    '<div class="section-lbl">Tweak this itinerary with AI</div>'+
+    '<div id="itin-chat-'+id+'" style="background:var(--bg2);border-radius:var(--rsm);padding:11px;border:1px solid var(--border);margin-bottom:12px">'+
+      '<div id="itin-chat-msgs-'+id+'" style="max-height:180px;overflow-y:auto;margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6"></div>'+
+      '<div style="display:flex;gap:7px">'+
+        '<input id="itin-chat-inp-'+id+'" placeholder="e.g. Spend more time in Paris, cut Amsterdam..." style="flex:1;padding:8px 11px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')" >'+
+        '<button onclick="sendItinChat(\''+id+'\')" style="width:34px;height:34px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;font-size:16px;flex-shrink:0">→</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="section-lbl">Tweak this itinerary with AI</div>'+
+    '<div id="itin-chat-'+id+'" style="margin-bottom:12px">'+
+      '<div id="itin-chat-msgs-'+id+'" style="max-height:200px;overflow-y:auto;background:var(--bg2);border-radius:var(--rsm);padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:13px;line-height:1.5;color:var(--text2)">Ask me anything about this trip — e.g. "Spend more time in Paris", "Remove Barcelona", "Best restaurants in each city"</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<input id="itin-chat-inp-'+id+'" type="text" placeholder="Ask AI to adjust your trip..." style="flex:1;padding:8px 11px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')">'+
+        '<button onclick="sendItinChat(\''+id+'\')" style="padding:8px 13px;background:var(--gold);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Ask</button>'+
+      '</div>'+
+    '</div>'+
     '<div class="section-lbl">Trip budget tracker</div>'+
     '<div id="budget-tracker-'+id+'" style="background:var(--bg2);border-radius:var(--rsm);padding:12px;border:1px solid var(--border);margin-bottom:12px">'+
       buildBudgetTracker(it)+
@@ -1341,6 +1474,36 @@ function openDetail(id){
         links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
     })();
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
+}
+function sendItinChat(id){
+  var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
+  var inp=g('itin-chat-inp-'+id);if(!inp)return;
+  var msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  var msgs=g('itin-chat-msgs-'+id);if(!msgs)return;
+  msgs.innerHTML+='<div style="text-align:right;margin-bottom:5px"><span style="background:var(--gold);color:#fff;padding:4px 9px;border-radius:12px;display:inline-block">'+esc(msg)+'</span></div>';
+  msgs.innerHTML+='<div id="itin-typing-'+id+'" style="color:var(--text3)"><span class="spin"></span> Thinking…</div>';
+  msgs.scrollTop=msgs.scrollHeight;
+  var sys='You are a travel itinerary editor. The user has this trip: Title: '+it.title+'. Destinations: '+(it.destinations||[]).join(', ')+'. Duration: '+it.duration_days+' days. Day-by-day: '+(it.days||[]).map(function(d){return d.day+': '+d.location;}).join(' | ')+'. The user wants to modify this trip. Make the requested change and return the FULL updated trip as JSON with SAME structure: {"title":"...","days":[{"day":"...","location":"...","description":"..."}]}. Return ONLY valid JSON.';
+  ai([{role:'user',content:msg}],function(err,text){
+    var typing=g('itin-typing-'+id);
+    if(typing)typing.remove();
+    if(err){
+      if(msgs)msgs.innerHTML+='<div style="color:red;margin-bottom:5px">'+esc(err)+'</div>';
+      return;
+    }
+    try{
+      var updated=JSON.parse(text.replace(/```json|```/g,'').trim());
+      updated._id=it._id;updated._group=it._group;updated._type='trip';updated._from=it._from;updated._spent=it._spent;
+      var idx2=S.itins.findIndex(function(x){return x._id===id;});
+      if(idx2>-1)S.itins[idx2]=updated;
+      save();renderItins();
+      if(msgs)msgs.innerHTML+='<div style="color:var(--green);margin-bottom:5px">✓ Itinerary updated! Close and reopen to see changes.</div>';
+      msgs.scrollTop=msgs.scrollHeight;
+    }catch(e){
+      if(msgs)msgs.innerHTML+='<div style="margin-bottom:5px">'+esc(text.substring(0,200))+'</div>';
+    }
+  },2500,sys);
 }
 function viewTripOnMap(id,showRoute){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
