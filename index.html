@@ -55,7 +55,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .map-filters{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;display:flex;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);}
 .mf-btn{padding:5px 11px;border-radius:16px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text2);background:transparent;white-space:nowrap;}
 .mf-btn.on{background:var(--gold);color:#fff;}
-.map-home-btn{position:absolute;top:10px;right:12px;z-index:900;width:36px;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);font-size:16px;}
+.map-home-btn{position:absolute;bottom:calc(var(--tab-h) + var(--sb) + 68px);left:12px;z-index:900;width:42px;height:42px;background:var(--bg);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);font-size:19px;}
 .map-fab{position:absolute;bottom:calc(var(--tab-h) + var(--sb) + 12px);right:12px;width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(186,117,23,.4);cursor:pointer;z-index:999;}
 /* Screen header */
 .scr-hdr{padding:12px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -264,9 +264,14 @@ textarea::placeholder{color:var(--text3);}
   <!-- PLACES -->
   <div class="screen" id="s-list">
     <div class="scr-hdr"><h2>My places</h2><span id="dcnt">0 saved</span></div>
+    <div style="display:flex;gap:5px;padding:8px 13px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button class="list-filter-btn mf-btn on" onclick="setListFilter('all',this)">All</button>
+      <button class="list-filter-btn mf-btn" onclick="setListFilter('dest',this)">✈ Destinations</button>
+      <button class="list-filter-btn mf-btn" onclick="setListFilter('local',this)">📍 Local</button>
+    </div>
     <div class="city-search">
       <div class="city-row">
-        <input class="city-inp" id="city-inp" placeholder="Search for a city, place, or activity..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)">
+        <input class="city-inp" id="city-inp" placeholder="Search cities, countries..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)">
         <div class="type-toggle">
           <button class="tt-btn on" id="tt-dest" onclick="setType('dest',this)">✈</button>
           <button class="tt-btn" id="tt-local" onclick="setType('local',this)">📍</button>
@@ -559,9 +564,12 @@ function micon(type){
 function syncMap(){
   if(!map)return;
   mkrs.forEach(function(m){map.removeLayer(m);});
-  var filtered=S.dests.filter(function(d){return S.mapFilter==='all'||d.type===S.mapFilter;});
+  var filtered=S.dests.filter(function(d){
+    if(!d.lat||!d.lng||isNaN(d.lat)||isNaN(d.lng))return false;
+    return S.mapFilter==='all'||d.type===S.mapFilter;
+  });
   mkrs=filtered.map(function(d){
-    return L.marker([d.lat,d.lng],{icon:micon(d.type)}).addTo(map)
+    return L.marker([parseFloat(d.lat),parseFloat(d.lng)],{icon:micon(d.type)}).addTo(map)
       .bindPopup('<b style="font-size:14px">'+esc(d.name)+'</b><br><small>'+esc(d.country||'')+'</small>');
   });
   if(filtered.length)try{map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.3));}catch(e){}
@@ -586,17 +594,28 @@ function goHome(){
 }
 
 // ── List ──────────────────────────────────────────────────
+var listFilter='all';
+function setListFilter(f,el){
+  listFilter=f;
+  document.querySelectorAll('.list-filter-btn').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  syncList();
+}
 function syncList(){
+  var filtered=S.dests.filter(function(d){return listFilter==='all'||d.type===listFilter;});
   g('dcnt').textContent=S.dests.length+' saved';
   var el=g('dlist');
-  if(!S.dests.length){el.innerHTML='<div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div>';return;}
-  el.innerHTML=S.dests.map(function(d){
+  if(!filtered.length){
+    el.innerHTML='<div class="empty-state"><p>'+(listFilter==='all'?'Search above to add a destination or local spot.':listFilter==='dest'?'No destinations saved yet. Use ✈ mode above to add cities.':'No local spots saved yet. Use 📍 mode above to add places.')+'</p></div>';
+    return;
+  }
+  el.innerHTML=filtered.map(function(d){
     var isLocal=d.type==='local';
     return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">' +
       '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+(isLocal?'📍':'✈️')+'</div>'+
       '<div class="dest-info">'+
         '<div class="dest-name">'+esc(d.name)+'</div>'+
-        '<div class="dest-meta"><span class="dest-badge '+(isLocal?'local':'dest')+'">'+(isLocal?'Local':'Destination')+'</span>'+esc(d.country||'')+'</div>'+
+        '<div class="dest-meta"><span class="dest-badge '+(isLocal?'local':'dest')+'">'+(isLocal?'Local':'Destination')+'</span> '+esc(d.country||'')+'</div>'+
       '</div>'+
       '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
       '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button>'+
@@ -680,40 +699,103 @@ function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet'
 // ── Day planner ───────────────────────────────────────────
 function planDay(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
-  var hours=prompt('How many hours do you want to plan for?','6');
-  if(!hours)return;
-  g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Planning your day…</div>';
-  var prompt='Create a '+hours+'-hour day itinerary for '+d.name+', '+d.country+'. Include specific places, walking times between spots, meal suggestions.\nReturn ONLY valid JSON: {"title":"...","hours":'+hours+',"stops":[{"time":"12:00pm","name":"...","description":"...","walk_to_next":"10 min walk"}]}';
+  // Show inline day planner UI instead of browser prompt
+  g('place-recs').innerHTML=
+    '<div style="background:var(--bg2);border-radius:var(--rsm);padding:13px;margin-bottom:10px;border:1px solid var(--border);">'+
+      '<p style="font-size:13px;font-weight:600;margin-bottom:10px;">Plan a day in '+esc(d.name)+'</p>'+
+      '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">'+
+        '<span style="font-size:12px;color:var(--text3);white-space:nowrap">Start time:</span>'+
+        '<select id="dp-start" style="flex:1;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
+          '<option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>1:00pm</option><option>3:00pm</option><option>6:00pm</option>'+
+        '</select>'+
+        '<span style="font-size:12px;color:var(--text3);white-space:nowrap">Hours:</span>'+
+        '<select id="dp-hours" style="flex:1;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
+          '<option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>10</option><option>12</option>'+
+        '</select>'+
+      '</div>'+
+      '<p style="font-size:12px;color:var(--text3);margin-bottom:7px">Vibe:</p>'+
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;" id="dp-vibes">'+
+        '<button class="filter-pill on" onclick="togDPVibe(this)">🗺 Touristy</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🏘 Local spots</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🍽 Food-focused</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🌳 Outdoors</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button>'+
+      '</div>'+
+      '<p style="font-size:12px;color:var(--text3);margin-bottom:7px">Include (optional):</p>'+
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;" id="dp-cats">'+
+        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🍳 Brunch</button>'+
+        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🍺 Drinks</button>'+
+        '<button class="filter-pill on" onclick="this.classList.toggle(\'on\')">🎨 Culture</button>'+
+        '<button class="filter-pill" onclick="this.classList.toggle(\'on\')">🛍 Shopping</button>'+
+        '<button class="filter-pill" onclick="this.classList.toggle(\'on\')">🌊 Nature</button>'+
+      '</div>'+
+      '<button style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="runDayPlan(\''+destId+'\')">Build my day →</button>'+
+    '</div>';
+}
+function togDPVibe(el){
+  // Single select for vibes
+  document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+}
+function runDayPlan(destId){
+  var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
+  var hours=g('dp-hours')?g('dp-hours').value:'6';
+  var start=g('dp-start')?g('dp-start').value:'11:00am';
+  var vibe='';
+  document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+  var cats=[];
+  document.querySelectorAll('#dp-cats .filter-pill.on').forEach(function(b){cats.push(b.textContent.trim());});
+  // Include any saved local spots for this area
+  var savedLocal=S.dests.filter(function(x){return x.type==='local'&&x.country===d.country;}).map(function(x){return x.name;});
+  g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Building your '+hours+'-hour day…</div>';
+  var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+
+    'Start time: '+start+'. Vibe: '+vibe+'. Include: '+cats.join(', ')+'.\n'+
+    (savedLocal.length?'Try to incorporate some of these saved local spots if relevant: '+savedLocal.join(', ')+'.\n':'')+
+    'Make it feel like advice from a friend who lives there — specific place names, what to order, hidden gems.\n'+
+    'Include walking/transit times between stops and any tips.\n'+
+    'Return ONLY valid JSON:\n'+
+    '{"title":"...","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
+    '"stops":[{"time":"11:00am","name":"St. Lawrence Market","type":"food","description":"Start with the peameal bacon sandwich from Carousel Bakery — it\'s a Toronto institution. Grab a coffee from one of the vendors and wander the stalls.","walk_to_next":"10 min walk south","budget_note":"$8-12","premium_note":"Try the oyster bar upstairs"}]}';
   ai([{role:'user',content:prompt}],function(err,text){
-    if(err){g('place-recs').innerHTML='<p style="font-size:13px;color:red">'+err+'</p>';return;}
+    if(err){
+      g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
+      return;
+    }
     try{
       var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
-      var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:12px;">'+
-        '<div style="font-size:14px;font-weight:600;color:var(--gold-dk)">'+esc(plan.title)+'</div>'+
-        '<div style="font-size:12px;color:var(--gold)">'+esc(plan.hours)+' hours</div>'+
+      var typeColors={'food':'#BA7517','drinks':'#1a6eb5','culture':'#7A4A00','shopping':'#A32D2D','nature':'#3B6D11','default':'#BA7517'};
+      var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'+
+        '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
+        '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(plan.start)+' · '+esc(String(plan.hours))+' hours · '+esc(plan.vibe||vibe)+'</div></div>'+
+        '<button style="padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2)" onclick="shareDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">Share</button>'+
       '</div>';
       (plan.stops||[]).forEach(function(s,i){
-        html+='<div class="day-stop">'+
-          '<div class="day-stop-line">'+
-            '<div class="day-stop-dot"></div>'+
-            (i<plan.stops.length-1?'<div class="day-stop-connector"></div>':'')+
+        var c=typeColors[s.type]||typeColors.default;
+        html+='<div style="display:flex;gap:10px;margin-bottom:10px;">'+
+          '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:3px;">'+
+            '<div style="width:9px;height:9px;border-radius:50%;background:'+c+';flex-shrink:0"></div>'+
+            (i<(plan.stops.length-1)?'<div style="width:1px;flex:1;background:rgba(186,117,23,.2);margin-top:4px;min-height:20px"></div>':'')+
           '</div>'+
-          '<div class="day-stop-info">'+
-            '<div style="font-size:11px;color:var(--text3);margin-bottom:1px">'+esc(s.time)+'</div>'+
-            '<div class="day-stop-name">'+esc(s.name)+'</div>'+
-            '<div class="day-stop-detail">'+esc(s.description)+'</div>'+
-            (s.walk_to_next?'<div style="font-size:11px;color:var(--gold);margin-top:4px">→ '+esc(s.walk_to_next)+'</div>':'')+
+          '<div style="flex:1;min-width:0;padding-bottom:2px;">'+
+            '<div style="font-size:10px;color:var(--text3);margin-bottom:1px">'+esc(s.time)+(s.type?' · '+esc(s.type):'')+'</div>'+
+            '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">'+esc(s.name)+'</div>'+
+            '<div style="font-size:13px;color:var(--text2);line-height:1.5">'+esc(s.description)+'</div>'+
+            (s.budget_note?'<div style="font-size:11px;color:var(--green);margin-top:4px">💰 '+esc(s.budget_note)+'</div>':'')+
+            (s.premium_note?'<div style="font-size:11px;color:var(--gold);margin-top:2px">✨ '+esc(s.premium_note)+'</div>':'')+
+            (s.walk_to_next?'<div style="font-size:11px;color:var(--blue);margin-top:5px;font-weight:500">→ '+esc(s.walk_to_next)+'</div>':'')+
           '</div>'+
         '</div>';
       });
-      html+='<button style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;cursor:pointer;font-family:inherit;color:var(--text2);margin-top:10px;" onclick="shareDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">Share this day plan</button>';
       g('place-recs').innerHTML=html;
-    }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3)">Could not plan the day.</p>';}
-  },1500);
+    }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
+  },1800);
 }
 function shareDayPlan(encoded){
   var plan=JSON.parse(decodeURIComponent(encoded));
-  var text=plan.title+'\n\n'+plan.stops.map(function(s){return s.time+' — '+s.name+': '+s.description+(s.walk_to_next?'\n→ '+s.walk_to_next:'');}).join('\n\n');
+  var text=plan.title+' ('+plan.start+', '+plan.hours+' hours)\n\n'+
+    (plan.stops||[]).map(function(s){
+      return s.time+' — '+s.name+'\n'+s.description+(s.walk_to_next?'\n→ '+s.walk_to_next:'');
+    }).join('\n\n');
   if(navigator.share){navigator.share({title:plan.title,text:text}).catch(function(){});}
   else if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){showShareToast('Day plan copied!');});}
 }
@@ -723,12 +805,16 @@ function setType(t,el){
   S.placeType=t;
   document.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
+  var inp=g('city-inp');
+  inp.placeholder=t==='local'?'Search restaurants, bars, parks, activities…':'Search cities, countries…';
+  hideAC();
 }
 function addDests(arr){
   var n=0;
   arr.forEach(function(d){
-    if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase();})){
-      S.dests.push({id:uid(),name:d.name,country:d.country||'',lat:d.lat,lng:d.lng,type:d.type||'dest'});n++;
+    if(!d.lat||!d.lng||isNaN(parseFloat(d.lat))||isNaN(parseFloat(d.lng)))return;
+    if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase()&&x.country===d.country;})){
+      S.dests.push({id:uid(),name:d.name,country:d.country||'',lat:parseFloat(d.lat),lng:parseFloat(d.lng),type:d.type||'dest'});n++;
     }
   });
   if(!n){toast('Already saved');return;}
@@ -736,6 +822,7 @@ function addDests(arr){
 }
 function rmDest(id){
   S.dests=S.dests.filter(function(d){return d.id!==id;});
+  delete placeRecs[id];
   save();syncMap();syncList();toast('Removed');
 }
 
@@ -744,40 +831,50 @@ function onCityInput(){
   var q=g('city-inp').value.trim();
   clearTimeout(acTimer);
   if(q.length<2){hideAC();return;}
-  acTimer=setTimeout(function(){fetchAC(q);},300);
+  acTimer=setTimeout(function(){fetchAC(q);},350);
+}
+function formatPlace(r){
+  var a=r.address||{};
+  var primary=a.amenity||a.shop||a.tourism||a.leisure||a.city||a.town||a.village||a.municipality||a.county||r.display_name.split(',')[0];
+  var state=a.state||a.region||'';
+  var country=a.country||r.display_name.split(',').pop().trim();
+  var city=a.city||a.town||a.village||'';
+  var sub='';
+  if(S.placeType==='local'){sub=[city,state,country].filter(Boolean).join(', ');}
+  else{sub=[state,country].filter(function(x){return x&&x!==primary;}).join(', ');}
+  return {primary:primary,sub:sub,country:country,type:r.type||r.class||''};
 }
 function fetchAC(q){
-  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=6&addressdetails=1',{headers:{'Accept-Language':'en'}})
+  var params='q='+encodeURIComponent(q)+'&format=json&limit=7&addressdetails=1';
+  fetch('https://nominatim.openstreetmap.org/search?'+params,{headers:{'Accept-Language':'en'}})
   .then(function(r){return r.json();})
-  .then(function(res){
-    acResults=res.filter(function(r){return r.lat&&r.lon;});
-    renderAC();
-  }).catch(function(){hideAC();});
+  .then(function(res){acResults=res.filter(function(r){return r.lat&&r.lon;});renderAC();})
+  .catch(function(){hideAC();});
 }
 function renderAC(){
   var ac=g('ac');
   if(!acResults.length){hideAC();return;}
   ac.style.display='block';
+  var isLocal=S.placeType==='local';
   ac.innerHTML=acResults.map(function(r,i){
-    var name=r.display_name.split(',')[0];
-    var sub=r.display_name.split(',').slice(1,3).join(',').trim();
+    var p=formatPlace(r);
+    var typeTag=(p.type&&p.type!=='administrative'&&p.type!=='city')?'<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--text3);margin-left:4px">'+esc(p.type)+'</span>':'';
     return '<div class="ac-item" onclick="selectAC('+i+')">'+
-      '<span style="font-size:16px">'+(S.placeType==='local'?'📍':'✈️')+'</span>'+
-      '<div><div class="ac-name">'+esc(name)+'</div><div class="ac-sub">'+esc(sub)+'</div></div>'+
+      '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="ac-name">'+esc(p.primary)+typeTag+'</div>'+
+        '<div class="ac-sub">'+esc(p.sub)+'</div>'+
+      '</div>'+
     '</div>';
   }).join('');
 }
 function hideAC(){g('ac').style.display='none';acResults=[];}
-function onCityKey(e){
-  if(e.key==='Escape')hideAC();
-}
+function onCityKey(e){if(e.key==='Escape')hideAC();}
 function selectAC(i){
   var r=acResults[i];if(!r)return;
-  var name=r.display_name.split(',')[0];
-  var country=r.address&&r.address.country?r.address.country:r.display_name.split(',').pop().trim();
-  addDests([{name:name,country:country,lat:parseFloat(r.lat),lng:parseFloat(r.lon),type:S.placeType}]);
+  var p=formatPlace(r);
+  addDests([{name:p.primary,country:p.country,lat:parseFloat(r.lat),lng:parseFloat(r.lon),type:S.placeType}]);
   g('city-inp').value='';hideAC();
-  swScreen('s-list');
 }
 
 // ── Itineraries ───────────────────────────────────────────
@@ -786,38 +883,51 @@ function doGenItins(){
   if(destinations.length<2){toast('Add at least 2 destinations (✈) first');return;}
   var btn=g('genbtn');btn.disabled=true;btn.textContent='Planning…';
   g('ilist').innerHTML='<div class="ld" style="justify-content:center;padding:28px 0"><span class="spin"></span> Crafting your trips…</div>';
-  var group=g('group-sel').value;
+  var group=parseInt(g('group-sel').value)||2;
   var ds=destinations.map(function(d){return d.name+', '+d.country;}).join('; ');
-  var prompt='Create 3-4 trip itineraries for '+group+' traveller'+(group>1?'s':'')+' using destinations from: '+ds+'.\n'+
-    'Rules: Group only geographically close destinations (same continent/region). Never mix Asia with Europe etc.\n'+
-    'Consider: flight connections, ease of travel, seasonal weather, overall vibe.\n'+
-    'Return ONLY valid JSON, no markdown:\n'+
-    '[{"id":"1","title":"...","theme":"...","region":"Southeast Asia","destinations":["City1"],"duration_days":12,'+
-    '"cost_budget_usd":1800,"cost_premium_usd":4500,"best_season":"Nov-Mar","worst_season":"Jun-Sep",'+
-    '"highlights":"2-3 sentence description","days":[{"day":"Day 1-2","location":"City","description":"What to do"}]}]';
+  var prompt='Create 3-4 trip itineraries for a group of '+group+' traveller'+(group>1?'s':'')+' using destinations from: '+ds+'.\n'+
+    'Rules: Group only geographically close destinations. Never mix continents.\n'+
+    'IMPORTANT for costs: accommodation is SHARED among '+group+' people (so split the nightly cost). Flights and food are per person. Calculate total cost per person accordingly.\n'+
+    'For each trip provide detailed cost breakdown.\n'+
+    'Return ONLY valid JSON:\n'+
+    '[{"title":"...","region":"...","destinations":["City1"],"duration_days":10,"best_season":"Apr-Jun","worst_season":"Dec-Feb","highlights":"...",'+
+    '"costs":{"budget":{"total_pp":1800,"flights_pp":400,"accommodation_pp":300,"food_pp":250,"activities_pp":150,"notes":"Hostel dorms split '+group+' ways, street food, budget carriers"},'+
+    '"premium":{"total_pp":4500,"flights_pp":900,"accommodation_pp":1800,"food_pp":1200,"activities_pp":600,"notes":"4-star hotel split '+group+' ways, fine dining, direct flights"}},'+
+    '"days":[{"day":"Day 1-2","location":"City","description":"What to do, see, eat"}]}]';
   ai([{role:'user',content:prompt}],function(err,text){
     btn.disabled=false;btn.textContent='Generate trips';
-    if(err){g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+esc(err)+'</p></div>';return;}
+    if(err){
+      if(err.toLowerCase().indexOf('overload')>-1){
+        g('ilist').innerHTML='<div class="empty-state"><p>AI is busy right now. Wait 10 seconds and try again.</p></div>';
+      } else {
+        g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+esc(err)+'</p></div>';
+      }
+      return;
+    }
     try{
       var newItins=JSON.parse(text.replace(/```json|```/g,'').trim());
-      newItins.forEach(function(it){it._id=uid();});
+      newItins.forEach(function(it){it._id=uid();it._group=group;});
       S.itins=newItins.concat(S.itins);
       save();renderItins();toast('Trips saved!');
-    }catch(e){g('ilist').innerHTML='<div class="empty-state"><p>Could not parse. Try again.</p></div>';}
-  },2500);
+    }catch(e){g('ilist').innerHTML='<div class="empty-state"><p>Could not parse response. Try again.</p></div>';}
+  },3000);
 }
 function renderItins(){
   if(!S.itins.length){g('ilist').innerHTML='<div class="empty-state"><p>Save 2+ destinations then tap<br>"Generate trips".</p></div>';return;}
   g('ilist').innerHTML=S.itins.map(function(it){
     var id=it._id||'';
+    var budgetPP=it.costs?it.costs.budget.total_pp:(it.cost_budget_usd||0);
+    var premiumPP=it.costs?it.costs.premium.total_pp:(it.cost_premium_usd||0);
+    var group=it._group||2;
     return '<div class="itin-card" onclick="openDetail(\''+id+'\')">'+(id?'<button class="itin-del" onclick="event.stopPropagation();delItin(\''+id+'\')">×</button>':'')+
     '<div class="itin-season">'+esc(it.region||'')+(it.best_season?' · '+esc(it.best_season):'')+'</div>'+
     '<div class="itin-title">'+esc(it.title||'')+'</div>'+
     '<div class="itin-tags">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
     '<div class="itin-meta">'+
       '<div class="iml"><span class="imll">Days</span><span class="imlv">'+(it.duration_days||'')+'</span></div>'+
-      '<div class="iml"><span class="imll">Budget</span><span class="imlv">$'+(it.cost_budget_usd||0).toLocaleString()+'</span></div>'+
-      '<div class="iml"><span class="imll">Premium</span><span class="imlv">$'+(it.cost_premium_usd||0).toLocaleString()+'</span></div>'+
+      '<div class="iml"><span class="imll">Budget /pp</span><span class="imlv">$'+budgetPP.toLocaleString()+'</span></div>'+
+      '<div class="iml"><span class="imll">Premium /pp</span><span class="imlv">$'+premiumPP.toLocaleString()+'</span></div>'+
+      '<div class="iml"><span class="imll">Group</span><span class="imlv">'+group+'</span></div>'+
     '</div>'+
     '<div class="itin-high">'+esc(it.highlights||'')+'</div>'+
     '<div class="card-actions">'+
@@ -825,6 +935,7 @@ function renderItins(){
         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'+
         'Share'+
       '</button>'+
+      '<button class="card-act-btn" onclick="event.stopPropagation();openDetail(\''+id+'\')">See breakdown →</button>'+
     '</div>'+
     '</div>';
   }).join('');
@@ -842,20 +953,56 @@ function shareItin(id){
 }
 function openDetail(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
-  var group=parseInt(g('group-sel').value)||2;
+  var group=it._group||parseInt(g('group-sel').value)||2;
   g('det-title').textContent=it.title||'Trip';
+  // Build cost rows
+  function costRow(label,budget,premium){
+    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2)">'+label+'</span>'+
+      '<span style="font-size:13px;font-weight:500;color:var(--green);width:70px;text-align:right">$'+Math.round(budget).toLocaleString()+'</span>'+
+      '<span style="font-size:13px;font-weight:500;color:var(--gold);width:70px;text-align:right">$'+Math.round(premium).toLocaleString()+'</span>'+
+    '</div>';
+  }
+  var costHtml='';
+  if(it.costs){
+    var b=it.costs.budget,p=it.costs.premium;
+    costHtml=
+      '<div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:12px;border:1px solid var(--border);">'+
+        '<div style="display:flex;margin-bottom:8px;">'+
+          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Category</span>'+
+          '<span style="font-size:11px;color:var(--green);font-weight:600;width:70px;text-align:right">Budget</span>'+
+          '<span style="font-size:11px;color:var(--gold);font-weight:600;width:70px;text-align:right">Premium</span>'+
+        '</div>'+
+        costRow('✈ Flights',b.flights_pp,p.flights_pp)+
+        costRow('🏨 Accommodation',b.accommodation_pp,p.accommodation_pp)+
+        costRow('🍽 Food & drink',b.food_pp,p.food_pp)+
+        costRow('🎟 Activities',b.activities_pp,p.activities_pp)+
+        '<div style="display:flex;align-items:center;padding:9px 0 2px;">'+
+          '<span style="flex:1;font-size:14px;font-weight:700;color:var(--text)">Total per person</span>'+
+          '<span style="font-size:14px;font-weight:700;color:var(--green);width:70px;text-align:right">$'+b.total_pp.toLocaleString()+'</span>'+
+          '<span style="font-size:14px;font-weight:700;color:var(--gold);width:70px;text-align:right">$'+p.total_pp.toLocaleString()+'</span>'+
+        '</div>'+
+        '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
+        '<p style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5">✨ '+esc(p.notes)+'</p>'+
+        '<p style="font-size:11px;color:var(--blue);margin-top:6px">👥 Accommodation split among '+group+' people</p>'+
+      '</div>';
+  } else {
+    var budgetPP=it.cost_budget_usd||0,premiumPP=it.cost_premium_usd||0;
+    costHtml='<div class="cost-boxes">'+
+      '<div class="cost-box lo"><div class="cost-lbl">Budget / person</div><div class="cost-val">$'+budgetPP.toLocaleString()+'</div><div class="cost-note">Hostels, local food, budget flights</div></div>'+
+      '<div class="cost-box hi"><div class="cost-lbl">Premium / person</div><div class="cost-val">$'+premiumPP.toLocaleString()+'</div><div class="cost-note">Hotels, dining, direct flights</div></div>'+
+    '</div>';
+  }
   g('det-body').innerHTML=
     '<div class="itin-tags" style="margin-bottom:10px">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
-    '<p style="font-size:13px;color:var(--text2);margin-bottom:4px">'+(it.duration_days||'')+' days · '+esc(it.region||'')+' · '+esc(it.best_season||'')+'</p>'+
-    (it.worst_season?'<p style="font-size:12px;color:var(--text3);margin-bottom:12px">Avoid: '+esc(it.worst_season)+'</p>':'<div style="margin-bottom:12px"></div>')+
-    '<div class="cost-boxes">'+
-      '<div class="cost-box lo"><div class="cost-lbl">Budget / person</div><div class="cost-val">$'+(it.cost_budget_usd||0).toLocaleString()+'</div><div class="cost-note">Hostels, local food, budget flights</div></div>'+
-      '<div class="cost-box hi"><div class="cost-lbl">Premium / person</div><div class="cost-val">$'+(it.cost_premium_usd||0).toLocaleString()+'</div><div class="cost-note">Hotels, dining, direct flights</div></div>'+
-    '</div>'+
+    '<p style="font-size:13px;color:var(--text2);margin-bottom:4px">'+(it.duration_days||'')+' days · '+esc(it.region||'')+' · Best: '+esc(it.best_season||'')+'</p>'+
+    (it.worst_season?'<p style="font-size:12px;color:var(--text3);margin-bottom:10px">Avoid: '+esc(it.worst_season)+'</p>':'<div style="margin-bottom:10px"></div>')+
+    '<div class="section-lbl">Cost breakdown — per person</div>'+
+    costHtml+
     '<div class="section-lbl">Day by day</div>'+
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
     '<div class="section-lbl">Book your trip</div>'+
-    [['✈ Flights','https://www.skyscanner.com'],['🏨 Hotels','https://www.booking.com'],['🏠 Stays','https://www.airbnb.com'],['🎟 Tours & excursions','https://www.viator.com'],['🍽 Restaurants','https://www.opentable.com']].map(function(b){return'<a class="book-link" href="'+b[1]+'" target="_blank">'+b[0]+'<span>→</span></a>';}).join('');
+    [['✈ Flights','https://www.skyscanner.com'],['🏨 Hotels','https://www.booking.com'],['🏠 Airbnb','https://www.airbnb.com'],['🎟 Tours','https://www.viator.com'],['🍽 Restaurants','https://www.opentable.com']].map(function(b){return'<a class="book-link" href="'+b[1]+'" target="_blank">'+b[0]+'<span>→</span></a>';}).join('');
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
 }
 function closeDetail(){g('det-bg').classList.remove('on');g('det-sheet').classList.remove('on');}
@@ -1111,7 +1258,7 @@ function swScreen(s){
 }
 
 // ── AI ────────────────────────────────────────────────────
-function ai(msgs,cb,maxTok,sys){
+function ai(msgs,cb,maxTok,sys,_retry){
   var key=localStorage.getItem('wl_apikey');
   if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);swScreen('s-settings');return;}
   var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||1000,messages:msgs};
@@ -1126,7 +1273,18 @@ function ai(msgs,cb,maxTok,sys){
     },
     body:JSON.stringify(body)
   }).then(function(r){return r.json();})
-    .then(function(d){if(d.error)cb(d.error.message,null);else cb(null,d.content[0].text);})
+    .then(function(d){
+      if(d.error){
+        // Auto-retry once on overload after 8 seconds
+        if(d.error.type==='overloaded_error'&&!_retry){
+          setTimeout(function(){ai(msgs,cb,maxTok,sys,true);},8000);
+          return;
+        }
+        cb(d.error.message,null);
+      } else {
+        cb(null,d.content[0].text);
+      }
+    })
     .catch(function(e){cb(e.message,null);});
 }
 
