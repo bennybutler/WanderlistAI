@@ -1134,6 +1134,27 @@ function shareItin(id){
   if(navigator.share){navigator.share({title:it.title,text:'Check out this trip: '+it.title,url:url}).catch(function(){});}
   else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Share link copied! Send it to friends.');});}
 }
+function getSeasonDates(season,nights){
+  // Convert "Apr-Jun" or "Nov-Mar" to real check-in/out dates (next occurrence)
+  var monthMap={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  var today=new Date();
+  var inMonth=today.getMonth(),outMonth=(today.getMonth()+1)%12;
+  if(season){
+    var parts=season.toLowerCase().replace(/[^a-z-]/g,' ').trim().split(/[-–, ]+/);
+    if(parts[0]&&monthMap[parts[0].substr(0,3)]!==undefined){
+      inMonth=monthMap[parts[0].substr(0,3)];
+    }
+  }
+  var inYear=today.getFullYear();
+  // If that month already passed this year, use next year
+  if(inMonth<today.getMonth()||(inMonth===today.getMonth()&&today.getDate()>15)){
+    inYear+=1;
+  }
+  var cin=new Date(inYear,inMonth,15);
+  var cout=new Date(cin.getTime()+(nights||7)*24*60*60*1000);
+  var fmt=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  return{in:fmt(cin),out:fmt(cout)};
+}
 function openDetail(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
   var group=it._group||parseInt(g('group-sel').value)||2;
@@ -1151,39 +1172,52 @@ function openDetail(id){
   var costHtml='';
   if(it.costs){
     var b=it.costs.budget,p=it.costs.premium;
+    // Build real booking URLs with dates from best_season
+    var dest0=(it.destinations||[])[0]||'';
+    var fromCity=it._from||'';
+    // Convert best_season month range to approximate check-in/out dates (next occurrence)
+    var dates=getSeasonDates(it.best_season,it.duration_days||7);
+    var cin=dates.in,cout=dates.out;
+    var nights=it.duration_days||7;
+    // URL-encoded versions
+    var destEnc=encodeURIComponent(dest0);
+    var fromEnc=encodeURIComponent(fromCity);
+    // Google Flights: best for showing actual prices with prefilled route+dates
+    var gflightBudget='https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1&hl=en&curr=USD';
+    var gflightPrem='https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1&hl=en&curr=USD&tfc=true';
+    // Booking.com with dates, guests, rating filter
+    var bookBudget='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price';
+    var bookPrem='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5&order=review_score_and_price';
+    // Airbnb with dates and guest count
+    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+(Math.round(b.accommodation_pp/nights*1.3))+'&room_types%5B%5D=Entire+home%2Fapt';
+    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+(Math.round(p.accommodation_pp/nights*0.7))+'&room_types%5B%5D=Entire+home%2Fapt';
+    // Hostelworld budget
+    var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
     costHtml=
-      '<div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:12px;border:1px solid var(--border);">'+
-        '<div style="display:flex;margin-bottom:8px;">'+
-          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Category</span>'+
-          '<span style="font-size:11px;color:var(--green);font-weight:600;width:70px;text-align:right">Budget</span>'+
-          '<span style="font-size:11px;color:var(--gold);font-weight:600;width:70px;text-align:right">Premium</span>'+
+      '<div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:8px;border:1px solid var(--border);">'+
+        '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;line-height:1.5">'+
+          'ℹ️ Prices are AI estimates based on typical costs. Tap the green (budget) or gold (premium) amounts to search real listings with your dates.<br>'+
+          '<b>Dates:</b> '+cin+' → '+cout+' · <b>Group:</b> '+group+' people'+
         '</div>'+
-        (function(){
-          var dest0=(it.destinations||[])[0]||'';
-          var dest1=(it.destinations||[])[1]||dest0;
-          var fromEnc=encodeURIComponent(it._from||'');
-          var destEnc=encodeURIComponent(dest0);
-          var season=it.best_season||'';
-          // Build date hints from best_season
-          var flightUrl='https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/';
-          var budgetHotelUrl='https://www.booking.com/searchresults.html?ss='+destEnc+'&nflt=class%3D2%3Bclass%3D1';
-          var premHotelUrl='https://www.booking.com/searchresults.html?ss='+destEnc+'&nflt=class%3D5%3Bclass%3D4';
-          var budgetAirbnbUrl='https://www.airbnb.com/s/'+destEnc+'?price_max=100&guests='+group;
-          var premAirbnbUrl='https://www.airbnb.com/s/'+destEnc+'?price_min=200&guests='+group;
-          return costRow('✈ Flights (tap to book)',b.flights_pp,p.flights_pp,flightUrl,flightUrl)+
-            costRow('🏨 Hotels (tap to browse)',b.accommodation_pp,p.accommodation_pp,budgetHotelUrl,premHotelUrl)+
-            costRow('🏠 Airbnb (tap to browse)',b.accommodation_pp,p.accommodation_pp,budgetAirbnbUrl,premAirbnbUrl)+
-            costRow('🍽 Food & drink',b.food_pp,p.food_pp,'','')+
-            costRow('🎟 Activities',b.activities_pp,p.activities_pp,'','');
-        })()+
+        '<div style="display:flex;margin-bottom:6px;">'+
+          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Category</span>'+
+          '<span style="font-size:11px;color:var(--green);font-weight:600;width:80px;text-align:right">💰 Budget</span>'+
+          '<span style="font-size:11px;color:var(--gold);font-weight:600;width:80px;text-align:right">✨ Premium</span>'+
+        '</div>'+
+        costRow('✈ Flights — Google Flights',b.flights_pp,p.flights_pp,gflightBudget,gflightPrem)+
+        costRow('🏨 Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
+        costRow('🏠 Airbnb',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
+        costRow('🛏 Hostels — Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,hostelUrl,hostelUrl)+
+        costRow('🍽 Food & drink',b.food_pp,p.food_pp,'','')+
+        costRow('🎟 Activities',b.activities_pp,p.activities_pp,'','')+
         '<div style="display:flex;align-items:center;padding:9px 0 2px;">'+
-          '<span style="flex:1;font-size:14px;font-weight:700;color:var(--text)">Total per person</span>'+
-          '<span style="font-size:14px;font-weight:700;color:var(--green);width:70px;text-align:right">$'+b.total_pp.toLocaleString()+'</span>'+
-          '<span style="font-size:14px;font-weight:700;color:var(--gold);width:70px;text-align:right">$'+p.total_pp.toLocaleString()+'</span>'+
+          '<span style="flex:1;font-size:14px;font-weight:700;color:var(--text)">Total /person</span>'+
+          '<span style="font-size:14px;font-weight:700;color:var(--green);width:80px;text-align:right">$'+b.total_pp.toLocaleString()+'</span>'+
+          '<span style="font-size:14px;font-weight:700;color:var(--gold);width:80px;text-align:right">$'+p.total_pp.toLocaleString()+'</span>'+
         '</div>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5">✨ '+esc(p.notes)+'</p>'+
-        '<p style="font-size:11px;color:var(--blue);margin-top:6px">👥 Accommodation split among '+group+' people</p>'+
+        '<p style="font-size:11px;color:var(--blue);margin-top:5px">👥 Hotel/Airbnb shared among '+group+' people · '+nights+' nights</p>'+
       '</div>';
   } else {
     var budgetPP=it.cost_budget_usd||0,premiumPP=it.cost_premium_usd||0;
@@ -1209,18 +1243,25 @@ function openDetail(id){
       buildBudgetTracker(it)+
     '</div>'+
     '<div class="section-lbl">Book your trip</div>'+
-    (function(){
-      var dest=encodeURIComponent((it.destinations||[])[0]||'');
-      var from=encodeURIComponent(it._from||'');
-      return [
-        ['✈ Flights (Skyscanner)','https://www.skyscanner.com/flights/'+from+'/'+dest],
-        ['🛏 Budget hotels (Booking.com)','https://www.booking.com/searchresults.html?ss='+dest+'&order=class_asc'],
-        ['✨ Premium hotels (Booking.com)','https://www.booking.com/searchresults.html?ss='+dest+'&order=class_desc'],
-        ['🏠 Airbnb','https://www.airbnb.com/s/'+dest],
-        ['🛏 Hostels (Hostelworld)','https://www.hostelworld.com/search?search_keywords='+dest],
-        ['🎟 Tours (Viator)','https://www.viator.com/searchResults/all?text='+dest],
-        ['🍽 Restaurants (OpenTable)','https://www.opentable.com/s?term='+dest]
-      ].map(function(b){return'<a class="book-link" href="'+b[1]+'" target="_blank">'+b[0]+'<span>→</span></a>';}).join('');
+(function(){
+      var dest0=(it.destinations||[])[0]||'';
+      var destEnc=encodeURIComponent(dest0);
+      var fromEnc=encodeURIComponent(it._from||'');
+      var grp=it._group||group||2;
+      var dates=getSeasonDates(it.best_season,it.duration_days||7);
+      var cin=dates.in,cout=dates.out;
+      var nights=it.duration_days||7;
+      var links=[
+        ['🔍 Google Flights (recommended)','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1'],
+        ['✈ Skyscanner','https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/'+cin.replace(/-/g,'')+'/'+cout.replace(/-/g,'')+'/?adults=1'],
+        ['🏨 Booking.com (budget 2-3★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
+        ['🏨 Booking.com (premium 4-5★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
+        ['🏠 Airbnb (entire home, '+grp+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire+home%2Fapt'],
+        ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+grp],
+        ['🎟 Viator (tours & activities)','https://www.viator.com/searchResults/all?text='+destEnc]
+      ];
+      return '<p style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dates pre-filled based on best travel season ('+cin+' – '+cout+'). Adjust on each site as needed.</p>'+
+        links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
     })();
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
 }
