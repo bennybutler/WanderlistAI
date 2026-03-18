@@ -1249,20 +1249,6 @@ function openDayDetail(id){
   });
   g('det-body').innerHTML=html;
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
-  // Wire city buttons via event delegation and auto-trigger first city
-  setTimeout(function(){
-    var body=g('det-body');if(!body)return;
-    body.addEventListener('click',function(e){
-      var btn=e.target.closest('.det-city-btn');if(!btn)return;
-      var city=btn.dataset.city,itid=btn.dataset.id;
-      body.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
-      btn.classList.add('on');
-      selDetCity(btn,city,itid);
-    });
-    // Auto-trigger first city
-    var firstBtn=body.querySelector('.det-city-btn');
-    if(firstBtn)firstBtn.click();
-  },100);
 }
 function shareSavedDay(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
@@ -1279,7 +1265,8 @@ function _shareItinOld(id){
   else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Share link copied! Send it to friends.');});}
 }
 function selDetCity(el,city,itinId){
-  document.querySelectorAll('#det-city-sel .filter-pill').forEach(function(b){b.classList.remove('on');});
+  var detBody=g('det-body');
+  if(detBody)detBody.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
   if(el)el.classList.add('on');
   var it=S.itins.find(function(x){return x._id===itinId;});if(!it)return;
   var group=it._group||2;
@@ -1515,17 +1502,19 @@ function openDetail(id){
     })()+
     '</div>';
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
-  // Wire city selector buttons and auto-click first city
+  // Wire city selector - use onclick directly on buttons (safest, no stacking)
   setTimeout(function(){
     var body=g('det-body');if(!body)return;
-    body.addEventListener('click',function(e){
-      var btn=e.target.closest('.det-city-btn');if(!btn)return;
-      body.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
-      btn.classList.add('on');
-      selDetCity(btn,btn.dataset.city,btn.dataset.id);
+    body.querySelectorAll('.det-city-btn').forEach(function(btn){
+      btn.onclick=function(){
+        body.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
+        btn.classList.add('on');
+        selDetCity(btn,btn.dataset.city,btn.dataset.id);
+      };
     });
+    // Auto-click first city to populate booking links immediately
     var first=body.querySelector('.det-city-btn');
-    if(first)first.click();
+    if(first)first.onclick();
   },80);
 }
 function sendItinChat(id){
@@ -1564,7 +1553,14 @@ function sendItinChat(id){
         var cityRow=daysEl.querySelector('#det-city-sel');
         if(cityRow){
           cityRow.innerHTML=(it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="det-city-btn filter-pill'+(i===0?' on':'')+'" data-city="'+esc(dn)+'" data-id="'+esc(id)+'" style="font-size:11px">'+esc(dn)+'</button>';}).join('');
-          var first=cityRow.querySelector('.det-city-btn');if(first)first.click();
+          cityRow.querySelectorAll('.det-city-btn').forEach(function(btn){
+            btn.onclick=function(){
+              cityRow.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
+              btn.classList.add('on');
+              selDetCity(btn,btn.dataset.city,btn.dataset.id);
+            };
+          });
+          var first=cityRow.querySelector('.det-city-btn');if(first)first.onclick();
         }
       }
       if(msgs)msgs.innerHTML+='<div style="color:var(--green);background:var(--green-lt);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-size:12px">✓ Days updated! Costs and budget preserved.</div>';
