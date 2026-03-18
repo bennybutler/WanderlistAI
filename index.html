@@ -1476,7 +1476,9 @@ function openDetail(id){
     '<div class="section-lbl">Cost breakdown — per person</div>'+
     costHtml+
     '<div class="section-lbl">Day by day</div>'+
+    '<div id="det-days-content">'+
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
+    '</div>'+
     '<div class="section-lbl">Tweak this itinerary with AI</div>'+
     '<div id="itin-chat-'+id+'" style="margin-bottom:12px">'+
       '<div id="itin-chat-msgs-'+id+'" style="max-height:200px;overflow-y:auto;background:var(--bg2);border-radius:var(--rsm);padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:13px;line-height:1.5;color:var(--text2)">Ask me anything about this trip — e.g. "Spend more time in Paris", "Remove Barcelona", "Best restaurants in each city"</div>'+
@@ -1513,6 +1515,18 @@ function openDetail(id){
     })()+
     '</div>';
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
+  // Wire city selector buttons and auto-click first city
+  setTimeout(function(){
+    var body=g('det-body');if(!body)return;
+    body.addEventListener('click',function(e){
+      var btn=e.target.closest('.det-city-btn');if(!btn)return;
+      body.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
+      btn.classList.add('on');
+      selDetCity(btn,btn.dataset.city,btn.dataset.id);
+    });
+    var first=body.querySelector('.det-city-btn');
+    if(first)first.click();
+  },80);
 }
 function sendItinChat(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
@@ -1539,6 +1553,20 @@ function sendItinChat(id){
       if(ai2.title){it.title=ai2.title;}
       if(ai2.duration_days&&ai2.duration_days!==it.duration_days){it.duration_days=ai2.duration_days;}
       save();renderItins();
+      // Re-render the detail body so days + city selector update live
+      var dayHtml=(it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('');
+      var daysEl=g('det-body');
+      if(daysEl){
+        // Update just the day-by-day section without closing the sheet
+        var daySection=daysEl.querySelector('#det-days-content');
+        if(daySection)daySection.innerHTML=dayHtml;
+        // Also refresh city buttons
+        var cityRow=daysEl.querySelector('#det-city-sel');
+        if(cityRow){
+          cityRow.innerHTML=(it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="det-city-btn filter-pill'+(i===0?' on':'')+'" data-city="'+esc(dn)+'" data-id="'+esc(id)+'" style="font-size:11px">'+esc(dn)+'</button>';}).join('');
+          var first=cityRow.querySelector('.det-city-btn');if(first)first.click();
+        }
+      }
       if(msgs)msgs.innerHTML+='<div style="color:var(--green);background:var(--green-lt);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-size:12px">✓ Days updated! Costs and budget preserved.</div>';
       msgs.scrollTop=msgs.scrollHeight;
     }catch(e){
