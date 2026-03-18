@@ -283,6 +283,25 @@ textarea::placeholder{color:var(--text3);}
     </div>
   </div>
 
+  <!-- SETTINGS -->
+  <div class="screen" id="s-settings">
+    <div class="scr-hdr"><h2>Settings</h2></div>
+    <div style="padding:20px 16px;">
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Anthropic API Key</p>
+        <p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;">Required for AI features. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a> → API Keys → Create Key. Your key is stored only on this device.</p>
+        <input id="api-key-inp" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:14px;outline:none;font-family:inherit;margin-bottom:10px;">
+        <button onclick="saveApiKey()" style="width:100%;padding:12px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Save key</button>
+        <p id="key-status" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">✓ API key saved</p>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border);">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Your data</p>
+        <p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;">Export all your saved places and trips as a backup file.</p>
+        <button onclick="exportData()" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text);">Download backup</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tabbar">
     <button class="tabbtn on" id="tb-map" onclick="swScreen('s-map')">
       <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
@@ -299,6 +318,10 @@ textarea::placeholder{color:var(--text3);}
     <button class="tabbtn" id="tb-chat" onclick="swScreen('s-chat')">
       <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span>Chat</span>
+    </button>
+    <button class="tabbtn" id="tb-settings" onclick="swScreen('s-settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
     </button>
   </div>
 </div>
@@ -794,10 +817,11 @@ function swScreen(s){
   document.querySelectorAll('.screen').forEach(function(el){el.classList.remove('on');});
   document.querySelectorAll('.tabbtn').forEach(function(el){el.classList.remove('on');});
   g(s).classList.add('on');
-  var tb={'s-map':'tb-map','s-list':'tb-list','s-itin':'tb-itin','s-chat':'tb-chat'}[s];
+  var tb={'s-map':'tb-map','s-list':'tb-list','s-itin':'tb-itin','s-chat':'tb-chat','s-settings':'tb-settings'}[s];
   if(tb)g(tb).classList.add('on');
   if(s==='s-map')setTimeout(function(){map&&map.invalidateSize();},60);
   if(s==='s-list')setTimeout(function(){g('city-inp')&&g('city-inp').focus();},200);
+  if(s==='s-settings'){var k=localStorage.getItem('wl_apikey');if(k)g('api-key-inp').placeholder='Key saved — paste a new one to update';}
 }
 
 function importBackup(inp){
@@ -830,14 +854,35 @@ function importBackup(inp){
   };
   r.readAsText(inp.files[0]);
 }
+function saveApiKey(){
+  var key=g('api-key-inp').value.trim();
+  if(!key){toast('Please paste your API key');return;}
+  localStorage.setItem('wl_apikey',key);
+  g('key-status').style.display='block';
+  g('api-key-inp').value='';
+  setTimeout(function(){g('key-status').style.display='none';},3000);
+  toast('API key saved!');
+}
+function exportData(){
+  var data=JSON.stringify({dests:S.dests,itins:S.itins},null,2);
+  var blob=new Blob([data],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='wanderlist-backup.json';a.click();
+}
 function ai(msgs,cb,maxTok,sys){
+  var key=localStorage.getItem('wl_apikey');
+  if(!key){
+    cb('No API key set. Go to Settings (⚙) to add your Anthropic API key.',null);
+    swScreen('s-settings');
+    return;
+  }
   var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||1000,messages:msgs};
   if(sys)body.system=sys;
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
-      'x-api-key':'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',
+      'x-api-key':key,
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true'
     },
