@@ -551,7 +551,7 @@ window.addEventListener('load',function(){
   map=L.map('map',{zoomControl:false}).setView([25,15],2);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     {attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
-  syncMap();syncList();renderItins();
+  syncMap();syncList();renderItins();renderFriendsList();
   // Load saved settings into fields
   var k=localStorage.getItem('wl_apikey');
   if(k)g('api-key-inp').placeholder='Key saved — paste new one to update';
@@ -566,12 +566,37 @@ window.addEventListener('load',function(){
 });
 
 // ── Map ───────────────────────────────────────────────────
+var routeLines=[];
+function clearRouteLines(){routeLines.forEach(function(l){try{map.removeLayer(l);}catch(e){}});routeLines=[];}
 function setFilter(f,el){
   S.mapFilter=f;
-  // Clear route lines when switching away from routes
-  if(f!=='routes')clearRouteLines();
+  clearRouteLines();
   document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');syncMap();
+  if(el)el.classList.add('on');
+  syncMap();
+  if(f==='routes'){
+    // Draw routes for all trips
+    S.itins.filter(function(it){return(it._type||'trip')==='trip';}).forEach(function(it){drawRouteLines(it);});
+  }
+}
+function drawRouteLines(itin){
+  var dests=itin.destinations||[];
+  if(dests.length<2)return;
+  var coords=[];
+  dests.forEach(function(dname){
+    var clean=dname.split(',')[0].trim().toLowerCase();
+    var d=S.dests.find(function(x){return x.name.toLowerCase()===clean||x.name.toLowerCase().indexOf(clean)>-1;});
+    if(d){var la=parseFloat(d.lat),lo=parseFloat(d.lng);if(isFinite(la)&&isFinite(lo))coords.push([la,lo]);}
+  });
+  if(coords.length<2)return;
+  for(var i=0;i<coords.length-1;i++){
+    var line=L.polyline([coords[i],coords[i+1]],{color:'#BA7517',weight:3,opacity:0.85,dashArray:'8 5'}).addTo(map);
+    // Add numbered circle at start of each segment
+    var midLat=(coords[i][0]+coords[i+1][0])/2,midLng=(coords[i][1]+coords[i+1][1])/2;
+    var arrow=L.marker([midLat,midLng],{icon:L.divIcon({html:'<div style="background:#BA7517;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">→</div>',iconSize:[18,18],iconAnchor:[9,9],className:''})}).addTo(map);
+    routeLines.push(line);routeLines.push(arrow);
+  }
+  if(coords.length)try{map.fitBounds(L.latLngBounds(coords).pad(0.3));}catch(e){}
 }
 function micon(type){
   var c=type==='local'?'#1a6eb5':'#BA7517';
@@ -584,6 +609,7 @@ function syncMap(){
   var filtered=S.dests.filter(function(d){
     var lat=parseFloat(d.lat),lng=parseFloat(d.lng);
     if(!isFinite(lat)||!isFinite(lng)||lat===0&&lng===0)return false;
+    if(S.mapFilter==='routes')return d.type==='dest';
     return S.mapFilter==='all'||d.type===S.mapFilter;
   });
   mkrs=filtered.map(function(d){
@@ -661,7 +687,7 @@ function flyTo(id){
 }
 
 // ── Place detail ──────────────────────────────────────────
-var placeRecs={},currentPlanCity="";
+var placeRecs={},currentPlanCity='',currentPlanData=null;
 var placeFilter='all';
 var currentPlaceId=null;
 function openPlaceDetail(id,autoPlanDay){
@@ -685,8 +711,9 @@ function openPlaceDetail(id,autoPlanDay){
   // Fetch recs if not cached
   if(placeRecs[id]){renderPlaceRecs(id);}
   else{
-    var includedSaved=[];
-  if(window._dpSaved){window._dpSaved.forEach(function(s,i){var btn=g('dps-'+i);if(btn&&btn.classList.contains('on'))includedSaved.push(s.name+(s.category?' ('+s.category+')':''));});}
+    // Use saved spots if toggle is on
+  var useSaved=window._dpUseSaved!==false&&savedSpots&&savedSpots.length>0;
+  var includedSaved=useSaved?(savedSpots||[]).map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
   var savedLocal=includedSaved;
     var prompt='Give me 12 top recommendations for '+d.name+(d.country?', '+d.country:'')+'. Mix: restaurants, bars, cafes, parks, activities. Budget and premium options.\n'+(savedLocal.length?'Skip already saved: '+savedLocal.join(', ')+'.\n':'')+'Return ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
     ai([{role:'user',content:prompt}],function(err,text){
@@ -785,6 +812,11 @@ function planDay(destId){
       '<button style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="runDayPlan(\''+destId+'\')">Build my day →</button>'+
     '</div>';
 }
+function togDPSrc(el,useSaved){
+  document.querySelectorAll('#dp-src .filter-pill').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  window._dpUseSaved=useSaved;
+}
 function togDPVibe(el){
   // Single select for vibes
   document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(b){b.classList.remove('on');});
@@ -799,8 +831,9 @@ function runDayPlan(destId){
   var cats=[];
   document.querySelectorAll('#dp-cats .filter-pill.on').forEach(function(b){cats.push(b.textContent.trim());});
   // Include any saved local spots for this area
-  var includedSaved=[];
-  if(window._dpSaved){window._dpSaved.forEach(function(s,i){var btn=g('dps-'+i);if(btn&&btn.classList.contains('on'))includedSaved.push(s.name+(s.category?' ('+s.category+')':''));});}
+  // Use saved spots if toggle is on
+  var useSaved=window._dpUseSaved!==false&&savedSpots&&savedSpots.length>0;
+  var includedSaved=useSaved?(savedSpots||[]).map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
   var savedLocal=includedSaved;
   g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Building your '+hours+'-hour day…</div>';
   var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+
@@ -823,7 +856,7 @@ function runDayPlan(destId){
         '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
         '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(plan.start)+' · '+esc(String(plan.hours))+' hours · '+esc(plan.vibe||vibe)+'</div></div>'+
         '<div style="display:flex;gap:5px;flex-shrink:0">'+
-        '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="saveDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">💾 Save</button>'+
+        '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="saveDayPlan()">💾 Save</button>'+
         '<button style="padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2)" onclick="shareDayPlan(\''+encodeURIComponent(JSON.stringify(plan))+'\')">Share</button>'+
         '</div>'+
       '</div>';
@@ -848,20 +881,20 @@ function runDayPlan(destId){
     }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
   },1800);
 }
-function saveDayPlan(encoded){
-  try{
-    var raw=typeof encoded==='string'?encoded:JSON.stringify(encoded);
-    var plan;
-    try{plan=JSON.parse(decodeURIComponent(raw));}catch(e2){plan=JSON.parse(raw);}
-    var itin={_id:uid(),_type:'dayplan',title:plan.title||'Day plan',city:plan.city||currentPlanCity||'',hours:plan.hours||6,vibe:plan.vibe||'',start:plan.start||'',stops:plan.stops||[],highlights:(plan.vibe||'')+' · '+(plan.hours||6)+' hours',duration_days:1};
-    S.itins.unshift(itin);save();renderItins();
-    toast('Day plan saved! Check the Trips tab.');
-    swScreen('s-itin');
-    setTimeout(function(){
-      var el=document.querySelector('#trip-filter-row .pill:nth-child(3)');
-      if(el)setTripFilter('dayplan',el);
-    },100);
-  }catch(e){console.error('saveDayPlan error',e);toast('Could not save plan: '+e.message);}
+function saveDayPlan(){
+  var plan=currentPlanData;
+  if(!plan){toast('No day plan to save');return;}
+  var itin={_id:uid(),_type:'dayplan',title:plan.title||'Day plan',city:plan.city||currentPlanCity||'',hours:plan.hours||6,vibe:plan.vibe||'',start:plan.start||'',stops:plan.stops||[],highlights:(plan.vibe||'')+' · '+(plan.hours||6)+' hours starting '+(plan.start||''),duration_days:1};
+  S.itins.unshift(itin);
+  save();
+  renderItins();
+  toast('Day plan saved!');
+  // Switch to trips tab on day plans filter
+  swScreen('s-itin');
+  setTimeout(function(){
+    var pills=document.querySelectorAll('#trip-filter-row .pill');
+    if(pills[2])setTripFilter('dayplan',pills[2]);
+  },120);
 }
 function shareDayPlan(encoded){
   var plan=JSON.parse(decodeURIComponent(encoded));
@@ -1025,12 +1058,12 @@ function doGenItins(){
   var ds=destinations.map(function(d){return d.name+', '+d.country;}).join('; ');
   var prompt='Create 3-4 trip itineraries for a group of '+group+' departing from '+hc+'. Destinations: '+ds+'.\n'+
     'Rules: Group only geographically nearby destinations. Never mix continents.\n'+
-    'Flights estimated FROM '+hc+'. Accommodation SHARED by '+group+' people — divide room cost per person.\n'+
+    'Flights estimated FROM '+hc+'. Include inter-city travel costs (flights between destinations). Accommodation SHARED by '+group+' people — divide room cost per person.\n'+
     'Return ONLY valid JSON:\n'+
     '[{"title":"...","region":"...","destinations":["City1"],"duration_days":10,"best_season":"Apr-Jun","worst_season":"Dec-Jan","highlights":"...",'+
     '"costs":{"budget":{"total_pp":1800,"flights_pp":400,"accommodation_pp":300,"food_pp":200,"activities_pp":100,"notes":"Hostel shared '+group+' ways, street food, budget carrier from '+hc+'"},'+
     '"premium":{"total_pp":5000,"flights_pp":1200,"accommodation_pp":2000,"food_pp":1200,"activities_pp":600,"notes":"4-star hotel shared '+group+' ways, fine dining, direct flights from '+hc+'"}},'+
-    '"days":[{"day":"Day 1-2","location":"City","description":"What to do and see"}]}]';
+    '"days":[{"day":"Day 1-2","location":"City","description":"What to do and see"},{"day":"Travel day","location":"City1 to City2","description":"Flight/train tips"}]}]';
   ai([{role:'user',content:prompt}],function(err,text){
     btn.disabled=false;btn.textContent='Generate trips';
     if(err){
@@ -1054,8 +1087,9 @@ function setTripFilter(f,el){
   tripFilter=f;
   document.querySelectorAll('#trip-filter-row .pill').forEach(function(b){b.classList.remove('on');});
   if(el)el.classList.add('on');
-  var tb=g('trip-toolbar');
-  if(tb)tb.style.display=f==='dayplan'?'none':'flex';
+  // Hide generate button on day plans tab
+  var genBtn=g('genbtn');
+  if(genBtn)genBtn.style.display=f==='dayplan'?'none':'';
   renderItins();
 }
 function renderItins(){
@@ -1097,8 +1131,7 @@ function renderItins(){
     '<div class="itin-high">'+esc(it.highlights||'')+'</div>'+
     '<div class="card-actions">'+
       '<button class="card-act-btn" onclick="event.stopPropagation();shareItin(\''+id+'\')">'+
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'+
-        'Share'+
+        '<svg width="12" height="12" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/></svg> Share'+
       '</button>'+
       '<button class="card-act-btn" onclick="event.stopPropagation();openDetail(\''+id+'\')">See breakdown →</button>'+
     '</div>'+
@@ -1127,12 +1160,50 @@ function shareSavedDay(id){
   if(navigator.share){navigator.share({title:it.title,text:text}).catch(function(){});}
   else if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){showShareToast('Copied!');});}
 }
-function shareItin(id){
+function shareItin(id){shareItinWithFriends(id);return;}
+function _shareItinOld(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
   var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(it))));
   var url=window.location.origin+window.location.pathname+'#share='+encoded;
   if(navigator.share){navigator.share({title:it.title,text:'Check out this trip: '+it.title,url:url}).catch(function(){});}
   else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Share link copied! Send it to friends.');});}
+}
+function selDetCity(el,city,itinId){
+  document.querySelectorAll('#det-city-sel .filter-pill').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  // Rebuild booking links for this city
+  var it=S.itins.find(function(x){return x._id===itinId;});if(!it)return;
+  var group=it._group||2;
+  var nights=it.duration_days||7;
+  // Find days for this city
+  var cityDays=(it.days||[]).filter(function(d){return d.location&&d.location.toLowerCase().indexOf(city.toLowerCase())>-1;});
+  var cityNights=cityDays.length||Math.round(nights/(it.destinations||['x']).length)||2;
+  var dates=getSeasonDates(it.best_season,cityNights);
+  var cin=dates.in,cout=dates.out;
+  var destEnc=encodeURIComponent(city);
+  var fromEnc=encodeURIComponent(it._from||'');
+  var b=it.costs?it.costs.budget:{accommodation_pp:100*cityNights};
+  var p=it.costs?it.costs.premium:{accommodation_pp:200*cityNights};
+  var ppn_b=Math.round((b.accommodation_pp||100*cityNights)/cityNights);
+  var ppn_p=Math.round((p.accommodation_pp||200*cityNights)/cityNights);
+  var airbnbMin=Math.round(ppn_b*0.7);
+  var airbnbMax=Math.round(ppn_b*1.4);
+  var airbnbMinP=Math.round(ppn_p*0.7);
+  var airbnbMaxP=Math.round(ppn_p*1.4);
+  var links=[
+    ['🔍 Google Flights — '+city,'https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1'],
+    ['🏨 Budget hotels ('+cin+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
+    ['🏨 Premium hotels ('+cin+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
+    ['🏠 Airbnb budget ($'+airbnbMin+'-$'+airbnbMax+'/night)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+airbnbMin+'&price_max='+airbnbMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airbnbMinP+'+/night)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+airbnbMinP+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group],
+    ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
+  ];
+  var bookEl=g('det-book-links');
+  if(bookEl){
+    bookEl.innerHTML='<p style="font-size:11px;color:var(--text3);margin-bottom:7px">'+city+' · '+cityNights+' nights · '+cin+' to '+cout+'</p>'+
+      links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
+  }
 }
 function getSeasonDates(season,nights){
   // Convert "Apr-Jun" or "Nov-Mar" to real check-in/out dates (next occurrence)
@@ -1195,6 +1266,12 @@ function openDetail(id){
     var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
     costHtml=
       '<div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:8px;border:1px solid var(--border);">'+
+        '<div style="margin-bottom:10px">'+
+          '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;font-weight:600">SELECT CITY TO SEARCH:</div>'+
+          '<div style="display:flex;gap:5px;flex-wrap:wrap" id="det-city-sel">'+
+            (it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="filter-pill'+(i===0?' on':'')+'" onclick="selDetCity(this,&quot;'+dn+'&quot;,&quot;'+id+'&quot;)" style="font-size:11px">'+dn+'</button>';}).join('')+
+          '</div>'+
+        '</div>'+
         '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;line-height:1.5">'+
           'ℹ️ Prices are AI estimates based on typical costs. Tap the green (budget) or gold (premium) amounts to search real listings with your dates.<br>'+
           '<b>Dates:</b> '+cin+' → '+cout+' · <b>Group:</b> '+group+' people'+
@@ -1260,7 +1337,7 @@ function openDetail(id){
         ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+grp],
         ['🎟 Viator (tours & activities)','https://www.viator.com/searchResults/all?text='+destEnc]
       ];
-      return '<p style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dates pre-filled based on best travel season ('+cin+' – '+cout+'). Adjust on each site as needed.</p>'+
+      return '<p style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dates pre-filled based on best travel season ('+cin+' to '+cout+'). Adjust on each site as needed.</p>'+
         links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
     })();
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
@@ -1272,12 +1349,16 @@ function viewTripOnMap(id,showRoute){
   setTimeout(function(){
     map.invalidateSize();
     if(showRoute){
-      setFilter('routes',g('mf-routes'));
+      clearRouteLines();
+      S.mapFilter='routes';
+      document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
+      var routeBtn=g('mf-routes');if(routeBtn)routeBtn.classList.add('on');
+      syncMap();
       drawRouteLines(it);
     } else {
       setFilter('dest',g('mf-dest'));
     }
-  },150);
+  },200);
 }
 function buildBudgetTracker(it){
   var spent=it._spent||{flights:0,hotels:0,activities:0,other:0};
@@ -1288,7 +1369,7 @@ function buildBudgetTracker(it){
     ['flights','hotels','activities','other'].map(function(cat){
       return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
         '<span style="font-size:12px;color:var(--text2);width:70px;flex-shrink:0">'+cat+'</span>'+
-        '<input type="number" placeholder="$0" value="'+(spent[cat]||'')+'" style="flex:1;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;color:var(--text);outline:none" oninput="updateBudget(\''+it._id+'\',\''+cat+'\',this.value)">'+
+        '<input type="number" placeholder="$0" value="'+(spent[cat]||'')+'" style="flex:1;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;color:var(--text);outline:none" onchange="updateBudget(\''+it._id+'\',\''+cat+'\',this.value)">'+
       '</div>';
     }).join('')+
     '<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);margin-top:4px">'+
@@ -1580,6 +1661,54 @@ function importBackup(inp){
       toast('Imported '+nd+' places and '+ni+' trips!');
     }catch(e){toast('Could not read backup file');}
   };r.readAsText(inp.files[0]);
+}
+
+// ── Friends ──────────────────────────────────────────────
+function loadFriends(){
+  try{return JSON.parse(localStorage.getItem('wl_friends')||'[]');}catch(e){return[];}
+}
+function saveFriends(f){localStorage.setItem('wl_friends',JSON.stringify(f));}
+function addFriend(){
+  var name=g('friend-name-inp').value.trim();
+  if(!name){toast('Enter a name');return;}
+  var friends=loadFriends();
+  if(!friends.find(function(f){return f.name.toLowerCase()===name.toLowerCase();})){
+    friends.push({name:name,id:uid()});
+    saveFriends(friends);
+  }
+  g('friend-name-inp').value='';
+  renderFriendsList();
+  toast('Friend added!');
+}
+function renderFriendsList(){
+  var friends=loadFriends();
+  var el=g('friends-list');if(!el)return;
+  if(!friends.length){el.innerHTML='<p style="font-size:12px;color:var(--text3)">No friends added yet.</p>';return;}
+  el.innerHTML='';
+  friends.forEach(function(f){
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)';
+    row.innerHTML='<span style="flex:1;font-size:14px">'+esc(f.name)+'</span>';
+    var btn=document.createElement('button');
+    btn.textContent='×';
+    btn.style.cssText='background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer';
+    btn.addEventListener('click',function(){rmFriend(f.id);});
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+function rmFriend(id){
+  var friends=loadFriends().filter(function(f){return f.id!==id;});
+  saveFriends(friends);renderFriendsList();
+}
+function shareItinWithFriends(itinId){
+  var it=S.itins.find(function(x){return x._id===itinId;});if(!it)return;
+  var friends=loadFriends();
+  var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(it))));
+  var url=window.location.origin+window.location.pathname+'#share='+encoded;
+  var text=it.title+'\n\nJoin this trip on Wanderlist:\n'+url;
+  if(navigator.share){navigator.share({title:it.title,text:text,url:url}).catch(function(){});}
+  else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Link copied! Share with your friends.');});}
 }
 
 // ── Screens ───────────────────────────────────────────────
