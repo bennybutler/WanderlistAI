@@ -1249,7 +1249,7 @@ function openDayDetail(id){
   });
   g('det-body').innerHTML=html;
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
-  // Wire city buttons via event delegation
+  // Wire city buttons via event delegation and auto-trigger first city
   setTimeout(function(){
     var body=g('det-body');if(!body)return;
     body.addEventListener('click',function(e){
@@ -1259,7 +1259,10 @@ function openDayDetail(id){
       btn.classList.add('on');
       selDetCity(btn,city,itid);
     });
-  },50);
+    // Auto-trigger first city
+    var firstBtn=body.querySelector('.det-city-btn');
+    if(firstBtn)firstBtn.click();
+  },100);
 }
 function shareSavedDay(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
@@ -1312,41 +1315,44 @@ function selDetCity(el,city,itinId){
   var cinStr=fmt(cin),coutStr=fmt(cout);
   var destEnc=encodeURIComponent(city);
   var fromEnc=encodeURIComponent(it._from||'');
-  // Airbnb price: total accommodation cost ÷ nights ÷ group (since it's shared)
-  var b=it.costs?it.costs.budget:{accommodation_pp:150};
-  var p=it.costs?it.costs.premium:{accommodation_pp:300};
-  // Total accommodation budget for this city = per-person cost × group size ÷ num destinations
-  var totalBudgetAccom=Math.round((b.accommodation_pp||150)*group/numDests);
-  var totalPremAccom=Math.round((p.accommodation_pp||300)*group/numDests);
-  // Per-night total
-  var ppnBudget=Math.max(50,Math.round(totalBudgetAccom/cityNights));
-  var ppnPrem=Math.max(100,Math.round(totalPremAccom/cityNights));
-  // Airbnb total price = per night (they show total not per person)
-  // Total nightly price for whole place = per-person-per-night * group
-  // Budget: aim for ppnBudget per person, so total = ppnBudget * group
-  // Airbnb max = budget cap, min = 60% of budget (so we see options)
-  var airBudgetTotal=Math.round(ppnBudget*group);
-  var airBudgetMin=Math.max(30,Math.round(airBudgetTotal*0.5));
-  var airBudgetMax=Math.round(airBudgetTotal*1.3);
-  var airPremTotal=Math.round(ppnPrem*group);
-  var airPremMin=Math.round(airPremTotal*0.7);
-  var airPremMax=Math.round(airPremTotal*1.4);
-  var links=[
-    ['✈ Outbound flight to '+city+' ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&adults=1'],
-    ['✈ Return flight from '+city+' to home ('+coutStr+')','https://www.google.com/travel/flights?q=Flights+from+'+destEnc+'+to+'+fromEnc+'&date1='+coutStr+'&adults=1'],
-    ['🏨 Budget hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
-    ['🏨 Premium hotels — Booking.com','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
+  var b=it.costs?it.costs.budget:{accommodation_pp:150,flights_pp:400};
+  var p=it.costs?it.costs.premium:{accommodation_pp:300,flights_pp:1200};
+
+  // Airbnb: total nightly price for the whole place
+  // = accommodation_pp (per person for whole trip) × group ÷ totalNights × 1.4 buffer
+  var airBudgetMax=Math.round((b.accommodation_pp||150)*group/totalNights*1.4);
+  var airPremMax=Math.round((p.accommodation_pp||300)*group/totalNights*1.4);
+  // Budget shows up to budget cap; premium shows above budget cap up to premium cap
+  var airBudgetMin=0; // no min for budget — show cheapest options
+  var airPremMin=airBudgetMax; // premium starts where budget ends
+
+  // Flight from this city: if it's the LAST destination, fly home; otherwise fly to next city
+  var dests=it.destinations||[];
+  var nextDest=cityIdx<dests.length-1?dests[cityIdx+1].split(',')[0].trim():(it._from||'');
+  var isLastCity=cityIdx===dests.length-1;
+  var nextDestEnc=encodeURIComponent(nextDest);
+  var flightLabel=isLastCity?'✈ Return flight: '+city+' → home ('+coutStr+')':'✈ Flight: '+city+' → '+nextDest+' ('+coutStr+')';
+  var flightUrl='https://www.google.com/travel/flights?q=Flights+from+'+destEnc+'+to+'+nextDestEnc+'&date1='+coutStr+'&adults=1&hl=en';
+
+  // Also show inbound flight for first city (home → city)
+  var inboundLinks=cityIdx===0?[['✈ Inbound flight: home → '+city+' ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&adults=1&hl=en']]:[];
+
+  var links=inboundLinks.concat([
+    [flightLabel,flightUrl],
+    ['🏨 Budget hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
+    ['🏨 Premium hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
     ['🏠 Airbnb budget (max $'+airBudgetMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airPremMin+'-$'+airPremMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'+/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt'],
     ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
-  ];
+  ]);
   var bookEl=g('det-book-links');
   if(bookEl){
     bookEl.innerHTML=
       '<div style="background:var(--blue-lt);border-radius:var(--rsm);padding:8px 11px;margin-bottom:9px;font-size:12px;color:var(--blue);line-height:1.5">'+
-        '<b>'+city+'</b> · '+cityNights+' nights · Check-in: '+cinStr+' · Check-out: '+coutStr+
-        '<br><span style="font-size:11px;color:var(--text3)">Airbnb prices are total/night for '+group+' guests (entire home)</span>'+
+        '<b>'+city+'</b> · '+cityNights+' nights · '+cinStr+' → '+coutStr+
+        (isLastCity?'':('<br>Next: '+nextDest+' · flight on '+coutStr))+
+        '<br><span style="font-size:11px;color:var(--text3)">Airbnb budget max = $'+airBudgetMax+'/night · Premium min = $'+airPremMin+'/night ('+group+' guests, entire home)</span>'+
       '</div>'+
       links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
   }
@@ -1400,14 +1406,23 @@ function openDetail(id){
     var destEnc=encodeURIComponent(dest0);
     var fromEnc=encodeURIComponent(fromCity);
     // Google Flights: best for showing actual prices with prefilled route+dates
-    var gflightBudget='https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1&hl=en&curr=USD';
-    var gflightPrem='https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&date2='+cout+'&adults=1&hl=en&curr=USD&tfc=true';
+    // Build multi-city flight links: outbound to first city, then city-to-city, then return home from last city
+    var allDests=it.destinations||[];
+    var lastDest=allDests[allDests.length-1]||dest0;
+    var lastDestEnc=encodeURIComponent(lastDest.split(',')[0].trim());
+    var lastDates=getSeasonDates(it.best_season,(it.duration_days||7));
+    var returnDate=lastDates.out;
+    var gflightBudget='https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cin+'&adults=1&hl=en';
+    var gflightPrem='https://www.google.com/travel/flights?q=Flights+from+'+lastDestEnc+'+to+'+fromEnc+'&date1='+returnDate+'&adults=1&hl=en';
     // Booking.com with dates, guests, rating filter
     var bookBudget='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price';
     var bookPrem='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5&order=review_score_and_price';
     // Airbnb with dates and guest count
-    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+(Math.round(b.accommodation_pp/nights*1.3))+'&room_types%5B%5D=Entire+home%2Fapt';
-    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_min='+(Math.round(p.accommodation_pp/nights*0.7))+'&room_types%5B%5D=Entire+home%2Fapt';
+    // Total nightly price = per-person cost * group (they share the place)
+    var airBudgetNightly=Math.round(b.accommodation_pp*group/nights);
+    var airPremNightly=Math.round(p.accommodation_pp*group/nights);
+    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airBudgetNightly+'&room_types%5B%5D=Entire+home%2Fapt';
+    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airPremNightly+'&price_min='+Math.round(airBudgetNightly*1.1)+'&room_types%5B%5D=Entire+home%2Fapt';
     // Hostelworld budget
     var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
     costHtml=
@@ -1427,7 +1442,8 @@ function openDetail(id){
           '<span style="font-size:11px;color:var(--green);font-weight:600;width:80px;text-align:right">💰 Budget</span>'+
           '<span style="font-size:11px;color:var(--gold);font-weight:600;width:80px;text-align:right">✨ Premium</span>'+
         '</div>'+
-        costRow('✈ Flights — Google Flights',b.flights_pp,p.flights_pp,gflightBudget,gflightPrem)+
+        costRow('✈ Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
+        costRow('✈ Return: '+lastDest.split(',')[0]+' → '+fromCity+' (+ inter-city)',b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
         costRow('🏨 Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
         costRow('🏠 Airbnb',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
         costRow('🛏 Hostels — Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,hostelUrl,hostelUrl)+
@@ -1462,14 +1478,6 @@ function openDetail(id){
     '<div class="section-lbl">Day by day</div>'+
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
     '<div class="section-lbl">Tweak this itinerary with AI</div>'+
-    '<div id="itin-chat-'+id+'" style="background:var(--bg2);border-radius:var(--rsm);padding:11px;border:1px solid var(--border);margin-bottom:12px">'+
-      '<div id="itin-chat-msgs-'+id+'" style="max-height:180px;overflow-y:auto;margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6"></div>'+
-      '<div style="display:flex;gap:7px">'+
-        '<input id="itin-chat-inp-'+id+'" placeholder="e.g. Spend more time in Paris, cut Amsterdam..." style="flex:1;padding:8px 11px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')" >'+
-        '<button onclick="sendItinChat(\''+id+'\')" style="width:34px;height:34px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;font-size:16px;flex-shrink:0">→</button>'+
-      '</div>'+
-    '</div>'+
-    '<div class="section-lbl">Tweak this itinerary with AI</div>'+
     '<div id="itin-chat-'+id+'" style="margin-bottom:12px">'+
       '<div id="itin-chat-msgs-'+id+'" style="max-height:200px;overflow-y:auto;background:var(--bg2);border-radius:var(--rsm);padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:13px;line-height:1.5;color:var(--text2)">Ask me anything about this trip — e.g. "Spend more time in Paris", "Remove Barcelona", "Best restaurants in each city"</div>'+
       '<div style="display:flex;gap:6px">'+
@@ -1482,6 +1490,7 @@ function openDetail(id){
       buildBudgetTracker(it)+
     '</div>'+
     '<div class="section-lbl">Book your trip</div>'+
+    '<div id="det-book-links">'+
 (function(){
       var dest0=(it.destinations||[])[0]||'';
       var destEnc=encodeURIComponent(dest0);
@@ -1501,7 +1510,8 @@ function openDetail(id){
       ];
       return '<p style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dates pre-filled based on best travel season ('+cin+' to '+cout+'). Adjust on each site as needed.</p>'+
         links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
-    })();
+    })()+
+    '</div>';
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
 }
 function sendItinChat(id){
@@ -1522,16 +1532,19 @@ function sendItinChat(id){
       return;
     }
     try{
-      var parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
-      // Only update days, title if present - preserve costs, region, destinations etc
-      if(parsed.days){it.days=parsed.days;}
-      if(parsed.title&&parsed.title!==it.title){it.title=parsed.title;}
-      if(parsed.duration_days){it.duration_days=parsed.duration_days;}
+      var cleaned2=text.replace(/```json|```/g,'').trim();
+      var ai2=JSON.parse(cleaned2.substring(cleaned2.indexOf('{'),cleaned2.lastIndexOf('}')+1));
+      // Merge: only update days (and optionally title) - keep ALL other fields
+      if(ai2.days&&ai2.days.length){it.days=ai2.days;}
+      if(ai2.title){it.title=ai2.title;}
+      if(ai2.duration_days&&ai2.duration_days!==it.duration_days){it.duration_days=ai2.duration_days;}
       save();renderItins();
-      if(msgs)msgs.innerHTML+='<div style="color:var(--green);background:var(--green-lt);padding:6px 9px;border-radius:var(--rsm);margin-bottom:5px;font-size:12px">✓ Updated! Close and reopen trip to see full changes.</div>';
+      if(msgs)msgs.innerHTML+='<div style="color:var(--green);background:var(--green-lt);border-radius:6px;padding:5px 8px;margin-bottom:5px;font-size:12px">✓ Days updated! Costs and budget preserved.</div>';
       msgs.scrollTop=msgs.scrollHeight;
     }catch(e){
-      if(msgs)msgs.innerHTML+='<div style="margin-bottom:5px;font-size:12px">'+esc(text.substring(0,300))+'</div>';
+      // Show AI plain text response if JSON parse fails
+      if(msgs)msgs.innerHTML+='<div style="margin-bottom:5px;font-size:12px;line-height:1.5">'+esc(text.replace(/```json|```/g,'').substring(0,400))+'</div>';
+      msgs.scrollTop=msgs.scrollHeight;
     }
   },2500,sys);
 }
