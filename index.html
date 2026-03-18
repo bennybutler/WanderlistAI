@@ -1155,20 +1155,28 @@ function doGenItins(){
   ai([{role:'user',content:prompt}],function(err,text){
     btn.disabled=false;btn.textContent='Generate trips';
     if(err){
-      if(err.toLowerCase().indexOf('overload')>-1){
-        g('ilist').innerHTML='<div class="empty-state"><p>AI is busy right now. Wait 10 seconds and try again.</p></div>';
-      } else {
-        g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+esc(err)+'</p></div>';
-      }
+      var msg=err.toLowerCase().indexOf('overload')>-1?'AI is busy right now. Wait 10 seconds and try again.':
+              err.toLowerCase().indexOf('api key')>-1?'No API key — go to ⚙ Settings to add your key.':
+              'Error: '+err;
+      g('ilist').innerHTML='<div class="empty-state"><p style="color:red">'+esc(msg)+'</p></div>';
       return;
     }
     try{
-      var newItins=JSON.parse(text.replace(/```json|```/g,'').trim());
+      var cleaned=text.replace(/```json|```/g,'').trim();
+      // Find the JSON array in the response
+      var arrStart=cleaned.indexOf('[');
+      var arrEnd=cleaned.lastIndexOf(']');
+      if(arrStart>-1&&arrEnd>arrStart)cleaned=cleaned.substring(arrStart,arrEnd+1);
+      var newItins=JSON.parse(cleaned);
+      if(!Array.isArray(newItins)||!newItins.length)throw new Error('Empty response');
       newItins.forEach(function(it){it._id=uid();it._group=group;it._type='trip';it._from=hc;});
       S.itins=newItins.concat(S.itins);
-      save();renderItins();toast('Trips saved!');
-    }catch(e){g('ilist').innerHTML='<div class="empty-state"><p>Could not parse response. Try again.</p></div>';}
-  },3000);
+      save();renderItins();toast('Trips generated!');
+    }catch(e){
+      // Show raw text for debugging
+      g('ilist').innerHTML='<div class="empty-state"><p style="color:red;font-size:12px">Could not parse AI response. '+esc(e.message)+'</p><p style="font-size:11px;color:var(--text3);margin-top:8px;word-break:break-all">'+esc((text||'').substring(0,200))+'</p></div>';
+    }
+  },4000);
 }
 var tripFilter='all';
 function setTripFilter(f,el){
@@ -1911,7 +1919,7 @@ function swScreen(s){
 function ai(msgs,cb,maxTok,sys,_retry){
   var key=localStorage.getItem('wl_apikey');
   if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);swScreen('s-settings');return;}
-  var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||1000,messages:msgs};
+  var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||2000,messages:msgs};
   if(sys)body.system=sys;
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
