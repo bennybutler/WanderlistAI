@@ -1307,33 +1307,58 @@ function selDetCity(el,city,itinId){
 
   // Airbnb: total nightly price for the whole place
   // = accommodation_pp (per person for whole trip) × group ÷ totalNights × 1.4 buffer
-  var airBudgetMax=Math.round((b.accommodation_pp||150)*group/totalNights*1.4);
-  var airPremMax=Math.round((p.accommodation_pp||300)*group/totalNights*1.4);
-  // Budget shows up to budget cap; premium shows above budget cap up to premium cap
-  var airBudgetMin=0; // no min for budget — show cheapest options
+  var airBudgetMax=Math.round((b.accommodation_pp||150)*group/totalNights*1.4*cityNights);
+  var airPremMax=Math.round((p.accommodation_pp||300)*group/totalNights*1.4*cityNights);
+  var airBudgetMin=0;
   var airPremMin=airBudgetMax; // premium starts where budget ends
 
-  // Flight from this city: if it's the LAST destination, fly home; otherwise fly to next city
+  // Flight from this city: one-way to NEXT city (not round-trip home)
   var dests=it.destinations||[];
   var nextDest=cityIdx<dests.length-1?dests[cityIdx+1].split(',')[0].trim():(it._from||'');
   var isLastCity=cityIdx===dests.length-1;
   var nextDestEnc=encodeURIComponent(nextDest);
-  var flightLabel=isLastCity?'✈ Return flight: '+city+' → home ('+coutStr+')':'✈ Flight: '+city+' → '+nextDest+' ('+coutStr+')';
-  var flightUrl='https://www.google.com/travel/flights?q=Flights+from+'+destEnc+'+to+'+nextDestEnc+'&date1='+coutStr+'&adults=1&hl=en';
+  var flightLabel=isLastCity?'✈ One-way home: '+city+' → '+(it._from||'home')+' ('+coutStr+')':'✈ One-way: '+city+' → '+nextDest+' ('+coutStr+')';
+  // &tt=o = one-way in Google Flights
+  var flightUrl='https://www.google.com/travel/flights?q=Flights+from+'+destEnc+'+to+'+nextDestEnc+'&date1='+coutStr+'&tt=o&adults=1&hl=en';
 
-  // Also show inbound flight for first city (home → city)
-  var inboundLinks=cityIdx===0?[['✈ Inbound flight: home → '+city+' ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&adults=1&hl=en']]:[];
+  // Inbound flight to FIRST city (also one-way)
+  var inboundLinks=cityIdx===0?[['✈ One-way: '+(it._from||'home')+' → '+city+' ('+cinStr+')','https://www.google.com/travel/flights?q=Flights+from+'+fromEnc+'+to+'+destEnc+'&date1='+cinStr+'&tt=o&adults=1&hl=en']]:[];
 
   var links=inboundLinks.concat([
     [flightLabel,flightUrl],
     ['🏨 Budget hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
     ['🏨 Premium hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-    ['🏠 Airbnb budget (max $'+airBudgetMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airPremMin+'+/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb budget (max $'+airBudgetMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'+ total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&room_types%5B%5D=Entire+home%2Fapt'],
     ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
   ]);
   var bookEl=g('det-book-links');
+  var costRowsEl=g('det-city-cost-rows');
+
+  // Build the per-city costRow function (same signature as outer costRow)
+  function cr(label,budget,premium,bUrl,pUrl){
+    var bc=bUrl?'onclick="window.open(\''+bUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
+    var pc=pUrl?'onclick="window.open(\''+pUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
+    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2)">'+label+'</span>'+
+      '<span '+bc+' style="font-size:13px;font-weight:500;color:var(--green);width:80px;text-align:right">$'+Math.round(budget).toLocaleString()+(bUrl?' ↗':'')+'</span>'+
+      '<span '+pc+' style="font-size:13px;font-weight:500;color:var(--gold);width:80px;text-align:right">$'+Math.round(premium).toLocaleString()+(pUrl?' ↗':'')+'</span>'+
+    '</div>';
+  }
+
+  var newCostRows=
+    cr('🏨 Hotels ('+cinStr+'–'+coutStr+')',b.accommodation_pp,p.accommodation_pp,
+      'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price',
+      'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5')+
+    cr('🏠 Airbnb budget (max $'+airBudgetMax+' total, '+cityNights+'n)',b.accommodation_pp,p.accommodation_pp,
+      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt',
+      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&room_types%5B%5D=Entire+home%2Fapt')+
+    cr('🛏 Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,
+      'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group,
+      'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group);
+
+  if(costRowsEl)costRowsEl.innerHTML=newCostRows;
   if(bookEl){
     bookEl.innerHTML=
       '<div style="background:var(--blue-lt);border-radius:var(--rsm);padding:8px 11px;margin-bottom:9px;font-size:12px;color:var(--blue);line-height:1.5">'+
@@ -1431,13 +1456,13 @@ function openDetail(id){
         '</div>'+
         costRow('✈ Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
         costRow('✈ Return: '+lastDest.split(',')[0]+' → '+fromCity+' (+ inter-city)',b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
+        '<div id="det-city-cost-rows">'+
         costRow('🏨 Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
         costRow('🏠 Airbnb',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
         costRow('🛏 Hostels — Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,hostelUrl,hostelUrl)+
+        '</div>'+
         costRow('🍽 Food & drink',b.food_pp,p.food_pp,'','')+
         costRow('🎟 Activities',b.activities_pp,p.activities_pp,'','')+
-        '<div style="display:flex;align-items:center;padding:9px 0 2px;">'+
-          '<span style="flex:1;font-size:14px;font-weight:700;color:var(--text)">Total /person</span>'+
           '<span style="font-size:14px;font-weight:700;color:var(--green);width:80px;text-align:right">$'+b.total_pp.toLocaleString()+'</span>'+
           '<span style="font-size:14px;font-weight:700;color:var(--gold);width:80px;text-align:right">$'+p.total_pp.toLocaleString()+'</span>'+
         '</div>'+
