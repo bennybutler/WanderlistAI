@@ -1463,21 +1463,15 @@ function openDetail(id){
   g('det-title').textContent=it.title||'Trip';
   // Build cost rows
   function costRow(label,budget,premium,budgetUrl,premiumUrl){
-    var bStyle='display:flex;flex-direction:column;align-items:center;cursor:'+(budgetUrl?'pointer':'default')+';min-width:72px;padding:6px 8px;border-radius:8px;'+(budgetUrl?'background:rgba(45,106,18,.06);':'');
-    var pStyle='display:flex;flex-direction:column;align-items:center;cursor:'+(premiumUrl?'pointer':'default')+';min-width:72px;padding:6px 8px;border-radius:8px;'+(premiumUrl?'background:rgba(184,115,10,.06);':'');
     var bOpen=budgetUrl?"window.open('"+budgetUrl+"','_blank')":'';
     var pOpen=premiumUrl?"window.open('"+premiumUrl+"','_blank')":'';
-    var bOnclick=bOpen?'onclick="'+bOpen+'"':'';
-    var pOnclick=pOpen?'onclick="'+pOpen+'"':'';
-    return '<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
-      '<span style="flex:1;font-size:13px;color:var(--text2);line-height:1.4">'+label+'</span>'+
-      '<div style="'+bStyle+'" '+bOnclick+'>'+
-        '<span style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Budget'+(budgetUrl?' ↗':' ')+'</span>'+
-        '<span style="font-size:16px;font-weight:700;color:var(--green);font-family:Fraunces,serif">$'+Math.round(budget).toLocaleString()+'</span>'+
+    return '<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2);line-height:1.4;padding-right:8px">'+label+'</span>'+
+      '<div style="min-width:88px;text-align:center;cursor:'+(budgetUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(bOpen?'onclick="'+bOpen+'"':'')+'>'+
+        '<span style="font-size:18px;font-weight:700;color:var(--green);font-family:Fraunces,serif;display:block">$'+Math.round(budget).toLocaleString()+(budgetUrl?' ↗':'')+'</span>'+
       '</div>'+
-      '<div style="'+pStyle+'" '+pOnclick+'>'+
-        '<span style="font-size:9px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Premium'+(premiumUrl?' ↗':' ')+'</span>'+
-        '<span style="font-size:16px;font-weight:700;color:var(--gold);font-family:Fraunces,serif">$'+Math.round(premium).toLocaleString()+'</span>'+
+      '<div style="min-width:88px;text-align:center;cursor:'+(premiumUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(pOpen?'onclick="'+pOpen+'"':'')+'>'+
+        '<span style="font-size:18px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;display:block">$'+Math.round(premium).toLocaleString()+(premiumUrl?' ↗':'')+'</span>'+
       '</div>'+
     '</div>';
   }
@@ -1530,22 +1524,33 @@ function openDetail(id){
           'ℹ️ Prices are AI estimates based on typical costs. Tap the green (budget) or gold (premium) amounts to search real listings with your dates.<br>'+
           '<b>Dates:</b> '+cin+' → '+cout+' · <b>Group:</b> '+group+' people'+
         '</div>'+
-        '<div style="display:flex;margin-bottom:6px;">'+
-          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Category</span>'+
-          '<span style="font-size:11px;color:var(--green);font-weight:600;width:80px;text-align:right">💰 Budget</span>'+
-          '<span style="font-size:11px;color:var(--gold);font-weight:600;width:80px;text-align:right">✨ Premium</span>'+
+        '<div style="display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
+          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Category</span>'+
+          '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--green)">💰 Budget</div>'+
+          '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
         '</div>'+
         costRow('✈ Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
         costRow('✈ Return: '+lastDest.split(',')[0]+' → '+fromCity+' (+ inter-city)',b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
         '<div id="det-city-cost-rows">'+
         costRow('🏨 Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
         costRow('🏠 Airbnb',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
-        costRow('🛏 Hostels — Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,hostelUrl,hostelUrl)+
+        costRow('🛏 Hostels — Hostelworld',Math.round(b.accommodation_pp*0.4),Math.round(b.accommodation_pp*0.65),hostelUrl,hostelUrl)+
         '</div>'+
         costRow('🍽 Food & drink',b.food_pp,p.food_pp,'','')+
         costRow('🎟 Activities',b.activities_pp,p.activities_pp,'','')+
-          '<span style="font-size:14px;font-weight:700;color:var(--green);width:80px;text-align:right">$'+b.total_pp.toLocaleString()+'</span>'+
-          '<span style="font-size:14px;font-weight:700;color:var(--gold);width:80px;text-align:right">$'+p.total_pp.toLocaleString()+'</span>'+
+        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:2px solid var(--border)">'+
+          '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">'+
+            '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em">Total/person</div>'+
+            '<div style="font-size:11px;color:var(--text3);margin-top:1px">'+group+' ppl · '+nights+' nights</div>'+
+          '</div>'+
+          '<div style="min-width:88px;text-align:center;background:rgba(45,106,18,.08);border-radius:10px;padding:8px 4px">'+
+            '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em">Budget</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">$'+b.total_pp.toLocaleString()+'</div>'+
+          '</div>'+
+          '<div style="min-width:88px;text-align:center;background:rgba(184,115,10,.08);border-radius:10px;padding:8px 4px">'+
+            '<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em">Premium</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">$'+p.total_pp.toLocaleString()+'</div>'+
+          '</div>'+
         '</div>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5">✨ '+esc(p.notes)+'</p>'+
@@ -1572,12 +1577,18 @@ function openDetail(id){
     '<div id="det-days-content">'+
     (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
     '</div>'+
-    '<div class="section-lbl">Tweak this itinerary with AI</div>'+
-    '<div id="itin-chat-'+id+'" style="margin-bottom:12px">'+
-      '<div id="itin-chat-msgs-'+id+'" style="max-height:200px;overflow-y:auto;background:var(--bg2);border-radius:var(--rsm);padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:13px;line-height:1.5;color:var(--text2)">Ask me anything about this trip — e.g. "Spend more time in Paris", "Remove Barcelona", "Best restaurants in each city"</div>'+
-      '<div style="display:flex;gap:6px">'+
-        '<input id="itin-chat-inp-'+id+'" type="text" placeholder="Ask AI to adjust your trip..." style="flex:1;padding:8px 11px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')">'+
-        '<button onclick="sendItinChat(\''+id+'\')" style="padding:8px 13px;background:var(--gold);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Ask</button>'+
+    '<div style="background:linear-gradient(135deg,#FFF4E6,#FEE8C4);border:2px solid var(--gold-md);border-radius:16px;padding:16px;margin:16px 0 14px">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;box-shadow:0 2px 8px rgba(184,115,10,.35)">🤖</div>'+
+        '<div>'+
+          '<div style="font-size:15px;font-weight:700;color:var(--text);font-family:Fraunces,serif;letter-spacing:-.01em">Tweak this itinerary</div>'+
+          '<div style="font-size:11px;color:var(--text3);margin-top:1px">Add/remove cities · adjust time · change style</div>'+
+        '</div>'+
+      '</div>'+
+      '<div id="itin-chat-msgs-'+id+'" style="max-height:150px;overflow-y:auto;margin-bottom:10px;font-size:13px;line-height:1.6;color:var(--text2)"></div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<input id="itin-chat-inp-'+id+'" type="text" placeholder="e.g. More time in Paris, cut Amsterdam" style="flex:1;padding:10px 15px;background:rgba(255,255,255,.85);border:1.5px solid var(--gold-md);border-radius:24px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')">'+
+        '<button onclick="sendItinChat(\''+id+'\')" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;flex-shrink:0;font-size:18px;box-shadow:0 3px 10px rgba(184,115,10,.4);display:flex;align-items:center;justify-content:center">→</button>'+
       '</div>'+
     '</div>'+
     '<div class="section-lbl">Trip budget tracker</div>'+
