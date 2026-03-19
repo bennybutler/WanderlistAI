@@ -781,7 +781,8 @@ function openPlaceDetail(id,autoPlanDay){
       '<button class="filter-pill" onclick="setPlaceFilter(\'activity\',this)">🎯 Activities</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
     '</div>'+
-    '<div id="place-recs"><div id="dest-photo-loading" style="margin-bottom:12px"></div><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
+    '<div id="dest-photo-loading" style="margin-bottom:6px"></div>'+
+    '<div id="place-recs"><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
     '<div class="section-lbl" style="margin-top:14px">Plan a day here</div>'+
     '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')">Plan a day in '+esc(d.name)+'</button>';
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
@@ -811,45 +812,61 @@ function setPlaceFilter(f,el){
 
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
-  // Use Unsplash source - free, no API key, sharp high-quality photos
-  var query=encodeURIComponent(destName+(country?' '+country:''));
-  var seeds=[1,2,3,4,5];
-  var photos=seeds.map(function(s){
-    return 'https://source.unsplash.com/600x400/?'+query+'&sig='+s;
-  });
+  // Use Wikimedia REST API - gets original clean image
+  var searchTerm=encodeURIComponent(destName+(country?' '+country:''));
+  // Build 5 different queries to get variety
+  var queries=[destName, destName+' city', destName+' landmark', destName+' skyline', destName+' street'];
+  var loaded=[];
   var current=0;
-  function buildCarousel(){
-    el.innerHTML=
-      '<div style="position:relative;border-radius:14px;overflow:hidden;margin-bottom:8px;background:var(--bg3);aspect-ratio:16/9">'+
-        '<img id="dest-photo-img" src="'+photos[0]+'" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;transition:opacity .3s" onerror="this.style.display=\'none\'">'+
-        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 50%)"></div>'+
-        '<div style="position:absolute;bottom:0;left:0;right:0;padding:14px 14px 10px">'+
-          '<div style="font-size:18px;font-weight:700;color:#fff;font-family:Fraunces,serif;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.4)">'+esc(destName)+'</div>'+
-          (country?'<div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:1px">'+esc(country)+'</div>':'')+
+  // Render compact carousel immediately with placeholder while loading
+  el.innerHTML=
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:center">📸 Browse photos while recommendations load</div>'+
+    '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--bg3);height:110px;margin-bottom:6px">'+
+      '<div id="dest-imgs" style="display:flex;width:500%;height:100%;transition:transform .3s">'+
+        queries.map(function(q,i){
+          return '<img data-q="'+encodeURIComponent(q)+'" data-i="'+i+'" style="width:20%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;display:block" src="" onerror="this.style.opacity=0">';
+        }).join('')+
+      '</div>'+
+      '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 55%)"></div>'+
+      '<div style="position:absolute;bottom:0;left:0;right:0;padding:6px 10px;display:flex;align-items:flex-end;justify-content:space-between">'+
+        '<span style="font-size:13px;font-weight:700;color:#fff;font-family:Fraunces,serif;text-shadow:0 1px 2px rgba(0,0,0,.5)">'+esc(destName)+'</span>'+
+        '<div style="display:flex;gap:3px" id="photo-dots">'+
+          queries.map(function(_,i){return'<div style="width:5px;height:5px;border-radius:50%;background:'+(i===0?'#fff':'rgba(255,255,255,.4)')+'" id="pdot-'+i+'"></div>';}).join('')+
         '</div>'+
-        '<button onclick="prevDestPhoto()" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">‹</button>'+
-        '<button onclick="nextDestPhoto()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">›</button>'+
-        '<div style="position:absolute;bottom:6px;right:10px;display:flex;gap:4px" id="dest-photo-dots">'+
-          photos.map(function(_,i){return'<div style="width:5px;height:5px;border-radius:50%;background:'+(i===0?'#fff':'rgba(255,255,255,.45)')+'" id="dot-'+i+'"></div>';}).join('')+
-        '</div>'+
-      '</div>';
-    window._destPhotos=photos;
-    window._destPhotoIdx=0;
-  }
-  buildCarousel();
-  window.nextDestPhoto=function(){
-    var imgs=window._destPhotos;var idx=(window._destPhotoIdx+1)%imgs.length;
-    window._destPhotoIdx=idx;
-    var img=g('dest-photo-img');if(img){img.style.opacity='0';setTimeout(function(){img.src=imgs[idx];img.style.opacity='1';},150);}
-    document.querySelectorAll('[id^="dot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.45)';});
+      '</div>'+
+      '<button onclick="photoPrev()" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;font-size:13px;cursor:pointer;line-height:1">‹</button>'+
+      '<button onclick="photoNext()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;font-size:13px;cursor:pointer;line-height:1">›</button>'+
+    '</div>';
+  // Load images via Wikimedia search
+  var strip=el.querySelector('#dest-imgs');
+  var imgs=strip?strip.querySelectorAll('img'):[];
+  imgs.forEach(function(img,i){
+    fetch('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(queries[i])+'&gsrlimit=1&prop=pageimages&piprop=original&format=json&origin=*')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var pages=data&&data.query&&data.query.pages;
+      if(!pages)return;
+      var page=Object.values(pages)[0];
+      var src=page&&page.original&&page.original.source;
+      if(src&&img){img.src=src;img.style.opacity='1';}
+    }).catch(function(){});
+  });
+  window._photoIdx=0;
+  window._photoCount=queries.length;
+  window.photoNext=function(){
+    var idx=(window._photoIdx+1)%window._photoCount;
+    window._photoIdx=idx;
+    var s=el.querySelector('#dest-imgs');if(s)s.style.transform='translateX(-'+idx*20+'%)';
+    el.querySelectorAll('[id^="pdot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.4)';});
   };
-  window.prevDestPhoto=function(){
-    var imgs=window._destPhotos;var idx=(window._destPhotoIdx-1+imgs.length)%imgs.length;
-    window._destPhotoIdx=idx;
-    var img=g('dest-photo-img');if(img){img.style.opacity='0';setTimeout(function(){img.src=imgs[idx];img.style.opacity='1';},150);}
-    document.querySelectorAll('[id^="dot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.45)';});
+  window.photoPrev=function(){
+    var idx=(window._photoIdx-1+window._photoCount)%window._photoCount;
+    window._photoIdx=idx;
+    var s=el.querySelector('#dest-imgs');if(s)s.style.transform='translateX(-'+idx*20+'%)';
+    el.querySelectorAll('[id^="pdot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.4)';});
   };
 }
+
 function renderPlaceRecs(id){
   var el=g('place-recs');if(!el)return;
   var recs=placeRecs[id]||[];
@@ -1550,20 +1567,24 @@ function openDetail(id){
           'ℹ️ Prices are AI estimates based on typical costs. Tap the green (budget) or gold (premium) amounts to search real listings with your dates.<br>'+
           '<b>Dates:</b> '+cin+' → '+cout+' · <b>Group:</b> '+group+' people'+
         '</div>'+
-        '<div style="display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
-          '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Category</span>'+
+        '<div style="display:flex;align-items:center;padding-bottom:6px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
+          '<span style="flex:1"></span>'+
           '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--green)">💰 Budget</div>'+
           '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
         '</div>'+
-        costRow('✈ Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
-        costRow('✈ Return: '+lastDest.split(',')[0]+' → '+fromCity+' (+ inter-city)',b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
+        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">✈ Flights (per person)</div>'+
+        costRow('Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
+        costRow('Return: '+lastDest.split(',')[0]+' → '+fromCity,b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
+        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">🏨 Accommodations (per person, shared)</div>'+
         '<div id="det-city-cost-rows">'+
-        costRow('🏨 Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
-        costRow('🏠 Airbnb',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
-        costRow('🛏 Hostels — Hostelworld',Math.round(b.accommodation_pp*0.4),Math.round(b.accommodation_pp*0.65),hostelUrl,hostelUrl)+
+        costRow('Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
+        costRow('Airbnb (entire home)',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
+        costRow('Hostels — Hostelworld',Math.round(b.accommodation_pp*0.4),Math.round(b.accommodation_pp*0.65),hostelUrl,hostelUrl)+
         '</div>'+
-        costRow('🍽 Food & drink',b.food_pp,p.food_pp,'','')+
-        costRow('🎟 Activities',b.activities_pp,p.activities_pp,'','')+
+        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">🍽 Food & Activities (per person)</div>'+
+        costRow('Food & drink',b.food_pp,p.food_pp,'','')+
+        costRow('Activities & tours',b.activities_pp,p.activities_pp,'','')+
+
         '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:2px solid var(--border)">'+
           '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">'+
             '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em">Total/person</div>'+
