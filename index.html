@@ -812,59 +812,37 @@ function setPlaceFilter(f,el){
 
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
-  // Use Wikimedia REST API - gets original clean image
-  var searchTerm=encodeURIComponent(destName+(country?' '+country:''));
-  // Build 5 different queries to get variety
-  var queries=[destName, destName+' city', destName+' landmark', destName+' skyline', destName+' street'];
-  var loaded=[];
-  var current=0;
-  // Render compact carousel immediately with placeholder while loading
+  // Show compact photo strip - 3 horizontal thumbnails
+  var terms=[destName+' travel',destName+' city landmark',destName+' tourism'];
   el.innerHTML=
-    '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:center">📸 Browse photos while recommendations load</div>'+
-    '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--bg3);height:110px;margin-bottom:6px">'+
-      '<div id="dest-imgs" style="display:flex;width:500%;height:100%;transition:transform .3s">'+
-        queries.map(function(q,i){
-          return '<img data-q="'+encodeURIComponent(q)+'" data-i="'+i+'" style="width:20%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;display:block" src="" onerror="this.style.opacity=0">';
-        }).join('')+
-      '</div>'+
-      '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 55%)"></div>'+
-      '<div style="position:absolute;bottom:0;left:0;right:0;padding:6px 10px;display:flex;align-items:flex-end;justify-content:space-between">'+
-        '<span style="font-size:13px;font-weight:700;color:#fff;font-family:Fraunces,serif;text-shadow:0 1px 2px rgba(0,0,0,.5)">'+esc(destName)+'</span>'+
-        '<div style="display:flex;gap:3px" id="photo-dots">'+
-          queries.map(function(_,i){return'<div style="width:5px;height:5px;border-radius:50%;background:'+(i===0?'#fff':'rgba(255,255,255,.4)')+'" id="pdot-'+i+'"></div>';}).join('')+
-        '</div>'+
-      '</div>'+
-      '<button onclick="photoPrev()" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;font-size:13px;cursor:pointer;line-height:1">‹</button>'+
-      '<button onclick="photoNext()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.4);border:none;color:#fff;font-size:13px;cursor:pointer;line-height:1">›</button>'+
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:5px">📸 Browse while recommendations load…</div>'+
+    '<div style="display:flex;gap:5px;height:72px;border-radius:10px;overflow:hidden;margin-bottom:6px" id="photo-strip">'+
+      terms.map(function(t,i){
+        return '<div style="flex:1;background:var(--bg3);border-radius:8px;overflow:hidden;position:relative" id="photo-cell-'+i+'">'+
+          '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><span class="spin"></span></div>'+
+        '</div>';
+      }).join('')+
     '</div>';
-  // Load images via Wikimedia search
-  var strip=el.querySelector('#dest-imgs');
-  var imgs=strip?strip.querySelectorAll('img'):[];
-  imgs.forEach(function(img,i){
-    fetch('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(queries[i])+'&gsrlimit=1&prop=pageimages&piprop=original&format=json&origin=*')
+  // Fetch one image per term from Wikipedia
+  terms.forEach(function(term,i){
+    var cell=el.querySelector('#photo-cell-'+i);if(!cell)return;
+    fetch('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(term)+'&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=300&pilimit=3&format=json&origin=*')
     .then(function(r){return r.json();})
     .then(function(data){
       var pages=data&&data.query&&data.query.pages;
       if(!pages)return;
-      var page=Object.values(pages)[0];
-      var src=page&&page.original&&page.original.source;
-      if(src&&img){img.src=src;img.style.opacity='1';}
+      // Filter out maps/diagrams - look for pages that have photos
+      var srcs=Object.values(pages).filter(function(p){
+        return p.thumbnail&&p.thumbnail.source&&
+          !p.thumbnail.source.includes('map')&&!p.thumbnail.source.includes('Map')&&
+          !p.thumbnail.source.includes('flag')&&!p.thumbnail.source.includes('Flag')&&
+          !p.thumbnail.source.includes('logo')&&!p.thumbnail.source.includes('svg');
+      }).map(function(p){return p.thumbnail.source;});
+      if(srcs.length&&cell){
+        cell.innerHTML='<img src="'+srcs[0]+'" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block">';
+      }
     }).catch(function(){});
   });
-  window._photoIdx=0;
-  window._photoCount=queries.length;
-  window.photoNext=function(){
-    var idx=(window._photoIdx+1)%window._photoCount;
-    window._photoIdx=idx;
-    var s=el.querySelector('#dest-imgs');if(s)s.style.transform='translateX(-'+idx*20+'%)';
-    el.querySelectorAll('[id^="pdot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.4)';});
-  };
-  window.photoPrev=function(){
-    var idx=(window._photoIdx-1+window._photoCount)%window._photoCount;
-    window._photoIdx=idx;
-    var s=el.querySelector('#dest-imgs');if(s)s.style.transform='translateX(-'+idx*20+'%)';
-    el.querySelectorAll('[id^="pdot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.4)';});
-  };
 }
 
 function renderPlaceRecs(id){
@@ -1464,7 +1442,7 @@ function selDetCity(el,city,itinId){
     cr('🏠 Airbnb — budget max $'+airBudgetMax+'/n · premium $'+airPremMin+'-'+airPremMax+'/n',b.accommodation_pp,p.accommodation_pp,
       'https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire%20home%2Fapt',
       'https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire%20home%2Fapt')+
-    cr('🛏 Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,
+    cr('🛏 Hostels (dorm/private)',Math.round(b.accommodation_pp*0.25),Math.round(b.accommodation_pp*0.45),
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group,
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group);
 
@@ -1569,19 +1547,19 @@ function openDetail(id){
         '</div>'+
         '<div style="display:flex;align-items:center;padding-bottom:6px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
           '<span style="flex:1"></span>'+
-          '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--green)">💰 Budget</div>'+
-          '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
+          '<div style="min-width:88px;text-align:center;font-size:16px;font-weight:700;color:var(--green)">💰 Budget</div>'+
+          '<div style="min-width:88px;text-align:center;font-size:16px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
         '</div>'+
-        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">✈ Flights (per person)</div>'+
+        '<div style="font-size:12px;font-weight:700;color:var(--text);padding:12px 0 5px;border-bottom:1.5px solid var(--border);margin-bottom:2px;letter-spacing:.01em">✈ Flights <span style="font-size:10px;font-weight:500;color:var(--text3)">per person · tap to search</span></div>'+
         costRow('Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
         costRow('Return: '+lastDest.split(',')[0]+' → '+fromCity,b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
-        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">🏨 Accommodations (per person, shared)</div>'+
+        '<div style="font-size:12px;font-weight:700;color:var(--text);padding:12px 0 5px;border-bottom:1.5px solid var(--border);margin-bottom:2px;letter-spacing:.01em">🏨 Accommodations <span style="font-size:10px;font-weight:500;color:var(--text3)">per person · shared · tap to search</span></div>'+
         '<div id="det-city-cost-rows">'+
         costRow('Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
         costRow('Airbnb (entire home)',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
-        costRow('Hostels — Hostelworld',Math.round(b.accommodation_pp*0.4),Math.round(b.accommodation_pp*0.65),hostelUrl,hostelUrl)+
+        costRow('Hostels — Hostelworld',Math.round(b.accommodation_pp*0.25),Math.round(b.accommodation_pp*0.45),hostelUrl,hostelUrl)+
         '</div>'+
-        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px">🍽 Food & Activities (per person)</div>'+
+        '<div style="font-size:12px;font-weight:700;color:var(--text);padding:12px 0 5px;border-bottom:1.5px solid var(--border);margin-bottom:2px;letter-spacing:.01em">🍽 Food & Activities <span style="font-size:10px;font-weight:500;color:var(--text3)">per person</span></div>'+
         costRow('Food & drink',b.food_pp,p.food_pp,'','')+
         costRow('Activities & tours',b.activities_pp,p.activities_pp,'','')+
 
@@ -1592,11 +1570,13 @@ function openDetail(id){
           '</div>'+
           '<div style="min-width:88px;text-align:center;background:rgba(45,106,18,.08);border-radius:10px;padding:8px 4px">'+
             '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em">Budget</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">$'+b.total_pp.toLocaleString()+'</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">$'+(b.flights_pp+b.accommodation_pp+b.food_pp+b.activities_pp).toLocaleString()+'</div>'+
+            '<div style="font-size:9px;color:var(--green);opacity:.7;margin-top:1px">(flights+airbnb+food+activities)</div>'+
           '</div>'+
           '<div style="min-width:88px;text-align:center;background:rgba(184,115,10,.08);border-radius:10px;padding:8px 4px">'+
             '<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em">Premium</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">$'+p.total_pp.toLocaleString()+'</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">$'+(p.flights_pp+p.accommodation_pp+p.food_pp+p.activities_pp).toLocaleString()+'</div>'+
+            '<div style="font-size:9px;color:var(--gold);opacity:.7;margin-top:1px">(flights+airbnb+food+activities)</div>'+
           '</div>'+
         '</div>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
