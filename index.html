@@ -808,9 +808,6 @@ function setPlaceFilter(f,el){
 
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
-  // Use Wikimedia Commons category images - most reliable for city photos
-  // Query: "{City}, {Country}" to get correct city images
-  var cityQuery=destName+(country?', '+country:'');
   el.innerHTML=
     '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;align-items:center;justify-content:space-between">'+
       '<span>📸 Browse while recommendations load…</span>'+
@@ -820,67 +817,114 @@ function loadDestPhotos(destName,country){
       '<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center"><span class="spin"></span></div>'+
     '</div>';
 
-  // Fetch from Wikimedia Commons - search for "{City} travel" images
-  var url='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch='+
-    encodeURIComponent(cityQuery+' city travel OR skyline OR street')+
-    '&gsrlimit=12&prop=imageinfo&iiprop=url|mime|width|height&iiurlwidth=400&format=json&origin=*';
+  // Tier 1: Wikipedia article images (best for cities with articles)
+  // Tier 2: Flickr public tag search (works for any place name, no API key)
+  // Tier 3: Emoji fallback
+  var bad=['flag','coat','arms','seal','logo','map','icon','svg','locator','blank','outline','emblem','diagram','chart','route','plan','scheme'];
 
-  fetch(url)
-  .then(function(r){return r.json();})
-  .then(function(data){
-    var wrap=el.querySelector('#photo-wrap');if(!wrap)return;
-    var pages=data&&data.query&&data.query.pages;
-    if(!pages){wrap.innerHTML='<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">No photos found</div>';return;}
-    // Filter: only jpeg/jpg, reasonable dimensions, no maps/flags/diagrams
-    var badWords=['map','flag','coat','arms','seal','logo','emblem','diagram','chart','graph','svg','locator','route','plan','scheme','airport'];
-    var imgs=Object.values(pages).filter(function(p){
-      var ii=p.imageinfo&&p.imageinfo[0];
-      if(!ii||!ii.thumburl)return false;
-      if(ii.mime!=='image/jpeg'&&ii.mime!=='image/png')return false;
-      var name=(p.title||'').toLowerCase();
-      return !badWords.some(function(w){return name.indexOf(w)>-1;});
-    }).map(function(p){return p.imageinfo[0].thumburl;});
+  function tryWikipedia(){
+    var searchTerms=[destName, destName+(country?' '+country:'')];
+    var allTitles=[];
+    var pending=searchTerms.length;
+    searchTerms.forEach(function(term){
+      fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(term)+'&prop=images&imlimit=20&format=json&origin=*')
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var page=Object.values((data.query||{}).pages||{})[0];
+        ((page&&page.images)||[]).forEach(function(img){
+          var t=img.title.toLowerCase();
+          if((t.indexOf('.jpg')>-1||t.indexOf('.jpeg')>-1)&&!bad.some(function(w){return t.indexOf(w)>-1;}))
+            allTitles.push(img.title);
+        });
+        if(--pending===0){
+          var uniq=allTitles.filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,10);
+          if(uniq.length) resolveUrls(uniq); else tryFlickr();
+        }
+      }).catch(function(){if(--pending===0)tryFlickr();});
+    });
+  }
 
-    if(!imgs.length){wrap.innerHTML='<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">Photos loading…</div>';return;}
-    // Deduplicate
-    imgs=imgs.filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,8);
-    window._photoImgs=imgs;
-    window._photoIdx=0;
+  function resolveUrls(titles){
+    fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(titles.join('|'))+'&prop=imageinfo&iiprop=url|mime|width&iiurlwidth=600&format=json&origin=*')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var imgs=Object.values((data.query||{}).pages||{}).filter(function(p){
+        var ii=p.imageinfo&&p.imageinfo[0];
+        return ii&&ii.thumburl&&ii.mime==='image/jpeg'&&ii.width>300;
+      }).map(function(p){return p.imageinfo[0].thumburl;});
+      imgs=imgs.filter(function(v,i,a){return a.indexOf(v)===i;});
+      if(imgs.length>=2) showCarousel(imgs); else tryFlickr();
+    }).catch(tryFlickr);
+  }
 
-    function renderPhoto(idx){
-      var counter=el.querySelector('#photo-counter');
-      if(counter)counter.textContent=(idx+1)+'/'+imgs.length;
-      wrap.innerHTML=
-        '<img src="'+imgs[idx]+'" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer" onclick="openPhotoLightbox('+idx+')" onerror="this.style.display=\'none\'">'+ 
-        (imgs.length>1?
-          '<button onclick="event.stopPropagation();prevPhoto()" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:12px;cursor:pointer;line-height:1">‹</button>'+
-          '<button onclick="event.stopPropagation();nextPhoto()" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:12px;cursor:pointer;line-height:1">›</button>'
-        :'');
-    }
-    renderPhoto(0);
-    window._renderDestPhoto=renderPhoto;
+  function tryFlickr(){
+    // Flickr public feed - no API key, searches by tag
+    var tag=encodeURIComponent(destName+(country?' '+country:''));
+    var url='https://api.flickr.com/services/feeds/photos_public.gne?tags='+tag+'&tagmode=all&format=json&nojsoncallback=1';
+    fetch(url)
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var items=(data.items||[]).filter(function(item){
+        var t=(item.title||'').toLowerCase();
+        return !bad.some(function(w){return t.indexOf(w)>-1;});
+      }).map(function(item){
+        // Flickr feed gives _m (medium) size - replace with _b (large)
+        return (item.media&&item.media.m||'').replace('_m.','_b.');
+      }).filter(Boolean);
+      items=items.filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,8);
+      if(items.length) showCarousel(items); else showFallback();
+    }).catch(showFallback);
+  }
+
+  function showFallback(){
+    var wrap=el.querySelector('#photo-wrap');
+    if(wrap)wrap.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🏙</div>';
+    var counter=el.querySelector('#photo-counter');
+    if(counter)counter.textContent='';
+  }
+
+  function showCarousel(imgs){
+    window._photoImgs=imgs;window._photoIdx=0;
     window.nextPhoto=function(){window._photoIdx=(window._photoIdx+1)%window._photoImgs.length;renderPhoto(window._photoIdx);};
     window.prevPhoto=function(){window._photoIdx=(window._photoIdx-1+window._photoImgs.length)%window._photoImgs.length;renderPhoto(window._photoIdx);};
-    window.openPhotoLightbox=function(idx){
-      var lb=document.createElement('div');
-      lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column';
-      lb.innerHTML=
-        '<img src="'+window._photoImgs[idx]+'" style="max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px">'+
-        '<div style="display:flex;gap:16px;margin-top:16px">'+
-          '<button onclick="lbPrev()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer">‹</button>'+
-          '<span id="lb-count" style="color:rgba(255,255,255,.6);font-size:13px;line-height:44px">'+(idx+1)+'/'+window._photoImgs.length+'</span>'+
-          '<button onclick="lbNext()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer">›</button>'+
+    window.openPhotoLightbox=function(startIdx){
+      var lb=document.createElement('div');lb.id='photo-lb';
+      lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column';
+      var lbIdx=startIdx;
+      function lbRender(){lb.querySelector('img').src=window._photoImgs[lbIdx];lb.querySelector('#lb-count').textContent=(lbIdx+1)+'/'+window._photoImgs.length;}
+      lb.innerHTML='<img src="'+window._photoImgs[startIdx]+'" style="max-width:95vw;max-height:78vh;object-fit:contain;border-radius:8px">'+
+        '<div style="display:flex;gap:20px;margin-top:14px;align-items:center">'+
+          '<button id="lb-p" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:24px;cursor:pointer">‹</button>'+
+          '<span id="lb-count" style="color:rgba(255,255,255,.6);font-size:13px">'+(startIdx+1)+'/'+window._photoImgs.length+'</span>'+
+          '<button id="lb-n" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:24px;cursor:pointer">›</button>'+
         '</div>'+
-        '<button onclick="document.body.lastChild.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer">×</button>';
+        '<button id="lb-x" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer">×</button>';
+      lb.querySelector('#lb-p').onclick=function(){lbIdx=(lbIdx-1+window._photoImgs.length)%window._photoImgs.length;lbRender();};
+      lb.querySelector('#lb-n').onclick=function(){lbIdx=(lbIdx+1)%window._photoImgs.length;lbRender();};
+      lb.querySelector('#lb-x').onclick=function(){lb.remove();};
       document.body.appendChild(lb);
-      var lbIdx=idx;
-      window.lbNext=function(){lbIdx=(lbIdx+1)%window._photoImgs.length;lb.querySelector('img').src=window._photoImgs[lbIdx];lb.querySelector('#lb-count').textContent=(lbIdx+1)+'/'+window._photoImgs.length;};
-      window.lbPrev=function(){lbIdx=(lbIdx-1+window._photoImgs.length)%window._photoImgs.length;lb.querySelector('img').src=window._photoImgs[lbIdx];lb.querySelector('#lb-count').textContent=(lbIdx+1)+'/'+window._photoImgs.length;};
     };
-  }).catch(function(){
-    var wrap=el.querySelector('#photo-wrap');
-    if(wrap)wrap.innerHTML='<div style="padding:16px;text-align:center;font-size:20px">🏙</div>';
-  });
+    renderPhoto(0);
+  }
+
+  function renderPhoto(idx){
+    var wrap=el.querySelector('#photo-wrap');if(!wrap)return;
+    var counter=el.querySelector('#photo-counter');
+    var imgs=window._photoImgs||[];
+    if(counter)counter.textContent=imgs.length?(idx+1)+'/'+imgs.length:'';
+    var img=document.createElement('img');
+    img.src=imgs[idx];
+    img.style.cssText='width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer';
+    img.onclick=function(){openPhotoLightbox(idx);};
+    img.onerror=function(){this.style.opacity='0';};
+    var arrows=imgs.length>1?
+      '<button onclick="event.stopPropagation();prevPhoto()" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1">‹</button>'+
+      '<button onclick="event.stopPropagation();nextPhoto()" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1">›</button>':'';
+    wrap.innerHTML=arrows;
+    wrap.insertBefore(img,wrap.firstChild);
+  }
+
+  tryWikipedia();
 }
 
 function renderPlaceRecs(id){
@@ -948,6 +992,7 @@ function planDay(destId){
         '<button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button>'+
         '<button class="filter-pill" onclick="togDPVibe(this)">🌳 Outdoors</button>'+
         '<button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button>'+
+        '<button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button>'+
       '</div>'+
       '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Recommendations from:</div>'+
       '<div style="display:flex;gap:7px;margin-bottom:12px;">'+
@@ -988,14 +1033,17 @@ function runDayPlan(destId){
   var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
   g('place-recs').innerHTML='<div class="ld"><span class="spin"></span>Building your '+hours+'-hour day…</div>';
   var area=g('dp-area')?g('dp-area').value.trim():'';
-  var prompt='Create a vivid, narrative '+hours+'-hour day itinerary for '+d.name+', '+d.country+'.\n'+(area?'Focus on the '+area+' neighbourhood/area. Include specific streets and local gems there.\n':'')+
-    'Start time: '+start+'. Vibe: '+vibe+'. Include: '+cats.join(', ')+'.\n'+
-    (savedLocal.length?'MUST incorporate these saved spots: '+savedLocal.join(', ')+'.\n':'')+
-    'Make it feel like advice from a friend who lives there — specific place names, what to order, hidden gems.\n'+
-    'Include walking/transit times between stops and any tips.\n'+
+  var isDateNight=vibe.indexOf('Date')>-1||vibe.indexOf('date')>-1;
+  var prompt='Create a '+hours+'-hour day itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
+    'CRITICAL: ALL stops must be within a 25-minute walk of each other. Pick ONE specific walkable neighbourhood and stay there. Prefer stops within 5-10 min walk. Do NOT scatter spots across the city. You may include ONE Uber/transit leg in the day if it makes the itinerary significantly better (e.g. getting to a great waterfront or viewpoint), but only once and only if worthwhile.\n'+
+    (area?'Stay in '+area+' neighbourhood the entire day.\n':'Choose the best walkable neighbourhood for this vibe.\n')+
+    'Start time: '+start+'. Vibe: '+vibe+'.\n'+
+    (isDateNight?'DATE NIGHT: romantic restaurants with great ambience, intimate cocktail bars, scenic walks. Atmosphere is everything.\n':'')+
+    (savedLocal.length?'Include these real saved spots: '+savedLocal.join(', ')+'.\n':'')+
+    'Only REAL verified places. Do NOT invent names. Walk times must be realistic (2-5 min between nearby spots).\n'+
     'Return ONLY valid JSON:\n'+
-    '{"title":"...","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
-    '"stops":[{"time":"11:00am","name":"St. Lawrence Market","type":"food","description":"Start with the peameal bacon sandwich from Carousel Bakery — it\'s a Toronto institution. Grab a coffee from one of the vendors and wander the stalls.","walk_to_next":"10 min walk south","budget_note":"$8-12","premium_note":"Try the oyster bar upstairs"}]}';
+    '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
+    '"stops":[{"time":"11:00am","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"4 min walk east on King St","transit_to_next":"10 min Uber (~$8) — use INSTEAD of walk_to_next for the one transit leg if used","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
   ai([{role:'user',content:prompt}],function(err,text){
     if(err){
       g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
@@ -1029,7 +1077,8 @@ function runDayPlan(destId){
             '<div style="font-size:13px;color:var(--text2);line-height:1.5">'+esc(s.description)+'</div>'+
             (s.budget_note?'<div style="font-size:11px;color:var(--green);margin-top:4px">💰 '+esc(s.budget_note)+'</div>':'')+
             (s.premium_note?'<div style="font-size:11px;color:var(--gold);margin-top:2px">✨ '+esc(s.premium_note)+'</div>':'')+
-            (s.walk_to_next?'<div style="font-size:11px;color:var(--blue);margin-top:5px;font-weight:500">→ '+esc(s.walk_to_next)+'</div>':'')+
+            (s.walk_to_next?'<div style="font-size:11px;color:var(--blue);margin-top:5px;font-weight:500">🚶 '+esc(s.walk_to_next)+'</div>':'')+
+            (s.transit_to_next?'<div style="font-size:11px;color:#1a1a1a;background:#f7f7f7;border:1px solid #e0e0e0;border-radius:20px;padding:3px 9px;margin-top:5px;font-weight:600;display:inline-block">🚗 Uber/transit: '+esc(s.transit_to_next)+'</div>':'')+
           '</div>'+
         '</div>';
       });
