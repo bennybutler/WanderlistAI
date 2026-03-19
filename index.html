@@ -811,27 +811,44 @@ function setPlaceFilter(f,el){
 
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
-  var query=encodeURIComponent(destName+(country?', '+country:''));
-  // Use Wikimedia commons API for free travel photos
-  fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+query)
-  .then(function(r){return r.json();})
-  .then(function(data){
-    if(!el)return;
-    var img=data.thumbnail&&data.thumbnail.source;
-    var desc=data.extract||'';
-    if(img){
-      el.innerHTML='<div style="position:relative;border-radius:12px;overflow:hidden;margin-bottom:4px">'+
-        '<img src="'+img+'" style="width:100%;height:160px;object-fit:cover;display:block">'+
-        '<div style="position:absolute;bottom:0;left:0;right:0;padding:20px 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.65))">'+
-          '<div style="font-size:16px;font-weight:700;color:#fff;font-family:Fraunces,serif;letter-spacing:-.01em">'+esc(destName)+'</div>'+
-          (country?'<div style="font-size:12px;color:rgba(255,255,255,.75)">'+esc(country)+'</div>':'')+
+  // Use Unsplash source - free, no API key, sharp high-quality photos
+  var query=encodeURIComponent(destName+(country?' '+country:''));
+  var seeds=[1,2,3,4,5];
+  var photos=seeds.map(function(s){
+    return 'https://source.unsplash.com/600x400/?'+query+'&sig='+s;
+  });
+  var current=0;
+  function buildCarousel(){
+    el.innerHTML=
+      '<div style="position:relative;border-radius:14px;overflow:hidden;margin-bottom:8px;background:var(--bg3);aspect-ratio:16/9">'+
+        '<img id="dest-photo-img" src="'+photos[0]+'" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;transition:opacity .3s" onerror="this.style.display=\'none\'">'+
+        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 50%)"></div>'+
+        '<div style="position:absolute;bottom:0;left:0;right:0;padding:14px 14px 10px">'+
+          '<div style="font-size:18px;font-weight:700;color:#fff;font-family:Fraunces,serif;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.4)">'+esc(destName)+'</div>'+
+          (country?'<div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:1px">'+esc(country)+'</div>':'')+
         '</div>'+
-      '</div>'+
-      (desc?'<p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:10px;padding:0 2px">'+esc(desc.substring(0,180))+(desc.length>180?'…':'')+'</p>':'');
-    } else {
-      el.innerHTML='<div style="height:10px"></div>';
-    }
-  }).catch(function(){if(el)el.innerHTML='';});
+        '<button onclick="prevDestPhoto()" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">‹</button>'+
+        '<button onclick="nextDestPhoto()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">›</button>'+
+        '<div style="position:absolute;bottom:6px;right:10px;display:flex;gap:4px" id="dest-photo-dots">'+
+          photos.map(function(_,i){return'<div style="width:5px;height:5px;border-radius:50%;background:'+(i===0?'#fff':'rgba(255,255,255,.45)')+'" id="dot-'+i+'"></div>';}).join('')+
+        '</div>'+
+      '</div>';
+    window._destPhotos=photos;
+    window._destPhotoIdx=0;
+  }
+  buildCarousel();
+  window.nextDestPhoto=function(){
+    var imgs=window._destPhotos;var idx=(window._destPhotoIdx+1)%imgs.length;
+    window._destPhotoIdx=idx;
+    var img=g('dest-photo-img');if(img){img.style.opacity='0';setTimeout(function(){img.src=imgs[idx];img.style.opacity='1';},150);}
+    document.querySelectorAll('[id^="dot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.45)';});
+  };
+  window.prevDestPhoto=function(){
+    var imgs=window._destPhotos;var idx=(window._destPhotoIdx-1+imgs.length)%imgs.length;
+    window._destPhotoIdx=idx;
+    var img=g('dest-photo-img');if(img){img.style.opacity='0';setTimeout(function(){img.src=imgs[idx];img.style.opacity='1';},150);}
+    document.querySelectorAll('[id^="dot-"]').forEach(function(d,i){d.style.background=i===idx?'#fff':'rgba(255,255,255,.45)';});
+  };
 }
 function renderPlaceRecs(id){
   var el=g('place-recs');if(!el)return;
@@ -1405,16 +1422,25 @@ function selDetCity(el,city,itinId){
 
   // Build the per-city costRow function (same signature as outer costRow)
   function cr(label,budget,premium,bUrl,pUrl){
-    var bc=bUrl?'onclick="window.open(\''+bUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
-    var pc=pUrl?'onclick="window.open(\''+pUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
-    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'+
-      '<span style="flex:1;font-size:13px;color:var(--text2)">'+label+'</span>'+
-      '<span '+bc+' style="font-size:13px;font-weight:500;color:var(--green);width:80px;text-align:right">$'+Math.round(budget).toLocaleString()+(bUrl?' ↗':'')+'</span>'+
-      '<span '+pc+' style="font-size:13px;font-weight:500;color:var(--gold);width:80px;text-align:right">$'+Math.round(premium).toLocaleString()+(pUrl?' ↗':'')+'</span>'+
+    var bOpen=bUrl?"window.open('"+bUrl+"','_blank')":'';
+    var pOpen=pUrl?"window.open('"+pUrl+"','_blank')":'';
+    return '<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2);line-height:1.4;padding-right:8px">'+label+'</span>'+
+      '<div style="min-width:88px;text-align:center;cursor:'+(bUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(bOpen?'onclick="'+bOpen+'"':'')+'>'+
+        '<span style="font-size:18px;font-weight:700;color:var(--green);font-family:Fraunces,serif;display:block">$'+Math.round(budget).toLocaleString()+(bUrl?' ↗':'')+'</span>'+
+      '</div>'+
+      '<div style="min-width:88px;text-align:center;cursor:'+(pUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(pOpen?'onclick="'+pOpen+'"':'')+'>'+
+        '<span style="font-size:18px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;display:block">$'+Math.round(premium).toLocaleString()+(pUrl?' ↗':'')+'</span>'+
+      '</div>'+
     '</div>';
   }
 
   var newCostRows=
+    '<div style="display:flex;align-items:center;padding-bottom:6px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
+      '<span style="flex:1;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Accommodation</span>'+
+      '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--green)">💰 Budget</div>'+
+      '<div style="min-width:88px;text-align:center;font-size:14px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
+    '</div>'+
     cr('🏨 Hotels ('+cinStr+'–'+coutStr+')',b.accommodation_pp,p.accommodation_pp,
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price',
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5')+
