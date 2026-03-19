@@ -1322,19 +1322,16 @@ function selDetCity(el,city,itinId){
   // Skyscanner one-way: rtn=0 reliably forces one-way mode
   // Date format for Skyscanner: YYMMDD
   var skDate=function(s){return s.replace(/-/g,'').substring(2);};
-  var cityClean=city.split(',')[0].trim().replace(/ /g,'+');
-  var nextClean=nextDest.split(',')[0].trim().replace(/ /g,'+');
-  var flightUrl='https://www.google.com/travel/flights#flt='+cityClean+'.'+nextClean+'.'+coutStr+';c:USD;e:1;tt:o';
+  var flightUrl='https://www.skyscanner.com/transport/flights/'+destEnc+'/'+nextDestEnc+'/'+skDate(coutStr)+'/?adults=1&rtn=0';
 
-  var homeCityClean=(it._from||'home').split(',')[0].trim().replace(/ /g,'+');
-  var inboundLinks=cityIdx===0?[['✈ One-way: '+(it._from||'home')+' → '+city+' ('+cinStr+')','https://www.google.com/travel/flights#flt='+homeCityClean+'.'+cityClean+'.'+cinStr+';c:USD;e:1;tt:o']]:[];
+  var inboundLinks=cityIdx===0?[['✈ One-way: '+(it._from||'home')+' → '+city+' ('+cinStr+')','https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/'+skDate(cinStr)+'/?adults=1&rtn=0']]:[];
 
   var links=inboundLinks.concat([
     [flightLabel,flightUrl],
     ['🏨 Budget hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
     ['🏨 Premium hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-    ['🏠 Airbnb budget (max $'+airBudgetMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_max='+airBudgetMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airPremMin+'–$'+airPremMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_min='+airPremMin+'&price_filter_max='+airPremMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb budget (max $'+airBudgetMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'–$'+airPremMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt'],
     ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
   ]);
@@ -1357,8 +1354,8 @@ function selDetCity(el,city,itinId){
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price',
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5')+
     cr('🏠 Airbnb budget (max $'+airBudgetMax+' total, '+cityNights+'n)',b.accommodation_pp,p.accommodation_pp,
-      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_max='+airBudgetMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt',
-      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_min='+airPremMin+'&price_filter_max='+airPremMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt')+
+      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire+home%2Fapt',
+      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire+home%2Fapt')+
     cr('🛏 Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group,
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group);
@@ -1430,11 +1427,8 @@ function openDetail(id){
     var lastDates=getSeasonDates(it.best_season,(it.duration_days||7));
     var returnDate=lastDates.out;
     var skDate2=function(s){return s.replace(/-/g,'').substring(2);};
-    var fromClean=(fromCity||'').split(',')[0].trim().replace(/ /g,'+');
-    var dest0Clean=(dest0||'').split(',')[0].trim().replace(/ /g,'+');
-    var gflightBudget='https://www.google.com/travel/flights#flt='+fromClean+'.'+dest0Clean+'.'+cin+';c:USD;e:1;tt:o';
-    var lastDestClean=(lastDest||'').split(',')[0].trim().replace(/ /g,'+');
-    var gflightPrem='https://www.google.com/travel/flights#flt='+lastDestClean+'.'+fromClean+'.'+returnDate+';c:USD;e:1;tt:o';
+    var gflightBudget='https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/'+skDate2(cin)+'/?adults=1&rtn=0';
+    var gflightPrem='https://www.skyscanner.com/transport/flights/'+lastDestEnc+'/'+fromEnc+'/'+skDate2(returnDate)+'/?adults=1&rtn=0';
     // Booking.com with dates, guests, rating filter
     var bookBudget='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price';
     var bookPrem='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5&order=review_score_and_price';
@@ -1442,8 +1436,8 @@ function openDetail(id){
     // Total nightly price = per-person cost * group (they share the place)
     var airBudgetNightly=Math.round(b.accommodation_pp*group/nights);
     var airPremNightly=Math.round(p.accommodation_pp*group/nights);
-    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_filter_max='+airBudgetNightly+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt';
-    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_filter_max='+airPremNightly+'&price_filter_min='+Math.round(airBudgetNightly*1.1)+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt';
+    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airBudgetNightly+'&room_types%5B%5D=Entire+home%2Fapt';
+    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airPremNightly+'&price_min='+Math.round(airBudgetNightly*1.1)+'&room_types%5B%5D=Entire+home%2Fapt';
     // Hostelworld budget
     var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
     costHtml=
@@ -1523,8 +1517,8 @@ function openDetail(id){
       var cin=dates.in,cout=dates.out;
       var nights=it.duration_days||7;
       var links=[
-        ['✈ Outbound flight (one-way)','https://www.google.com/travel/flights#flt='+(it._from||'').split(',')[0].trim().replace(/ /g,'+')+'.'+dest0.split(',')[0].trim().replace(/ /g,'+')+'.'+cin+';c:USD;e:1;tt:o'],
-        ['✈ Return flight (one-way)','https://www.google.com/travel/flights#flt='+((it.destinations||[dest0]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'').split(',')[0].trim().replace(/ /g,'+'))+'.'+cout+';c:USD;e:1;tt:o'],
+        ['✈ Outbound: Skyscanner (one-way)','https://www.skyscanner.com/transport/flights/'+fromEnc+'/'+destEnc+'/'+cin.replace(/-/g,'').substring(2)+'/?adults=1&rtn=0'],
+        ['✈ Return: Skyscanner (one-way)','https://www.skyscanner.com/transport/flights/'+encodeURIComponent((it.destinations||[it.destinations[0]]).slice(-1)[0]||destEnc)+'/'+fromEnc+'/'+cout.replace(/-/g,'').substring(2)+'/?adults=1&rtn=0'],
         ['🏨 Booking.com (budget 2-3★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
         ['🏨 Booking.com (premium 4-5★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
         ['🏠 Airbnb (select city above for price filters)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire+home%2Fapt'],
