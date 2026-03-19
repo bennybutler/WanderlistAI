@@ -1305,14 +1305,11 @@ function selDetCity(el,city,itinId){
   var b=it.costs?it.costs.budget:{accommodation_pp:150,flights_pp:400};
   var p=it.costs?it.costs.premium:{accommodation_pp:300,flights_pp:1200};
 
-  // Airbnb price_filter_max = TOTAL STAY price for all nights combined
-  // Per night shared = accommodation_pp * group / totalNights
-  // Total stay for this city = per_night * cityNights
-  var airPerNight=Math.max(30,Math.round((b.accommodation_pp||150)*group/totalNights));
-  var airPremPerNight=Math.max(50,Math.round((p.accommodation_pp||300)*group/totalNights));
-  var airBudgetMax=Math.round(airPerNight*cityNights*1.4);  // total stay, with 40% buffer
-  var airPremMin=Math.round(airPerNight*cityNights*0.9);    // premium starts just below budget cap
-  var airPremMax=Math.round(airPremPerNight*cityNights*1.5); // premium goes up to 1.5x estimate
+  // Airbnb price_max = TOTAL TRIP price (Airbnb shows "Trip price, includes all fees")
+  // = accommodation_pp per person × group × fraction of trip spent in this city
+  var airBudgetMax = Math.round((b.accommodation_pp||150) * group * cityNights / totalNights * 1.4);
+  var airPremMax   = Math.round((p.accommodation_pp||300) * group * cityNights / totalNights * 1.5);
+  var airPremMin   = Math.round((b.accommodation_pp||150) * group * cityNights / totalNights * 0.9);
 
   // Flight from this city: one-way to NEXT city (not round-trip home)
   var dests=it.destinations||[];
@@ -1335,8 +1332,8 @@ function selDetCity(el,city,itinId){
     [flightLabel,flightUrl],
     ['🏨 Budget hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
     ['🏨 Premium hotels ('+cinStr+'–'+coutStr+')','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-    ['🏠 Airbnb budget (max $'+airBudgetMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_max='+airBudgetMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt'],
-    ['🏠 Airbnb premium ($'+airPremMin+'–$'+airPremMax+' total stay, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_min='+airPremMin+'&price_filter_max='+airPremMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt'],
+    ['🏠 Airbnb budget (max $'+airBudgetMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire%20home%2Fapt'],
+    ['🏠 Airbnb premium ($'+airPremMin+'–$'+airPremMax+'/night, '+group+' guests)','https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire%20home%2Fapt'],
     ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group],
     ['🎟 Viator — '+city,'https://www.viator.com/searchResults/all?text='+destEnc],
   ]);
@@ -1358,9 +1355,9 @@ function selDetCity(el,city,itinId){
     cr('🏨 Hotels ('+cinStr+'–'+coutStr+')',b.accommodation_pp,p.accommodation_pp,
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price',
       'https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cinStr+'&checkout='+coutStr+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5')+
-    cr('🏠 Airbnb budget (max $'+airBudgetMax+' total, '+cityNights+' nights)',b.accommodation_pp,p.accommodation_pp,
-      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_max='+airBudgetMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt',
-      'https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_filter_min='+airPremMin+'&price_filter_max='+airPremMax+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt')+
+    cr('🏠 Airbnb — budget max $'+airBudgetMax+'/n · premium $'+airPremMin+'-'+airPremMax+'/n',b.accommodation_pp,p.accommodation_pp,
+      'https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_max='+airBudgetMax+'&room_types%5B%5D=Entire%20home%2Fapt',
+      'https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cinStr+'&checkout='+coutStr+'&adults='+group+'&price_min='+airPremMin+'&price_max='+airPremMax+'&room_types%5B%5D=Entire%20home%2Fapt')+
     cr('🛏 Hostelworld',b.accommodation_pp,b.accommodation_pp*0.4,
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group,
       'https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cinStr+'&departure='+coutStr+'&guests='+group);
@@ -1371,7 +1368,7 @@ function selDetCity(el,city,itinId){
       '<div style="background:var(--blue-lt);border-radius:var(--rsm);padding:8px 11px;margin-bottom:9px;font-size:12px;color:var(--blue);line-height:1.5">'+
         '<b>'+city+'</b> · '+cityNights+' nights · '+cinStr+' → '+coutStr+
         (isLastCity?'':('<br>Next: '+nextDest+' · flight on '+coutStr))+
-        '<br><span style="font-size:11px;color:var(--text3)">Airbnb: budget total stay max $'+airBudgetMax+' · premium $'+airPremMin+'–$'+airPremMax+' ('+group+' guests, '+cityNights+' nights)</span>'+
+        '<br><span style="font-size:11px;color:var(--text3)">Airbnb prices are per night for '+group+' guests (entire home)</span>'+
       '</div>'+
       links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
   }
@@ -1444,8 +1441,8 @@ function openDetail(id){
     // Total nightly price = per-person cost * group (they share the place)
     var airBudgetNightly=Math.round(b.accommodation_pp*group/nights);
     var airPremNightly=Math.round(p.accommodation_pp*group/nights);
-    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_filter_max='+airBudgetNightly+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt';
-    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_filter_max='+airPremNightly+'&price_filter_min='+Math.round(airBudgetNightly*1.1)+'&search_type=filter_change&room_types%5B%5D=Entire+home%2Fapt';
+    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airBudgetNightly+'&room_types%5B%5D=Entire%20home%2Fapt';
+    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airPremNightly+'&price_min='+Math.round(airBudgetNightly*1.1)+'&room_types%5B%5D=Entire%20home%2Fapt';
     // Hostelworld budget
     var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
     costHtml=
@@ -1529,7 +1526,7 @@ function openDetail(id){
         ['✈ Return flight (one-way)','https://www.google.com/travel/flights#flt='+((it.destinations||[dest0]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'').split(',')[0].trim().replace(/ /g,'+'))+'.'+cout+';c:USD;e:1;tt:o'],
         ['🏨 Booking.com (budget 2-3★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
         ['🏨 Booking.com (premium 4-5★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-        ['🏠 Airbnb (select city above for price filters)','https://www.airbnb.com/s/'+destEnc+'/homes?checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire+home%2Fapt'],
+        ['🏠 Airbnb (select city above for price filters)','https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire%20home%2Fapt'],
         ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+grp],
         ['🎟 Viator (tours & activities)','https://www.viator.com/searchResults/all?text='+destEnc]
       ];
