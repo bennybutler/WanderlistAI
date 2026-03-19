@@ -422,6 +422,26 @@ textarea::placeholder{color:var(--text3);}
           </label>
         </div>
       </div>
+      <div class="settings-section" style="padding-bottom:20px;">
+        <div class="settings-label">Share your Wanderlist</div>
+        <div class="settings-card">
+          <p>Send to a friend</p>
+          <small>Generate a share code with all your saved places, trips, and API key. Your friend pastes it once and gets your exact setup instantly.</small>
+          <button class="s-btn" onclick="generateShareCode()" style="margin-bottom:10px;width:100%;">🔗 Generate share code</button>
+          <div id="share-code-out" style="display:none">
+            <textarea id="share-code-txt" style="width:100%;height:80px;font-size:11px;font-family:monospace;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);resize:none;line-height:1.4" readonly></textarea>
+            <button class="s-btn outline" onclick="copyShareCode()" style="width:100%;margin-top:6px;">📋 Copy code</button>
+            <p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">Send this code to anyone. They paste it in their Wanderlist → Settings → "Import share code" to get your exact setup.</p>
+          </div>
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+            <p style="font-size:13px;font-weight:600;margin-bottom:4px;">Import share code</p>
+            <small style="display:block;margin-bottom:8px;">Paste a share code from a friend to load their saved places, trips, and API key.</small>
+            <textarea id="import-code-txt" placeholder="Paste share code here…" style="width:100%;height:64px;font-size:11px;font-family:monospace;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);resize:none;line-height:1.4;margin-bottom:6px;outline:none;"></textarea>
+            <button class="s-btn outline" onclick="importShareCode()" style="width:100%;">✅ Import & apply</button>
+            <p id="import-msg" style="font-size:12px;margin-top:6px;display:none"></p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2181,6 +2201,61 @@ function importBackup(inp){
       toast('Imported '+nd+' places and '+ni+' trips!');
     }catch(e){toast('Could not read backup file');}
   };r.readAsText(inp.files[0]);
+}
+
+function generateShareCode(){
+  var apiKey=localStorage.getItem('wl_api_key')||'';
+  var homeCity=localStorage.getItem('wl_home_city')||'';
+  var homeLat=localStorage.getItem('wl_home_lat')||'';
+  var homeLng=localStorage.getItem('wl_home_lng')||'';
+  var payload={v:1,dests:S.dests,itins:S.itins,apiKey:apiKey,homeCity:homeCity,homeLat:homeLat,homeLng:homeLng};
+  var json=JSON.stringify(payload);
+  // Base64 encode
+  var code='WL1:'+btoa(unescape(encodeURIComponent(json)));
+  var el=g('share-code-txt');
+  if(el){el.value=code;el.parentElement.style.display='block';}
+  var out=g('share-code-out');if(out)out.style.display='block';
+}
+function copyShareCode(){
+  var el=g('share-code-txt');if(!el)return;
+  el.select();
+  try{document.execCommand('copy');}catch(e){navigator.clipboard&&navigator.clipboard.writeText(el.value);}
+  toast('Share code copied!');
+}
+function importShareCode(){
+  var txt=(g('import-code-txt')||{}).value||'';
+  txt=txt.trim();
+  var msg=g('import-msg');
+  function showMsg(text,color){if(msg){msg.textContent=text;msg.style.color=color||'var(--text3)';msg.style.display='block';}}
+  if(!txt.startsWith('WL1:')){showMsg('Invalid share code — make sure you copied the whole thing.','var(--red)');return;}
+  try{
+    var json=decodeURIComponent(escape(atob(txt.slice(4))));
+    var payload=JSON.parse(json);
+    if(payload.v!==1)throw new Error('Version mismatch');
+    // Merge destinations
+    var nd=0,ni=0;
+    if(payload.dests){payload.dests.forEach(function(d){
+      if(!S.dests.find(function(x){return x.id===d.id;})){S.dests.push(d);nd++;}
+    });}
+    if(payload.itins){payload.itins.forEach(function(it){
+      if(!S.itins.find(function(x){return x._id===it._id;})){S.itins.push(it);ni++;}
+    });}
+    // Apply API key + home city if not already set
+    if(payload.apiKey&&!localStorage.getItem('wl_api_key')){
+      localStorage.setItem('wl_api_key',payload.apiKey);
+      var ki=g('api-key-inp');if(ki)ki.value=payload.apiKey;
+    }
+    if(payload.homeCity&&!localStorage.getItem('wl_home_city')){
+      localStorage.setItem('wl_home_city',payload.homeCity);
+      if(payload.homeLat)localStorage.setItem('wl_home_lat',payload.homeLat);
+      if(payload.homeLng)localStorage.setItem('wl_home_lng',payload.homeLng);
+      var hci=g('home-city-inp');if(hci)hci.value=payload.homeCity;
+    }
+    save();syncMap();syncList();renderItins();
+    if(g('import-code-txt'))g('import-code-txt').value='';
+    showMsg('✓ Imported '+nd+' places and '+ni+' trips!','var(--green)');
+    toast('Wanderlist imported!');
+  }catch(e){showMsg('Could not import — code may be corrupted.','var(--red)');}
 }
 
 // ── Friends ──────────────────────────────────────────────
