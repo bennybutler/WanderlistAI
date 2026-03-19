@@ -260,6 +260,26 @@ textarea::placeholder{color:var(--text3);}
 .share-toast{position:fixed;bottom:calc(var(--tab-h) + var(--sb) + 12px);left:16px;right:16px;background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green);padding:12px 16px;border-radius:var(--rsm);font-size:13px;font-weight:600;z-index:2000;opacity:0;transition:all .24s;pointer-events:none;text-align:center;box-shadow:var(--shadow-md);}
 .share-toast.on{opacity:1;}
 .key-ok{font-size:12px;color:var(--green);margin-top:8px;display:none;}
+
+/* ── Chat screen overrides ── */
+.chat-vibe-row{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg4);}
+.chat-filter{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;}
+.chat-filter.on{background:var(--gold);color:#fff;border-color:var(--gold);box-shadow:0 2px 6px rgba(184,115,10,.3);}
+.chat-bubble-wrap{display:flex;flex-direction:column;margin-bottom:16px;}
+.chat-bubble-wrap.user{align-items:flex-end;}
+.chat-bubble-wrap.ai{align-items:flex-start;}
+.chat-bubble-wrap.ai .chat-bubble{background:linear-gradient(135deg,#FFF8F0 0%,#FDF3E3 100%);color:var(--text);border-bottom-left-radius:5px;border:1px solid rgba(184,115,10,.2);box-shadow:0 2px 8px rgba(184,115,10,.08);}
+.chat-bubble-wrap.user .chat-bubble{background:linear-gradient(135deg,var(--gold) 0%,var(--gold-dk) 100%);color:#fff;border-bottom-right-radius:5px;box-shadow:0 2px 8px rgba(184,115,10,.3);}
+.chat-bubble{padding:12px 16px;border-radius:20px;font-size:15px;line-height:1.7;max-width:92%;width:fit-content;}
+@media(prefers-color-scheme:dark){
+  .chat-bubble-wrap.ai .chat-bubble{background:linear-gradient(135deg,rgba(184,115,10,.12) 0%,rgba(184,115,10,.06) 100%);border:1px solid rgba(184,115,10,.2);}
+}
+.chat-inp-row{padding:12px 14px;border-top:1.5px solid rgba(184,115,10,.15);display:flex;gap:8px;flex-shrink:0;background:var(--bg4);}
+.chat-inp{flex:1;padding:12px 18px;background:var(--bg2);border:1.5px solid transparent;border-radius:28px;color:var(--text);font-size:15px;outline:none;font-family:inherit;transition:all .2s;}
+.chat-inp:focus{border-color:var(--gold);background:var(--bg4);box-shadow:0 0 0 3px rgba(184,115,10,.1);}
+.chat-send{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold) 0%,var(--gold-dk) 100%);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 3px 10px rgba(184,115,10,.4);transition:transform .15s;}
+.chat-send:active{transform:scale(.9);}
+.chat-add-btn{margin-top:10px;padding:9px 16px;background:linear-gradient(135deg,var(--gold-lt),#fff8f0);border:1.5px solid var(--gold-md);color:var(--gold);border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:block;width:100%;box-shadow:0 2px 6px rgba(184,115,10,.15);}
 </style>
 </head>
 <body>
@@ -338,18 +358,18 @@ textarea::placeholder{color:var(--text3);}
   <!-- CHAT -->
   <div class="screen" id="s-chat">
     <div class="scr-hdr"><h2>AI trip planner</h2></div>
-    <div class="chat-toolbar">
+    <div class="chat-vibe-row">
       <button class="chat-filter on" id="cf-all" onclick="setChatFilter('all',this)">All</button>
       <button class="chat-filter" id="cf-touristy" onclick="setChatFilter('touristy',this)">🗺 Touristy</button>
       <button class="chat-filter" id="cf-local" onclick="setChatFilter('local',this)">🏘 Live like a local</button>
       <button class="chat-filter" id="cf-budget" onclick="setChatFilter('budget',this)">💰 Budget</button>
       <button class="chat-filter" id="cf-luxury" onclick="setChatFilter('luxury',this)">✨ Luxury</button>
     </div>
-    <div class="chat-msgs" id="chat-msgs">
-      <div class="chat-msg ai"><div class="chat-bubble">Hi! I'm your AI trip planner 🌍<br><br>Tell me where you want to go, your vibe, budget, and how long — I'll build a full itinerary and can add destinations directly to your map.<br><br>You can also ask me about any city to get restaurant, bar, and activity recommendations!</div></div>
+    <div class="chat-msgs" id="chat-msgs" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;">
+      <div class="chat-bubble-wrap ai"><div class="chat-bubble">Hi! I'm your AI trip planner 🌍<br><br>Tell me where you want to go, your vibe, budget, and how long — I'll build a full itinerary and can add destinations directly to your map.<br><br>You can also ask me about any city to get restaurant, bar, and activity recommendations!</div></div>
     </div>
-    <div class="chat-input-row">
-      <input class="chat-input" id="chat-inp" placeholder="Describe your dream trip..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">
+    <div class="chat-inp-row">
+      <input class="chat-inp" id="chat-inp" placeholder="Describe your dream trip..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">
       <button class="chat-send" onclick="sendChat()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
@@ -750,6 +770,7 @@ function openPlaceDetail(id,autoPlanDay){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
   currentPlaceId=id;
   g('place-title').textContent=d.name;
+  setTimeout(function(){loadDestPhotos(d.name,d.country);},50);
   placeFilter='all';
   g('place-body').innerHTML=
     '<div class="filter-pills" id="place-pills">'+
@@ -760,7 +781,7 @@ function openPlaceDetail(id,autoPlanDay){
       '<button class="filter-pill" onclick="setPlaceFilter(\'activity\',this)">🎯 Activities</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
     '</div>'+
-    '<div id="place-recs"><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
+    '<div id="place-recs"><div id="dest-photo-loading" style="margin-bottom:12px"></div><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
     '<div class="section-lbl" style="margin-top:14px">Plan a day here</div>'+
     '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')">Plan a day in '+esc(d.name)+'</button>';
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
@@ -786,6 +807,31 @@ function setPlaceFilter(f,el){
   document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
   if(currentPlaceId)renderPlaceRecs(currentPlaceId);
+}
+
+function loadDestPhotos(destName,country){
+  var el=g('dest-photo-loading');if(!el)return;
+  var query=encodeURIComponent(destName+(country?', '+country:''));
+  // Use Wikimedia commons API for free travel photos
+  fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+query)
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(!el)return;
+    var img=data.thumbnail&&data.thumbnail.source;
+    var desc=data.extract||'';
+    if(img){
+      el.innerHTML='<div style="position:relative;border-radius:12px;overflow:hidden;margin-bottom:4px">'+
+        '<img src="'+img+'" style="width:100%;height:160px;object-fit:cover;display:block">'+
+        '<div style="position:absolute;bottom:0;left:0;right:0;padding:20px 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.65))">'+
+          '<div style="font-size:16px;font-weight:700;color:#fff;font-family:Fraunces,serif;letter-spacing:-.01em">'+esc(destName)+'</div>'+
+          (country?'<div style="font-size:12px;color:rgba(255,255,255,.75)">'+esc(country)+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (desc?'<p style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:10px;padding:0 2px">'+esc(desc.substring(0,180))+(desc.length>180?'…':'')+'</p>':'');
+    } else {
+      el.innerHTML='<div style="height:10px"></div>';
+    }
+  }).catch(function(){if(el)el.innerHTML='';});
 }
 function renderPlaceRecs(id){
   var el=g('place-recs');if(!el)return;
@@ -1417,12 +1463,22 @@ function openDetail(id){
   g('det-title').textContent=it.title||'Trip';
   // Build cost rows
   function costRow(label,budget,premium,budgetUrl,premiumUrl){
-    var bclick=budgetUrl?'onclick="window.open(\''+budgetUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
-    var pclick=premiumUrl?'onclick="window.open(\''+premiumUrl+'\',\'_blank\')" style="cursor:pointer;text-decoration:underline;"':'';
-    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'+
-      '<span style="flex:1;font-size:13px;color:var(--text2)">'+label+'</span>'+
-      '<span '+bclick+' style="font-size:13px;font-weight:500;color:var(--green);width:70px;text-align:right">$'+Math.round(budget).toLocaleString()+(budgetUrl?' ↗':'')+'</span>'+
-      '<span '+pclick+' style="font-size:13px;font-weight:500;color:var(--gold);width:70px;text-align:right">$'+Math.round(premium).toLocaleString()+(premiumUrl?' ↗':'')+'</span>'+
+    var bStyle='display:flex;flex-direction:column;align-items:center;cursor:'+(budgetUrl?'pointer':'default')+';min-width:72px;padding:6px 8px;border-radius:8px;'+(budgetUrl?'background:rgba(45,106,18,.06);':'');
+    var pStyle='display:flex;flex-direction:column;align-items:center;cursor:'+(premiumUrl?'pointer':'default')+';min-width:72px;padding:6px 8px;border-radius:8px;'+(premiumUrl?'background:rgba(184,115,10,.06);':'');
+    var bOpen=budgetUrl?"window.open('"+budgetUrl+"','_blank')":'';
+    var pOpen=premiumUrl?"window.open('"+premiumUrl+"','_blank')":'';
+    var bOnclick=bOpen?'onclick="'+bOpen+'"':'';
+    var pOnclick=pOpen?'onclick="'+pOpen+'"':'';
+    return '<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2);line-height:1.4">'+label+'</span>'+
+      '<div style="'+bStyle+'" '+bOnclick+'>'+
+        '<span style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Budget'+(budgetUrl?' ↗':' ')+'</span>'+
+        '<span style="font-size:16px;font-weight:700;color:var(--green);font-family:Fraunces,serif">$'+Math.round(budget).toLocaleString()+'</span>'+
+      '</div>'+
+      '<div style="'+pStyle+'" '+pOnclick+'>'+
+        '<span style="font-size:9px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Premium'+(premiumUrl?' ↗':' ')+'</span>'+
+        '<span style="font-size:16px;font-weight:700;color:var(--gold);font-family:Fraunces,serif">$'+Math.round(premium).toLocaleString()+'</span>'+
+      '</div>'+
     '</div>';
   }
   var costHtml='';
@@ -1718,7 +1774,7 @@ function sendChat(){
   },1000,chatSystem());
 }
 function addChatBubble(role,html,isTemp){
-  var wrap=document.createElement('div');wrap.className='chat-msg '+role;
+  var wrap=document.createElement('div');wrap.className='chat-bubble-wrap '+role;
   var bub=document.createElement('div');bub.className='chat-bubble';bub.innerHTML=html;
   wrap.appendChild(bub);g('chat-msgs').appendChild(wrap);
   g('chat-msgs').scrollTop=g('chat-msgs').scrollHeight;
