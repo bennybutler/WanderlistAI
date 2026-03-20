@@ -837,63 +837,61 @@ function loadDestPhotos(destName,country){
       '<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center"><span class="spin"></span></div>'+
     '</div>';
 
-  var bad=['flag','coat','arms','seal','logo','map','locator','blank','outline','emblem','diagram','route','plan','scheme'];
+  // Try multiple search terms in sequence for best results
+  // Use Wikipedia pageimages - single call, returns lead image directly
+  var attempts=[
+    destName+(country?' '+country:''),
+    destName,
+    destName+' city'
+  ];
   var imgs=[];
 
-  // Tier 1: Wikipedia pageimages — returns ONE lead image per article (most reliable)
-  function tryWikipedia(){
-    var titles=[destName, destName+(country?' '+country:'')];
-    var url='https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(titles.join('|'))+
-      '&prop=pageimages|images&piprop=thumbnail&pithumbsize=600&imlimit=20&format=json&origin=*';
-    fetch(url).then(function(r){return r.json();}).then(function(data){
-      var pages=Object.values((data.query||{}).pages||{});
-      // Lead images first
+  function tryNext(idx){
+    if(idx>=attempts.length){if(imgs.length)showCarousel(imgs);else tryFlickr();return;}
+    var url='https://en.wikipedia.org/w/api.php?action=query'+
+      '&titles='+encodeURIComponent(attempts[idx])+
+      '&prop=pageimages'+
+      '&piprop=thumbnail'+
+      '&pithumbsize=800'+
+      '&format=json&origin=*';
+    fetch(url)
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var pages=Object.values((data&&data.query&&data.query.pages)||{});
       pages.forEach(function(p){
-        if(p.thumbnail&&p.thumbnail.source){
-          var src=p.thumbnail.source;
-          if(imgs.indexOf(src)===-1)imgs.push(src);
+        var src=p.thumbnail&&p.thumbnail.source;
+        if(src&&imgs.indexOf(src)===-1)imgs.push(src);
+      });
+      if(imgs.length>0){
+        // Got at least one - try one more search term for variety then show
+        if(idx<attempts.length-1&&imgs.length<3){
+          tryNext(idx+1);
+        } else {
+          showCarousel(imgs);
         }
-      });
-      // Also pull other images from the article
-      var extraTitles=[];
-      pages.forEach(function(p){
-        ((p.images)||[]).forEach(function(img){
-          var t=img.title.toLowerCase();
-          if((t.indexOf('.jpg')>-1||t.indexOf('.jpeg')>-1)&&!bad.some(function(w){return t.indexOf(w)>-1;}))
-            extraTitles.push(img.title);
-        });
-      });
-      if(extraTitles.length){
-        var uniq=extraTitles.filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,8);
-        fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(uniq.join('|'))+
-          '&prop=imageinfo&iiprop=url|mime|width&iiurlwidth=600&format=json&origin=*')
-        .then(function(r){return r.json();}).then(function(d2){
-          Object.values((d2.query||{}).pages||{}).forEach(function(p){
-            var ii=p.imageinfo&&p.imageinfo[0];
-            if(ii&&ii.thumburl&&ii.mime==='image/jpeg'&&ii.width>300){
-              if(imgs.indexOf(ii.thumburl)===-1)imgs.push(ii.thumburl);
-            }
-          });
-          if(imgs.length>=2)showCarousel(imgs.slice(0,8));else tryFlickr();
-        }).catch(function(){if(imgs.length)showCarousel(imgs);else tryFlickr();});
       } else {
-        if(imgs.length)showCarousel(imgs);else tryFlickr();
+        tryNext(idx+1);
       }
-    }).catch(tryFlickr);
+    }).catch(function(){tryNext(idx+1);});
   }
 
-  // Tier 2: Flickr public feed — broad coverage, any town/village
   function tryFlickr(){
-    var tag=encodeURIComponent(destName+(country?' '+country:''));
-    // Use cors proxy approach — Flickr feed supports jsonp, we use nojsoncallback
-    fetch('https://api.flickr.com/services/feeds/photos_public.gne?tags='+tag+'&tagmode=all&format=json&nojsoncallback=1',
-      {headers:{'Accept':'application/json'}})
-    .then(function(r){return r.json();}).then(function(data){
+    // Flickr public feed JSON - reliable fallback for any place
+    var tag=destName+(country?'+'+country:'');
+    var url='https://api.flickr.com/services/feeds/photos_public.gne?tags='+
+      encodeURIComponent(tag)+'&tagmode=all&format=json&nojsoncallback=1';
+    fetch(url)
+    .then(function(r){return r.text();})
+    .then(function(txt){
+      // Flickr sometimes returns slightly malformed JSON
+      var data;try{data=JSON.parse(txt);}catch(e){showFallback();return;}
+      var bad=['flag','map','coat','arms','logo','diagram','locator'];
       var items=((data&&data.items)||[])
         .filter(function(item){
           var t=(item.title||'').toLowerCase();
           return !bad.some(function(w){return t.indexOf(w)>-1;});
-        }).map(function(item){
+        })
+        .map(function(item){
           return (item.media&&item.media.m||'').replace('_m.','_b.');
         }).filter(Boolean);
       items=items.filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,8);
@@ -939,19 +937,20 @@ function loadDestPhotos(destName,country){
     var wrap=el.querySelector('#photo-wrap');if(!wrap)return;
     var ctr=el.querySelector('#photo-counter');
     var list=window._photoImgs||[];
-    if(ctr)ctr.textContent=list.length?(idx+1)+'/'+list.length:'';
+    if(ctr)ctr.textContent=list.length>1?(idx+1)+'/'+list.length:'';
     var img=document.createElement('img');
     img.src=list[idx];
-    img.style.cssText='width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer;transition:opacity .25s';
+    img.style.cssText='width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer';
     img.onclick=function(){openPhotoLightbox(idx);};
     img.onerror=function(){this.style.opacity='0';};
     wrap.innerHTML=
-      (list.length>1?'<button onclick="event.stopPropagation();prevPhoto()" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1;z-index:2">‹</button>'+
-      '<button onclick="event.stopPropagation();nextPhoto()" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1;z-index:2">›</button>':'');
+      list.length>1?
+        '<button onclick="event.stopPropagation();prevPhoto()" style="position:absolute;left:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1;z-index:2">‹</button>'+
+        '<button onclick="event.stopPropagation();nextPhoto()" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:14px;cursor:pointer;line-height:1;z-index:2">›</button>':'';
     wrap.insertBefore(img,wrap.firstChild);
   }
 
-  tryWikipedia();
+  tryNext(0);
 }
 
 function renderPlaceRecs(id){
@@ -1736,13 +1735,13 @@ function openDetail(id){
           '</div>'+
           '<div style="min-width:88px;text-align:center;background:rgba(45,106,18,.08);border-radius:10px;padding:8px 4px">'+
             '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em">Budget</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">$'+(b.flights_pp+b.accommodation_pp+b.food_pp+b.activities_pp).toLocaleString()+'</div>'+
-            '<div style="font-size:9px;color:var(--green);opacity:.7;margin-top:1px">(flights+airbnb+food+activities)</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">$'+(b.flights_pp*2+b.accommodation_pp+b.food_pp+b.activities_pp).toLocaleString()+'</div>'+
+            '<div style="font-size:9px;color:var(--green);opacity:.7;margin-top:1px">(2 flights+accom+food+activities)</div>'+
           '</div>'+
           '<div style="min-width:88px;text-align:center;background:rgba(184,115,10,.08);border-radius:10px;padding:8px 4px">'+
             '<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em">Premium</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">$'+(p.flights_pp+p.accommodation_pp+p.food_pp+p.activities_pp).toLocaleString()+'</div>'+
-            '<div style="font-size:9px;color:var(--gold);opacity:.7;margin-top:1px">(flights+airbnb+food+activities)</div>'+
+            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">$'+(p.flights_pp*2+p.accommodation_pp+p.food_pp+p.activities_pp).toLocaleString()+'</div>'+
+            '<div style="font-size:9px;color:var(--gold);opacity:.7;margin-top:1px">(2 flights+accom+food+activities)</div>'+
           '</div>'+
         '</div>'+
         '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
