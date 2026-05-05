@@ -921,8 +921,20 @@ function openPlaceDetail(id,autoPlanDay){
   g('place-title').textContent=d.name;
   if(d.type!=='local'){setTimeout(function(){loadDestPhotos(d.name,d.country);},50);}
   placeFilter='all';
+  var isLocalSpot=d.type==='local';
   g('place-body').innerHTML=
-    '<div class="filter-pills" id="place-pills">'+
+    (!isLocalSpot?
+      '<div id="dest-photo-loading" style="margin-bottom:12px">'+
+        '<div style="position:relative;border-radius:14px;overflow:hidden;height:200px;background:var(--bg3)" id="photo-wrap">'+
+          '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">'+
+            '<div style="width:40px;height:40px;border:4px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite"></div>'+
+            '<div style="font-size:13px;font-weight:600;color:var(--text2)">Loading photos of '+esc(d.name)+'…</div>'+
+          '</div>'+
+        '</div>'+
+        '<p style="font-size:11px;color:var(--text3);text-align:center;margin-top:5px">Tap photo to expand · ‹ › to browse</p>'+
+      '</div>'
+    :'')+
+    '<div class="filter-pills" id="place-pills" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">'+
       '<button class="filter-pill on" onclick="setPlaceFilter(\'all\',this)">All</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'restaurant\',this)">🍽 Food</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'bar\',this)">🍸 Drinks</button>'+
@@ -930,21 +942,33 @@ function openPlaceDetail(id,autoPlanDay){
       '<button class="filter-pill" onclick="setPlaceFilter(\'activity\',this)">🎯 Activities</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
     '</div>'+
-    '<div id="dest-photo-loading" style="margin-bottom:6px"></div>'+
-    '<div id="place-recs"><div class="ld"><span class="spin"></span>Loading recommendations…</div></div>'+
+    '<div id="place-recs"><div style="text-align:center;padding:24px 0">'+
+      '<div style="width:36px;height:36px;border:4px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px"></div>'+
+      '<div style="font-size:14px;font-weight:600;color:var(--text2)">Finding the best spots in '+esc(d.name)+'…</div>'+
+    '</div></div>'+
     '<div class="section-lbl" style="margin-top:14px">Plan a day here</div>'+
-    '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')">Plan a day in '+esc(d.name)+'</button>';
+    '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')" >Plan a day in '+esc(d.name)+'</button>';
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
   // Fetch recs if not cached
   if(placeRecs[id]){renderPlaceRecs(id);}
   else{
-    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Only real, verified, well-known places — do NOT invent names. Mix: restaurants, bars, cafes, parks, activities. Budget and premium options.\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Only REAL verified places — do NOT invent names. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
     ai([{role:'user',content:prompt}],function(err,text){
       var el=g('place-recs');if(!el)return;
       if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
       try{placeRecs[id]=JSON.parse(text.replace(/```json|```/g,'').trim());renderPlaceRecs(id);}
       catch(e){el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not load. Try again.</p>';}
     },1800);
+  }
+  // For local spots — show current tags + edit button
+  if(d.type==='local'){
+    var currentTags=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
+    var tagsDisplay=currentTags.length?currentTags.map(function(t){return'<span style="font-size:11px;padding:3px 9px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join(' '):'<span style="color:var(--text3);font-size:12px">No tags yet</span>';
+    var tagSection='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Tags</div>'+
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px" id="spot-current-tags">'+tagsDisplay+'</div>'+
+      '<button onclick="editSpotTags(\''+id+'\')" style="padding:6px 14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)">✏️ Edit tags</button>'+
+    '</div>';
+    var pb=g('place-body');if(pb)pb.innerHTML=tagSection+pb.innerHTML;
   }
   if(autoPlanDay)setTimeout(function(){planDay(id);},500);
 }
@@ -957,14 +981,15 @@ function setPlaceFilter(f,el){
 
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
-  el.innerHTML=
-    '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">'+
-      '<span>📸 Browse photos</span>'+
-      '<span id="photo-counter"></span>'+
-    '</div>'+
-    '<div style="position:relative;border-radius:12px;overflow:hidden;height:200px;background:var(--bg3);margin-bottom:8px" id="photo-wrap">'+
-      '<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center"><span class="spin"></span></div>'+
-    '</div>';
+  // photo-wrap already exists in the DOM from openPlaceDetail
+  // Just update the counter element (add it if needed)
+  var existingCounter=el.querySelector('#photo-counter');
+  if(!existingCounter){
+    var ctr=document.createElement('div');
+    ctr.id='photo-counter';
+    ctr.style.cssText='font-size:11px;color:var(--text3);text-align:center;margin-top:5px';
+    el.appendChild(ctr);
+  }
 
   // Try multiple search terms in sequence for best results
   // Use Wikipedia pageimages - single call, returns lead image directly
@@ -1029,9 +1054,9 @@ function loadDestPhotos(destName,country){
   }
 
   function showFallback(){
-    var wrap=el.querySelector('#photo-wrap');
-    if(wrap)wrap.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🏙</div>';
-    var ctr=el.querySelector('#photo-counter');if(ctr)ctr.textContent='';
+    var wrap=g('photo-wrap');
+    if(wrap)wrap.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:48px">🏙</div>';
+    var ctr=g('photo-counter');if(ctr)ctr.textContent='';
   }
 
   function showCarousel(list){
@@ -1063,8 +1088,8 @@ function loadDestPhotos(destName,country){
   }
 
   function _renderPh(idx){
-    var wrap=el.querySelector('#photo-wrap');if(!wrap)return;
-    var ctr=el.querySelector('#photo-counter');
+    var wrap=g('photo-wrap');if(!wrap)return;
+    var ctr=g('photo-counter');
     var list=window._photoImgs||[];
     if(ctr)ctr.textContent=list.length>1?(idx+1)+'/'+list.length:'';
     var img=document.createElement('img');
@@ -1093,13 +1118,16 @@ function renderPlaceRecs(id){
   });
   if(!filtered.length){el.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">No results for this filter.</p>';return;}
   el.innerHTML=filtered.map(function(r){
-    var safeRec=encodeURIComponent(JSON.stringify({name:r.name,type:r.type||'local'}));
+    var safeRec=encodeURIComponent(JSON.stringify({name:r.name,type:r.type||'local',tags:r.tags||[]}));
+    var tagsHtml=(r.tags&&r.tags.length?r.tags:[r.budget?'🥙 Cheap eats':'🍽 Fine dining']).map(function(t){
+      return '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600;margin-right:3px">'+esc(t)+'</span>';
+    }).join('');
     return '<div class="rec-card">'+
       '<span class="rec-icon">'+esc(r.emoji||'📍')+'</span>'+
       '<div class="rec-info">'+
-        '<div class="rec-name">'+esc(r.name)+(r.price_range?'&nbsp;<span style="font-size:11px;color:var(--text3)">'+esc(r.price_range)+'</span>':'')+'</div>'+
+        '<div class="rec-name">'+esc(r.name)+(r.price_range?' <span style="font-size:11px;color:var(--text3)">'+esc(r.price_range)+'</span>':'')+'</div>'+
+        '<div style="margin:3px 0">'+tagsHtml+'</div>'+
         '<div class="rec-detail">'+esc(r.description)+'</div>'+
-        '<div style="margin-top:3px">'+(r.budget?'<span style="font-size:11px;color:var(--green)">💰 Budget</span>':'<span style="font-size:11px;color:var(--gold)">✨ Premium</span>')+'</div>'+
       '</div>'+
       '<button class="rec-add" onclick="addRecToLocal(\''+id+'\',\''+safeRec+'\')">+ Save</button>'+
     '</div>';
@@ -1110,11 +1138,35 @@ function addRecToLocal(destId,encoded){
   try{
     var rec=JSON.parse(decodeURIComponent(encoded));
     if(!S.dests.find(function(x){return x.name.toLowerCase()===rec.name.toLowerCase()&&x.country===dest.country;})){
-      S.dests.push({id:uid(),name:rec.name,country:dest.country||'',lat:dest.lat,lng:dest.lng,type:'local',category:rec.type||'local'});
+      var recTags=rec.tags&&rec.tags.length?rec.tags:[rec.type||'local'];
+      S.dests.push({id:uid(),name:rec.name,country:dest.country||'',lat:dest.lat,lng:dest.lng,type:'local',category:recTags[0]||'local',tags:recTags});
       save();syncMap();syncList();toast('Saved to Local spots!');
     } else {toast('Already saved');}
   }catch(e){}
 }
+
+function editSpotTags(id){
+  var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
+  var LOCAL_TAGS=['☕ Cafe','🍺 Beer/pub','🍸 Cocktails','🌿 Patio','🍽 Fine dining','🥙 Cheap eats','🌳 Park','🏛 Sightseeing','🎭 Culture','🛍 Shopping','🏖 Beach','🌃 Nightlife','🏃 Activity','📸 Viewpoint'];
+  var current=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
+  var tagsHtml=LOCAL_TAGS.map(function(t){return'<button class="filter-pill'+(current.indexOf(t)>-1?' on':'')+'" onclick="togLocalTag(this)" style="font-size:12px;margin:2px">'+t+'</button>';}).join('');
+  g('place-title').textContent='Edit tags';
+  g('place-body').innerHTML=
+    '<p style="font-size:15px;font-weight:600;margin-bottom:2px">'+esc(d.name)+'</p>'+
+    '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">'+esc(d.country||'')+'</p>'+
+    '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Select all that apply:</p>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px" id="cat-pick">'+tagsHtml+'</div>'+
+    '<button onclick="saveSpotTags(\''+id+'\')" style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Save tags</button>'+
+    '<button onclick="openPlaceDetail(\''+id+'\')" style="width:100%;padding:9px;margin-top:8px;background:transparent;border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;cursor:pointer;font-family:inherit;color:var(--text3)">Cancel</button>';
+}
+function saveSpotTags(id){
+  var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
+  var tags=[];document.querySelectorAll('#cat-pick .filter-pill.on').forEach(function(b){tags.push(b.textContent.trim());});
+  d.tags=tags;d.category=tags[0]||d.category||'local';
+  save();syncList();syncMap();toast('Tags saved!');
+  openPlaceDetail(id);
+}
+
 function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet').classList.remove('on');}
 
 // ── Day planner ───────────────────────────────────────────
