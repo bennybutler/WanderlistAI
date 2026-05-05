@@ -924,11 +924,7 @@ function planDayFromFiltered(){
 var listFilter='all';
 
 
-function showLocalTagFilters(show){
-  var el=g('local-tag-filters');
-  if(el)el.style.display=show?'block':'none';
-  if(!show)_localTagFilter='all';
-}
+// showLocalTagFilters overridden below by fix block
 
 function setListFilter(f,el){
   listFilter=f;
@@ -940,9 +936,9 @@ function setListFilter(f,el){
 function syncList(){
   var filtered=S.dests.filter(function(d){
     if(listFilter!=='all'&&d.type!==listFilter)return false;
-    if(listFilter==='local'&&_localTagFilter&&_localTagFilter!=='all'){
-      var tags=d.tags&&d.tags.length?d.tags:[d.category||""];
-      return tags.some(function(t){return t===_localTagFilter;});
+    if(listFilter==='local'&&_localTagFilters&&_localTagFilters.length){
+      var tags=d.tags&&d.tags.length?d.tags:[d.category||''];
+      return tags.some(function(t){return _localTagFilters.indexOf(t)>-1;});
     }
     return true;
   });
@@ -961,7 +957,6 @@ function syncList(){
       '<div class="dest-info">'+
         '<div class="dest-name">'+esc(d.name)+'</div>'+
         '<div class="dest-meta">'+esc(d.country||'')+'</div>'+
-        (d.tags&&d.tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+d.tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'')+
         tagsHtml+
       '</div>'+
       '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
@@ -1305,7 +1300,6 @@ function addCustomTag(){
 function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet').classList.remove('on');}
 
 // ── Day planner ───────────────────────────────────────────
-// ── Day planner ───────────────────────────────────────────
 function planDay(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
   var savedSpots=S.dests.filter(function(x){
@@ -1355,11 +1349,7 @@ function setDPMode(el,useSaved){
   el.classList.add('on');
   window._dpUseSaved=useSaved;
 }
-function togDPSrc(el,useSaved){
-  document.querySelectorAll('#dp-src .filter-pill').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  window._dpUseSaved=useSaved;
-}
+
 function togDPVibe(el){
   // Single select for vibes
   document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(b){b.classList.remove('on');});
@@ -1581,12 +1571,11 @@ function shareDayPlan(encoded){
 
 // ── Places CRUD ───────────────────────────────────────────
 function setType(t,el){
-  var ci=g('city-inp');if(ci)ci.placeholder=t==='local'?'Search tourist attractions, restaurants, bars, parks…':'Search cities, countries…';
   S.placeType=t;
   document.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
   var inp=g('city-inp');
-  inp.placeholder=t==='local'?'Search restaurants, bars, parks, activities…':'Search cities, countries…';
+  if(inp)inp.placeholder=t==='local'?'Search local spots — restaurants, bars, parks, attractions…':'Search cities, countries…';
   hideAC();
 }
 function addDests(arr){
@@ -1759,7 +1748,7 @@ function showCatPicker(name,country,lat,lng,detectedCat,city){
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
 }
 function togLocalTag(el){el.classList.toggle('on');}
-function selectCat(cat,el){document.querySelectorAll('#cat-pick .filter-pill').forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
+
 function confirmCatAdd(){
   if(!_pendingAdd)return;
   var tags=[];document.querySelectorAll('#cat-pick .filter-pill.on').forEach(function(b){tags.push(b.textContent.trim());});
@@ -1891,13 +1880,7 @@ function shareSavedDay(id){
   else if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){showShareToast('Copied!');});}
 }
 function shareItin(id){shareItinWithFriends(id);return;}
-function _shareItinOld(id){
-  var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
-  var encoded=btoa(unescape(encodeURIComponent(JSON.stringify(it))));
-  var url=window.location.origin+window.location.pathname+'#share='+encoded;
-  if(navigator.share){navigator.share({title:it.title,text:'Check out this trip: '+it.title,url:url}).catch(function(){});}
-  else if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){showShareToast('Share link copied! Send it to friends.');});}
-}
+
 function selDetCity(el,city,itinId){
   var detBody=g('det-body');
   if(detBody)detBody.querySelectorAll('.det-city-btn').forEach(function(b){b.classList.remove('on');});
