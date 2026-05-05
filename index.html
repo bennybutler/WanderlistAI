@@ -3174,6 +3174,231 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
   });
 })();
 
+
+/* ===== Wanderlist fixes, v3 distance and explore refresh =====
+   This block fixes the remaining route accuracy issue and separates Explore controls from Plan-a-day. */
+(function(){
+  var prevOpenPlaceDetail=window.openPlaceDetail;
+  var prevPlanDay=window.planDay;
+  var prevRenderPlaceRecs=window.renderPlaceRecs;
+
+  function safeG(id){return document.getElementById(id);}
+  function clean(v){return (v||'').toString().trim();}
+  function num(v){var n=parseFloat(v);return isFinite(n)?n:null;}
+  function hasCoords(o){return o&&num(o.lat)!==null&&num(o.lng)!==null;}
+  function coordObj(o){return hasCoords(o)?{lat:num(o.lat),lng:num(o.lng)}:null;}
+  function stopNameKey(v){return clean(v).toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();}
+  function kmBetween2(a,b){return window.kmBetween(a.lat,a.lng,b.lat,b.lng);}
+  function metresLabel(m){return m<1000?Math.round(m)+'m':(Math.round(m/100)/10)+'km';}
+  function realisticWalkLabel(km,routeMetres,routeSeconds){
+    var straightMetres=Math.max(0,km*1000);
+    var metres=Math.max(straightMetres*1.15, routeMetres||0);
+    if(!isFinite(metres)||metres<=0)metres=straightMetres;
+    var speedMps=1.33;
+    var speedSeconds=metres/speedMps;
+    var seconds=Math.max(speedSeconds, routeSeconds||0);
+    var mins=Math.max(1,Math.round(seconds/60));
+    return mins+' min walk ('+metresLabel(metres)+')';
+  }
+  function destinationCentre(d){
+    var c=coordObj(d);if(c)return c;
+    var home=localStorage.getItem('wl_homecoords');
+    if(home){try{return JSON.parse(home);}catch(e){}}
+    return null;
+  }
+  function findSpotByStop(stop,settings){
+    var spots=(settings&&settings.spots)||window._dpSaved||[];
+    if(!stop)return null;
+    if(stop.id){
+      var byId=spots.find(function(s){return String(s.id)===String(stop.id);});
+      if(byId)return byId;
+      byId=(S.dests||[]).find(function(s){return String(s.id)===String(stop.id);});
+      if(byId)return byId;
+    }
+    var nm=stopNameKey(stop.name);
+    return spots.find(function(s){return stopNameKey(s.name)===nm;})||(S.dests||[]).find(function(s){return stopNameKey(s.name)===nm&&s.type==='local';})||null;
+  }
+  function geocodeStop(stop,d,settings,cb){
+    var saved=findSpotByStop(stop,settings);
+    if(saved&&coordObj(saved)){stop.id=saved.id;stop.name=saved.name;cb(coordObj(saved));return;}
+    if(hasCoords(stop)){cb(coordObj(stop));return;}
+    var city=d.name+(d.country?', '+d.country:'');
+    var q=encodeURIComponent((stop.name||'')+', '+city);
+    var centre=destinationCentre(d);
+    var url='https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=3&addressdetails=1';
+    if(centre){
+      var dx=0.35,dy=0.25;
+      url+='&bounded=1&viewbox='+(centre.lng-dx)+','+(centre.lat+dy)+','+(centre.lng+dx)+','+(centre.lat-dy);
+    }
+    fetch(url,{headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();})
+    .then(function(results){
+      var best=null,bestKm=Infinity;
+      (results||[]).forEach(function(x){
+        var c={lat:parseFloat(x.lat),lng:parseFloat(x.lon)};
+        if(!isFinite(c.lat)||!isFinite(c.lng))return;
+        var k=centre?kmBetween2(c,centre):0;
+        if(k<bestKm){best=c;bestKm=k;}
+      });
+      if(best&&(!centre||bestKm<35)){stop.lat=best.lat;stop.lng=best.lng;cb(best);}
+      else cb(null);
+    }).catch(function(){cb(null);});
+  }
+  function routeLeg(fr,to,cb){
+    var straightKm=kmBetween2(fr,to);
+    var url='https://router.project-osrm.org/route/v1/foot/'+fr.lng+','+fr.lat+';'+to.lng+','+to.lat+'?overview=false';
+    fetch(url)
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var route=data&&data.routes&&data.routes[0];
+      if(route&&isFinite(route.distance))cb(straightKm,route.distance,route.duration||0);
+      else cb(straightKm,null,null);
+    }).catch(function(){cb(straightKm,null,null);});
+  }
+
+  window.openPlaceDetail=function(id,autoPlanDay){
+    prevOpenPlaceDetail(id,autoPlanDay);
+    setTimeout(function(){
+      var pills=safeG('place-pills');
+      if(pills)pills.style.display=autoPlanDay?'none':'flex';
+    },80);
+  };
+
+  window.planDay=function(destId){
+    if(prevPlanDay)prevPlanDay(destId);
+    setTimeout(function(){var pills=safeG('place-pills');if(pills)pills.style.display='none';},20);
+  };
+
+  window.renderPlaceRecs=function(id){
+    if(prevRenderPlaceRecs)prevRenderPlaceRecs(id);
+    var el=safeG('place-recs');
+    var pills=safeG('place-pills');
+    if(!el||!pills||pills.style.display==='none')return;
+    if(el.querySelector('#explore-refresh-row'))return;
+    var row=document.createElement('div');
+    row.id='explore-refresh-row';
+    row.style.cssText='display:flex;justify-content:flex-end;margin:-2px 0 10px';
+    row.innerHTML='<button onclick="refreshExploreSuggestions()" style="padding:6px 12px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↻ Refresh suggestions</button>';
+    el.insertBefore(row,el.firstChild);
+  };
+
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||currentPlaceId;
+    var d=(S.dests||[]).find(function(x){return x.id===id;});
+    if(!d){toast('Open a destination first');return;}
+    var el=safeG('place-recs');
+    if(el)el.innerHTML='<div style="text-align:center;padding:20px 0"><span class="spin"></span><div style="font-size:13px;color:var(--text3);margin-top:8px">Refreshing suggestions…</div></div>';
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 fresh, real local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Avoid repeating the obvious top results if possible. Only REAL verified places. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    ai([{role:'user',content:prompt}],function(err,text){
+      if(err){if(el)el.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
+      try{placeRecs[id]=JSON.parse(text.replace(/```json|```/g,'').trim());window.renderPlaceRecs(id);}
+      catch(e){if(el)el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not refresh suggestions. Try again.</p>';}
+    },1800);
+  };
+
+  window.runDayPlan=function(destId){
+    var d=(S.dests||[]).find(function(x){return x.id===destId;});if(!d)return;
+    var prior=window._lastDayPlanConfig||{};
+    var tweak=window._tweakMsg||'';window._tweakMsg='';
+    var hours=safeG('dp-hours')?safeG('dp-hours').value:(prior.hours||'6');
+    var start=safeG('dp-start')?safeG('dp-start').value:(prior.start||'11:00am');
+    var vibe=prior.vibe||'';
+    if(safeG('dp-vibes')){vibe='';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});}
+    vibe=vibe||'🗺 Sightseeing';
+    var spots=window._dpSaved||prior.spots||[];
+    var useSaved=safeG('dp-use-saved')?safeG('dp-use-saved').classList.contains('on'):!!prior.useSaved;
+    useSaved=!!(useSaved&&spots.length);
+    var anchor=window._planStartingSpot||prior.anchor||'';
+    var anchorCoords=window._planAnchorCoords||prior.anchorCoords||null;
+    var centre=anchorCoords||destinationCentre(d);
+    window._lastDayPlanConfig={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
+    var savedLines=useSaved?spots.map(function(s,i){var c=coordObj(s)||{};return (i+1)+'. ID '+s.id+' | '+s.name+' | city '+(window.getPlaceCity?window.getPlaceCity(s):'')+' | tags '+((s.tags&&s.tags.join(', '))||s.category||'')+' | lat '+(c.lat||s.lat||'')+' | lng '+(c.lng||s.lng||'');}):[];
+    var dpEl=safeG('dest-photo-loading');
+    if(dpEl){dpEl.innerHTML='<div style="background:linear-gradient(135deg,var(--gold-lt),#fff8ed);border:2px solid var(--gold-md);border-radius:14px;padding:14px;margin-bottom:10px"><div style="position:relative;border-radius:10px;overflow:hidden;height:160px;background:var(--bg3);margin-bottom:12px" id="photo-wrap"><div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center"><span class="spin"></span></div></div><div style="text-align:center"><div style="width:32px;height:32px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px"></div><div style="font-size:16px;font-weight:700;color:var(--text)">AI is planning your '+esc(vibe||'day')+'…</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Browse photos while you wait</div><span id="photo-counter" style="font-size:11px;color:var(--text3);display:block;margin-top:2px"></span></div></div>';loadDestPhotos(d.name,d.country);}
+    if(safeG('place-recs'))safeG('place-recs').innerHTML='';
+    var isDateNight=vibe.indexOf('Date')>-1||vibe.indexOf('date')>-1;
+    var isFoodTour=vibe.indexOf('Food')>-1||vibe.indexOf('food')>-1;
+    var isNightlife=vibe.indexOf('Night')>-1||vibe.indexOf('night')>-1;
+    var isSightseeing=vibe.indexOf('Sight')>-1||vibe.indexOf('sight')>-1;
+    var isOutdoors=vibe.indexOf('Outdoor')>-1||vibe.indexOf('outdoor')>-1;
+    var isLocal=vibe.indexOf('Local')>-1;
+    var vibeInstructions=isDateNight?'DATE NIGHT: Choose intimate restaurants, cocktail bars, rooftops and scenic evening walks.\n':isFoodTour?'FOOD TOUR: Every stop should be food or drink. No museums or shops unless they are food markets.\n':isNightlife?'NIGHTLIFE: Evening or night only. Start with dinner or drinks, then move through bars, cocktail spots, live music or clubs. Preserve the selected start time exactly.\n':isSightseeing?'SIGHTSEEING: Focus on landmarks, viewpoints, museums and cultural sites in one compact area.\n':isOutdoors?'OUTDOORS: Parks, waterfronts, trails, gardens and outdoor markets.\n':isLocal?'LIVE LIKE A LOCAL: Avoid tourist traps. Choose neighbourhood spots and resident favourites.\n':'Mix sightseeing, food and drinks in one compact neighbourhood.\n';
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
+      'VIBE: '+vibe+'. '+vibeInstructions+
+      'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood or immediately adjacent neighbourhoods only. Adjacent stops should normally be 10 min walk or less. Never place two consecutive walking stops more than 1.5km apart. A 5-minute walk is about 400m. Only ONE Uber/transit leg is allowed for the entire plan. If you cannot satisfy this, choose different nearby stops.\n'+
+      'COORDINATES REQUIRED: Include decimal lat and lng for every stop. Coordinates must be for the actual venue. Do not guess walking times, leave walk_to_next and transit_to_next blank. The app calculates those.\n'+
+      (centre?'Plan around this centre: '+centre.lat+', '+centre.lng+'.\n':'')+
+      'Start time: '+start+'. Preserve this start time exactly. Duration: '+hours+' hours.\n'+
+      (useSaved?'SAVED-SPOTS-ONLY MODE: Build the itinerary ONLY from the saved spots below. Do not recommend any spot outside this list. Use exact saved spot IDs and coordinates.\nSaved spots:\n'+savedLines.join('\n')+'\n':'')+
+      (anchor?'ANCHOR SPOT: Start at or very near "'+anchor+'". This must be the first stop or second stop at the latest.\n':'')+
+      (anchorCoords?'Anchor coordinates: '+anchorCoords.lat+', '+anchorCoords.lng+'. Keep the plan clustered around this location.\n':'')+
+      (tweak?'USER FEEDBACK ON PREVIOUS PLAN: '+tweak+'. Preserve the same start time, duration, vibe, saved spot scope and geography rules.\n':'')+
+      'Return ONLY valid JSON.\n'+
+      '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"id":"saved spot id if applicable","time":"'+start+'","name":"Real Place Name","lat":43.0,"lng":-79.0,"type":"food|drinks|culture|shopping|nature","description":"Specific details.","walk_to_next":"","transit_to_next":"","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
+    ai([{role:'user',content:prompt}],function(err,text){
+      if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
+      try{
+        var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
+        plan.city=plan.city||currentPlanCity||d.name;plan.start=start;plan.hours=parseInt(hours,10)||hours;plan.vibe=vibe;plan._destId=destId;
+        plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
+        currentPlanData=plan;
+        window.enrichPlanWithRealTimes(plan,d,function(){
+          currentPlanData=plan;
+          if(plan._badLegs>0&&!plan._retriedForTightness&&!window._tightPlanRetrying){
+            window._tightPlanRetrying=true;
+            window._tweakMsg='The previous route had stops too far apart. Rebuild it in one compact neighbourhood. Every walking leg must be 10 min or less where possible and never more than 1.5km. Use the same start time, duration and vibe.';
+            setTimeout(function(){window._tightPlanRetrying=false;runDayPlan(destId);},50);
+            return;
+          }
+          window.renderDayPlanHtml(plan,vibe,destId);
+        });
+        window.renderDayPlanHtml(plan,vibe,destId);
+      }catch(e){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
+    },1800);
+  };
+
+  window.enrichPlanWithRealTimes=function(plan,d,cb){
+    var stops=plan.stops||[];if(stops.length<2){cb();return;}
+    var settings=plan._settings||window._lastDayPlanConfig||{};
+    var coords=new Array(stops.length).fill(null);
+    var pending=stops.length;
+    plan._badLegs=0;
+    stops.forEach(function(s,i){
+      geocodeStop(s,d,settings,function(c){coords[i]=c;if(--pending===0)routeAll();});
+    });
+    function routeAll(){
+      var transitUsed=false;
+      var routePending=0;
+      function finish(){if(routePending===0)cb();}
+      for(var i=0;i<stops.length-1;i++){
+        (function(idx){
+          var fr=coords[idx],to=coords[idx+1];
+          stops[idx].walk_to_next='';stops[idx].transit_to_next='';
+          if(!fr||!to){stops[idx].walk_to_next='Distance unavailable. Verify before going.';plan._badLegs++;return;}
+          var km=kmBetween2(fr,to);
+          if(km>1.5){
+            if(!transitUsed){
+              transitUsed=true;
+              stops[idx].transit_to_next='Uber/transit recommended ('+metresLabel(km*1000)+')';
+            }else{
+              stops[idx].walk_to_next='Too far for this route ('+metresLabel(km*1000)+'). Refresh for a tighter plan.';
+              plan._badLegs++;
+            }
+            return;
+          }
+          routePending++;
+          routeLeg(fr,to,function(straightKm,routeMetres,routeSeconds){
+            stops[idx].walk_to_next=realisticWalkLabel(straightKm,routeMetres,routeSeconds);
+            if(straightKm>1.5)plan._badLegs++;
+            routePending--;finish();
+          });
+        })(i);
+      }
+      finish();
+    }
+  };
+})();
+
 </script>
 </body>
 </html>
