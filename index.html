@@ -314,7 +314,7 @@ textarea::placeholder{color:var(--text3);}
     </div>
     <div class="city-search">
       <div class="city-row">
-        <input class="city-inp" id="city-inp" placeholder="Search cities, countries..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)">
+        <input class="city-inp" id="city-inp" placeholder="Search cities, countries..." autocomplete="off" oninput="onCityInput()" onkeydown="onCityKey(event)" id="city-inp-el">
         <div class="type-toggle">
           <button class="tt-btn on" id="tt-dest" onclick="setType('dest',this)">✈</button>
           <button class="tt-btn" id="tt-local" onclick="setType('local',this)">📍</button>
@@ -1004,7 +1004,7 @@ function openPlaceDetail(id,autoPlanDay){
     '</div>';
     var pb=g('place-body');if(pb)pb.innerHTML=tagSection+pb.innerHTML;
   }
-  if(autoPlanDay)setTimeout(function(){planDay(id);},500);
+  if(autoPlanDay)setTimeout(function(){planDay(id,null,window._forcedPlanSpots||null);window._forcedPlanSpots=null;},500);
 }
 function setPlaceFilter(f,el){
   placeFilter=f;
@@ -1216,20 +1216,20 @@ function planDayFromFiltered(){
     return true;
   });
   if(!spots.length){toast('No spots match the current filters');return;}
-  // Find a destination that matches the city
-  var city=_localCityFilter!=='all'?_localCityFilter:(spots[0]&&spots[0].country)||'';
-  var dest=S.dests.find(function(x){return x.type==='dest'&&x.country===city;});
+  var cityKey=_localCityFilter!=='all'?_localCityFilter:(spots[0]&&(spots[0].city||spots[0].country))||'';
+  var dest=S.dests.find(function(x){
+    return x.type==='dest'&&(x.name.toLowerCase()===cityKey.toLowerCase()||x.country===cityKey||(x.city||'')===cityKey);
+  });
   if(!dest)dest=S.dests.find(function(x){return x.type==='dest';});
-  if(!dest){toast('Add a destination city first');return;}
-  swScreen('s-itin');
-  setTimeout(function(){planDay(dest.id,null,spots);},300);
+  if(!dest){toast('Add a destination first');return;}
+  // Open place detail sheet then auto-trigger day planner with filtered spots
+  window._forcedPlanSpots=spots;
+  openPlaceDetail(dest.id,true);
 }
 
 function planDayFromSpot(spotId){
   var spot=S.dests.find(function(x){return x.id===spotId;});if(!spot)return;
-  closePlaceDetail();
   var spotCity=spot.city||spot.country||'';
-  // Find a matching destination — match by city name or country
   var nearDest=S.dests.find(function(x){
     if(x.type!=='dest')return false;
     return x.name.toLowerCase()===spotCity.toLowerCase()||
@@ -1237,14 +1237,13 @@ function planDayFromSpot(spotId){
            x.country===spot.country;
   });
   if(!nearDest){
-    // Create a temporary virtual destination at the spot's coordinates
     var vd={id:'_vtmp',name:spot.city||spot.country||spot.name,country:spot.country,lat:spot.lat,lng:spot.lng,type:'dest'};
-    S.dests.push(vd);
-    nearDest=vd;
+    S.dests.push(vd);nearDest=vd;
     setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!=='_vtmp';});},10000);
   }
-  swScreen('s-itin');
-  setTimeout(function(){planDay(nearDest.id,spot.name,[spot]);},350);
+  // Open the destination's place detail sheet, then auto-trigger day planner
+  window._forcedPlanSpots=[spot];
+  openPlaceDetail(nearDest.id,true);
 }
 
 function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet').classList.remove('on');}
@@ -1256,10 +1255,13 @@ function planDay(destId,startingSpot,forcedSpots){
   var savedSpots=S.dests.filter(function(x){
     return x.type==='local'&&(x.country===d.country||x.name.toLowerCase().indexOf(d.name.toLowerCase())>-1);
   });
-  window._dpSaved=forcedSpots||savedSpots;
+  var _fs=forcedSpots||window._forcedPlanSpots||null;
+  window._forcedPlanSpots=null;
+  window._forcedPlanMode=!!_fs;
+  window._dpSaved=_fs||savedSpots;
   window._dpUseSaved=false;
   currentPlanCity=d.name;
-  var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+  var _prEl=g('place-recs');if(!_prEl)return;
   _prEl.innerHTML=
     '<div style="background:var(--bg2);border-radius:var(--rsm);padding:13px;margin-bottom:10px;border:1px solid var(--border);">'+
       '<p style="font-size:13px;font-weight:600;margin-bottom:10px;">🗓 Plan a day in '+esc(d.name)+(startingSpot?' · starting near '+esc(startingSpot):'')+' </p>'+
@@ -1319,7 +1321,7 @@ function runDayPlan(destId){
   var spots=window._dpSaved||[];
   var useSaved=(g('dp-use-saved')&&g('dp-use-saved').classList.contains('on'))&&spots.length>0;
   var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
-  var _planRecs=g('place-recs')||g('ilist');
+  var _planRecs=g('place-recs');
   var dpEl=g('dest-photo-loading');
   if(dpEl){
     dpEl.innerHTML=
@@ -1336,7 +1338,7 @@ function runDayPlan(destId){
       '</div>';
     loadDestPhotos(d.name,d.country);
   }
-  var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+  var _prEl=g('place-recs');if(!_prEl)return;
   _prEl.innerHTML='';
   var area=g('dp-area')?g('dp-area').value.trim():'';
   var isDateNight=vibe.indexOf('Date')>-1||vibe.indexOf('date')>-1;
@@ -1358,14 +1360,15 @@ function runDayPlan(destId){
     'NEIGHBOURHOOD RULE (non-negotiable): Choose ONE specific neighbourhood. ALL stops must be physically within that neighbourhood — no exceptions. Adjacent stops 2-10 min walk apart. A 5-min walk ≈ 400m. Max 1.2km between any two stops. ONE Uber/transit max for the whole day, only if truly unmissable.\n'+
     (area?'Stay in '+area+' neighbourhood the entire day.\n':'Choose the best walkable neighbourhood for the vibe above.\n')+
     'Start time: '+start+'.\n'+
-    (savedLocal.length?'Include these real saved spots: '+savedLocal.join(', ')+'.\n':'')+
+    (savedLocal.length?'MUST include these specific real spots (they are pre-selected by the user, build the route around them): '+savedLocal.join(', ')+'.\n':'')+
+    (window._forcedPlanMode?'These spots are the FOUNDATION of the day — find nearby spots to fill gaps but these must appear.\n':'')+
     'Only REAL verified places. Do NOT invent names. Walk times must be realistic (2-5 min between nearby spots).\n'+
     'Return ONLY valid JSON:\n'+
     '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
     '"stops":[{"time":"11:00am","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"4 min walk east on King St","transit_to_next":"10 min Uber (~$8) — use INSTEAD of walk_to_next for the one transit leg if used","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
   ai([{role:'user',content:prompt}],function(err,text){
     if(err){
-      var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+      var _prEl=g('place-recs');if(!_prEl)return;
   _prEl.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
       return;
     }
@@ -1410,7 +1413,7 @@ function renderDayPlanHtml(plan,vibe,destId){
         (s.transit_to_next?'<div style="font-size:11px;background:#f2f2f2;border:1px solid #ddd;border-radius:20px;padding:3px 9px;margin-top:5px;font-weight:600;display:inline-block">🚗 '+esc(s.transit_to_next)+'</div>':'')+
       '</div></div>';
   });
-  if(g('place-recs'))g('place-recs').innerHTML=html;
+  var _rph=g('place-recs');if(_rph)_rph.innerHTML=html;
 }
 
 function enrichPlanWithRealTimes(plan,d,cb){
@@ -1499,6 +1502,7 @@ function shareDayPlan(encoded){
 // ── Places CRUD ───────────────────────────────────────────
 function setType(t,el){
   S.placeType=t;
+  var inp=g('city-inp');if(inp)inp.placeholder=t==='local'?'Search restaurants, bars, parks…':'Search cities, countries…';
   document.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
   var inp=g('city-inp');
