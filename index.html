@@ -297,11 +297,11 @@ textarea::placeholder{color:var(--text3);}
 .empty-state p{font-size:15px;}
 
 /* ── Animations ── */
-@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pinDrop{0%{opacity:0;transform:translateY(-18px) scale(.8)}65%{transform:translateY(3px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 @keyframes pulse{0%,100%{box-shadow:0 4px 16px rgba(184,115,10,.55),0 0 0 0 rgba(184,115,10,.35)}60%{box-shadow:0 4px 16px rgba(184,115,10,.55),0 0 0 10px rgba(184,115,10,0)}}
-.card-anim{animation:slideUp .32s cubic-bezier(.22,1,.36,1) both;}
+.card-anim{animation:slideUp .65s cubic-bezier(.22,1,.36,1) both;}
 .map-home-btn{animation:pulse 3.5s ease-in-out infinite;}
 
 /* ── Skeleton cards ── */
@@ -311,8 +311,8 @@ textarea::placeholder{color:var(--text3);}
 
 /* ── Trip card hero photo ── */
 .card-hero-wrap{overflow:hidden;position:relative;height:0;}
-.card-hero-wrap.loaded{height:130px;}
-.card-hero{width:100%;height:130px;object-fit:cover;object-position:center;display:block;transition:opacity .4s;}
+.card-hero-wrap.loaded{height:140px;}
+.card-hero{width:100%;height:140px;object-fit:cover;object-position:center top;display:block;transition:opacity .5s;image-rendering:auto;}
 .card-hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.04) 0%,rgba(0,0,0,.5) 100%);}
 .card-hero-cities{position:absolute;bottom:10px;left:14px;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);}
 
@@ -848,8 +848,14 @@ function syncMap(){
   });
   mkrs=filtered.map(function(d){
     var lat=parseFloat(d.lat),lng=parseFloat(d.lng);
-    var c=d.type==='local'?(catCol[d.category]||'#1a6eb5'):'#BA7517';
-    var icon=L.divIcon({html:'<div style="width:13px;height:13px;background:'+c+';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',iconSize:[13,13],iconAnchor:[6,13],popupAnchor:[0,-17],className:''});
+    var mc=d.type==='local'?(catCol[d.category]||'#1a6eb5'):'#B8730A';
+    var mnm=d.name.split(',')[0];if(mnm.length>14)mnm=mnm.substring(0,13)+'…';
+    var mem={'restaurant':'🍽','bar':'🍺','cafe':'☕','pub':'🍺','park':'🌳','attraction':'🏛','activity':'🎯','cocktail bar':'🍸','nightclub':'🌃','shop':'🛍'};
+    var memi=d.type==='local'?(mem[d.category]||'📍'):'✈';
+    var icon=L.divIcon({
+      html:'<div style="background:'+mc+';color:#fff;border-radius:12px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.28);border:2px solid rgba(255,255,255,.95);font-family:-apple-system,system-ui,sans-serif;display:flex;align-items:center;gap:4px;line-height:1.2">'+memi+' '+mnm+'</div>',
+      iconSize:null,iconAnchor:[0,0],popupAnchor:[20,-30],className:''
+    });
     var m=L.marker([lat,lng],{icon:icon}).addTo(map);
     var popupEl=document.createElement('div');
     popupEl.style.minWidth='150px';
@@ -1871,7 +1877,7 @@ function setTripFilter(f,el){
 var _cardPhotos={};
 function fetchCardPhoto(dest,cardId){
   if(_cardPhotos[dest]){applyCardPhoto(cardId,_cardPhotos[dest]);return;}
-  fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(dest)+'&prop=pageimages&piprop=thumbnail&pithumbsize=500&format=json&origin=*')
+  fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(dest)+'&prop=pageimages&piprop=thumbnail&pithumbsize=900&format=json&origin=*')
   .then(function(r){return r.json();})
   .then(function(d){
     var p=Object.values((d&&d.query&&d.query.pages)||{})[0];
@@ -1882,7 +1888,12 @@ function fetchCardPhoto(dest,cardId){
 function applyCardPhoto(cardId,src){
   var wrap=document.getElementById('hw-'+cardId);if(!wrap)return;
   var img=document.getElementById('hi-'+cardId);if(!img)return;
+  // Filter out maps, flags, coats of arms
+  var bad=['map','flag','coat','arms','locator','blank','relief','location'];
+  var sl=src.toLowerCase();
+  if(bad.some(function(w){return sl.indexOf(w)>-1;}))return;
   img.onload=function(){wrap.classList.add('loaded');};
+  img.onerror=function(){wrap.style.display='none';};
   img.src=src;
 }
 
@@ -1890,7 +1901,7 @@ function renderItins(){
   var visible=S.itins.filter(function(it){return tripFilter==='all'||(it._type||'trip')===tripFilter;});
   if(!visible.length){
     var msg=tripFilter==='dayplan'?'No day plans yet. Open any place and tap Plan a day.':tripFilter==='trip'?'No trips yet. Add 2+ destinations and tap Generate trips.':'No trips or day plans yet.';
-    g('ilist').innerHTML='<div class="empty-state"><svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="6" y="14" width="52" height="40" rx="5" stroke="var(--gold-md)" stroke-width="2.5"/><path d="M20 14v40M44 14v40" stroke="var(--gold-md)" stroke-width="2" stroke-dasharray="4 3"/><path d="M6 34h52" stroke="var(--gold-md)" stroke-width="2"/><circle cx="32" cy="24" r="4" fill="var(--gold)"/><path d="M28 24 C28 19 36 19 36 24 Q36 30 32 34 Q28 30 28 24Z" fill="var(--gold)" opacity=".3"/></svg><h3>'+(tripFilter==='dayplan'?'Plan your day':tripFilter==='trip'?'Build your trip':'Your trips')+'</h3><p>'+msg+'</p>'+(tripFilter!=='dayplan'?'<button class="empty-cta" onclick="swScreen(\'s-places\')">+ Add destinations</button>':'')+'</div>';return;
+    g('ilist').innerHTML='<div class="empty-state"><svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="6" y="14" width="52" height="40" rx="5" stroke="var(--gold-md)" stroke-width="2.5"/><path d="M20 14v40M44 14v40" stroke="var(--gold-md)" stroke-width="2" stroke-dasharray="4 3"/><path d="M6 34h52" stroke="var(--gold-md)" stroke-width="2"/><circle cx="32" cy="24" r="4" fill="var(--gold)"/><path d="M28 24 C28 19 36 19 36 24 Q36 30 32 34 Q28 30 28 24Z" fill="var(--gold)" opacity=".3"/></svg><h3>'+(tripFilter==='dayplan'?'Plan your day':tripFilter==='trip'?'Build your trip':'Your trips')+'</h3><p>'+msg+'</p>'+(tripFilter!=='dayplan'?'<button class="empty-cta" onclick="swScreen(\'s-list\')">+ Add destinations</button>':'')+'</div>';return;
   }
   g('ilist').innerHTML=visible.map(function(it){
     var isDay=(it._type||'trip')==='dayplan';
@@ -2989,14 +3000,15 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     var cnt=safeG('dcnt');if(cnt)cnt.textContent=(S.dests||[]).length+' saved';
     var el=safeG('dlist');if(!el)return;
     if(!filtered.length){
-      el.innerHTML='<div class="empty-state"><svg width="68" height="68" viewBox="0 0 68 68" fill="none"><circle cx="34" cy="34" r="26" stroke="var(--gold-md)" stroke-width="2.5"/><ellipse cx="34" cy="34" rx="13" ry="26" stroke="var(--gold-md)" stroke-width="2.5"/><line x1="8" y1="34" x2="60" y2="34" stroke="var(--gold-md)" stroke-width="2.5"/><path d="M12 22 Q34 15 56 22" stroke="var(--gold-md)" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M12 46 Q34 53 56 46" stroke="var(--gold-md)" stroke-width="1.5" stroke-dasharray="3 3"/></svg><h3>'+(listFilter==='local'?'Your local spots':'Your wishlist')+'</h3><p>'+(listFilter==='all'?'Search for a city to pin it to your map.':listFilter==='dest'?'Search for a city to add it to your wishlist.':'Add local spots using 📍 mode above.')+'</p>'+(listFilter!=='local'?'<button class="empty-cta" onclick="g(\'+\'city-inp\'+\').focus()">+ Add a destination</button>':'')+'</div>';
+      el.innerHTML='<div class="empty-state"><svg width="68" height="68" viewBox="0 0 68 68" fill="none"><circle cx="34" cy="34" r="26" stroke="var(--gold-md)" stroke-width="2.5"/><ellipse cx="34" cy="34" rx="13" ry="26" stroke="var(--gold-md)" stroke-width="2.5"/><line x1="8" y1="34" x2="60" y2="34" stroke="var(--gold-md)" stroke-width="2.5"/><path d="M12 22 Q34 15 56 22" stroke="var(--gold-md)" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M12 46 Q34 53 56 46" stroke="var(--gold-md)" stroke-width="1.5" stroke-dasharray="3 3"/></svg><h3>'+(listFilter==='local'?'Your local spots':'Your wishlist')+'</h3><p>'+(listFilter==='all'?'Search for a city to pin it to your map.':listFilter==='dest'?'Search for a city to add it to your wishlist.':'Add local spots using 📍 mode above.')+'</p>'+(listFilter!=='local'?'<button class="empty-cta" onclick="swScreen(\'s-list\');setTimeout(function(){var i=document.getElementById(\'city-inp\');if(i)i.focus();},300)">+ Add a destination</button>':'')+'</div>';
       return;
     }
-    el.innerHTML=filtered.map(function(d){
+    el.innerHTML=filtered.map(function(d,_ci){
       var isLocal=d.type==='local';
       var tags=isLocal?window.localTagValues(d):[];
       var tagsHtml=isLocal&&tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'';
-      return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">'+
+      var _di=listFilter==='all'?_ci:(listFilter==='dest'?_ci:_ci);
+      return '<div class="dest-item card-anim" style="animation-delay:'+(_ci*0.05)+'s" onclick="openPlaceDetail(\''+d.id+'\')">'+
         '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+(isLocal?'📍':'✈️')+'</div>'+
         '<div class="dest-info"><div class="dest-name">'+esc(d.name)+'</div><div class="dest-meta">'+esc(window.getPlaceMeta(d))+'</div>'+tagsHtml+'</div>'+
         '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
@@ -3474,55 +3486,6 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 })();
 
 
-// ── Sheet snap points ──────────────────────────────────
-(function(){
-  var SNAPS={peek:.30,half:.60,full:.93};
-  function pct(f){return Math.round(window.innerHeight*(1-f));}
-  function frac(t){return 1-(t/window.innerHeight);}
-  function initSnap(sheetId,bgId){
-    var sh=document.getElementById(sheetId);
-    var bg=document.getElementById(bgId);
-    if(!sh)return;
-    var handle=sh.querySelector('.sheet-handle');if(!handle)return;
-    var sy=0,st=0,drag=false;
-    function gt(){var t=window.getComputedStyle(sh).transform;if(!t||t==='none')return 0;var m=t.match(/matrix.*\((.+)\)/);return m?parseFloat(m[1].split(', ')[5])||0:0;}
-    function snap(f,animate){
-      sh.style.transition=animate!==false?'transform .28s cubic-bezier(.4,0,.2,1)':'none';
-      sh.style.transform='translateY('+pct(f)+'px)';
-      if(bg)bg.style.background='rgba(0,0,0,'+Math.min(.55,f*.62)+')';
-    }
-    sh._snap=snap;
-    handle.addEventListener('touchstart',function(e){drag=true;sy=e.touches[0].clientY;st=gt();sh.style.transition='none';},{passive:true});
-    handle.addEventListener('touchmove',function(e){
-      if(!drag)return;
-      var dy=e.touches[0].clientY-sy;
-      var nt=Math.max(pct(SNAPS.full),Math.min(window.innerHeight,st+dy));
-      sh.style.transform='translateY('+nt+'px)';
-      if(bg)bg.style.background='rgba(0,0,0,'+Math.min(.55,frac(nt)*.62)+')';
-      e.preventDefault();
-    },{passive:false});
-    handle.addEventListener('touchend',function(){
-      if(!drag)return;drag=false;
-      var f=frac(gt()),keys=Object.keys(SNAPS),nearest=keys.reduce(function(a,b){return Math.abs(SNAPS[b]-f)<Math.abs(SNAPS[a]-f)?b:a;});
-      if(f<SNAPS.peek-.12){
-        sh.style.transition='transform .25s cubic-bezier(.4,0,.2,1)';
-        sh.style.transform='translateY(100%)';
-        if(bg)bg.style.background='rgba(0,0,0,0)';
-        setTimeout(function(){sh.classList.remove('on');if(bg)bg.classList.remove('on');},260);
-      } else snap(SNAPS[nearest]);
-    });
-  }
-  window.addEventListener('load',function(){
-    setTimeout(function(){
-      ['place-sheet','det-sheet','import-sheet','addchat-sheet','install-sheet'].forEach(function(id){initSnap(id,id.replace('-sheet','-bg'));});
-    },600);
-  });
-  var _opd=window.openPlaceDetail;
-  window.openPlaceDetail=function(id,auto){
-    if(_opd)_opd(id,auto);
-    setTimeout(function(){var s=document.getElementById('place-sheet');if(s&&s._snap)s._snap(auto?SNAPS.full:SNAPS.half);},60);
-  };
-})();
 
 </script>
 </body>
