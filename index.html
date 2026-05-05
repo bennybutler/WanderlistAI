@@ -329,7 +329,7 @@ textarea::placeholder{color:var(--text3);}
         <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
       </label>
     </div>
-    <div id="local-tag-filters" style="display:none;padding:6px 12px;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;"><div style="display:flex;gap:4px;min-width:max-content;"><button class="mf-btn on" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button></div></div>    <div id="local-tag-filters" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border)"><div style="padding:5px 12px;overflow-x:auto"><div style="display:flex;gap:4px;min-width:max-content"><button class="mf-btn on ltf-btn" data-tag="all" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn ltf-btn" data-tag="☕ Cafe" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn ltf-btn" data-tag="🍺 Beer/pub" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn ltf-btn" data-tag="🍸 Cocktails" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn ltf-btn" data-tag="🌿 Patio" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn ltf-btn" data-tag="🍽 Fine dining" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn ltf-btn" data-tag="🥙 Cheap eats" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn ltf-btn" data-tag="🌳 Park" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn ltf-btn" data-tag="🏛 Sightseeing" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn ltf-btn" data-tag="🎭 Culture" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn ltf-btn" data-tag="🛍 Shopping" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn ltf-btn" data-tag="🏖 Beach" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn ltf-btn" data-tag="🌃 Nightlife" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn ltf-btn" data-tag="🏃 Activity" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn ltf-btn" data-tag="📸 Viewpoint" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button><button class="mf-btn ltf-btn" data-tag="🎵 Live music" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎵 Live music',this)">🎵 Live music</button><button class="mf-btn ltf-btn" data-tag="🍹 Happy hour" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍹 Happy hour',this)">🍹 Happy hour</button></div></div><div style="padding:5px 12px 6px;display:flex;gap:8px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap">City:</span><select id="local-city-sel" style="flex:1;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);outline:none" onchange="setLocalCityFilter(this.value)"><option value="all">All cities</option></select></div><div style="padding:4px 12px 8px"><button id="local-plan-btn" onclick="planDayFromFiltered()" style="display:none;width:100%;padding:9px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day using filtered spots</button></div></div>
+    <div id="local-tag-filters" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border)"><div style="padding:5px 12px;overflow-x:auto"><div style="display:flex;gap:4px;min-width:max-content"><button class="mf-btn on ltf-btn" data-tag="all" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn ltf-btn" data-tag="☕ Cafe" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn ltf-btn" data-tag="🍺 Beer/pub" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn ltf-btn" data-tag="🍸 Cocktails" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn ltf-btn" data-tag="🌿 Patio" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn ltf-btn" data-tag="🍽 Fine dining" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn ltf-btn" data-tag="🥙 Cheap eats" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn ltf-btn" data-tag="🌳 Park" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn ltf-btn" data-tag="🏛 Sightseeing" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn ltf-btn" data-tag="🎭 Culture" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn ltf-btn" data-tag="🛍 Shopping" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn ltf-btn" data-tag="🏖 Beach" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn ltf-btn" data-tag="🌃 Nightlife" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn ltf-btn" data-tag="🏃 Activity" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn ltf-btn" data-tag="📸 Viewpoint" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button><button class="mf-btn ltf-btn" data-tag="🎵 Live music" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎵 Live music',this)">🎵 Live music</button><button class="mf-btn ltf-btn" data-tag="🍹 Happy hour" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍹 Happy hour',this)">🍹 Happy hour</button></div></div><div style="padding:5px 12px 6px;display:flex;gap:8px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap">City:</span><select id="local-city-sel" style="flex:1;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);outline:none" onchange="setLocalCityFilter(this.value)"><option value="all">All cities</option></select></div><div style="padding:4px 12px 8px"><button id="local-plan-btn" onclick="planDayFromFiltered()" style="display:none;width:100%;padding:9px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day using filtered spots</button></div></div>
     <div class="scroll-list" id="dlist"><div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div></div>
   </div>
 
@@ -923,13 +923,7 @@ function planDayFromFiltered(){
 
 var listFilter='all';
 
-var _localTagFilter='all';
-function setLocalTagFilter(tag,el){
-  _localTagFilter=tag;
-  document.querySelectorAll('#local-tag-filters .mf-btn').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
-  syncList();
-}
+
 function showLocalTagFilters(show){
   var el=g('local-tag-filters');
   if(el)el.style.display=show?'block':'none';
@@ -938,7 +932,6 @@ function showLocalTagFilters(show){
 
 function setListFilter(f,el){
   listFilter=f;
-  showLocalTagFilters(f==='local');
   showLocalTagFilters(f==='local');
   document.querySelectorAll('.list-filter-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
@@ -1271,6 +1264,7 @@ function planDayNearSpot(spotId){
     setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==nearDest.id;});},15000);
   }
   window._planWithSpot=spot;
+  window._planStartingSpot=spot.name;
   setTimeout(function(){openPlaceDetail(nearDest.id,true);},100);
 }
 
@@ -1330,7 +1324,7 @@ function planDay(destId){
       '<div style="display:flex;gap:8px;margin-bottom:10px;">'+
         '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Start time</div>'+
         '<select id="dp-start" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
-          '<option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option>'+
+          '<option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>4:00pm</option><option>5:00pm</option><option>6:00pm</option><option>7:00pm</option><option>8:00pm</option><option>9:00pm</option><option>10:00pm</option>'+
         '</select></div>'+
         '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Hours out</div>'+
         '<select id="dp-hours" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit;">'+
@@ -1373,6 +1367,9 @@ function togDPVibe(el){
 }
 function runDayPlan(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
+  var _tweak=window._tweakMsg||'';
+  var _startSpot=window._planStartingSpot||'';
+  window._tweakMsg='';
   var hours=g('dp-hours')?g('dp-hours').value:'6';
   var start=g('dp-start')?g('dp-start').value:'11:00am';
   var vibe='';
@@ -1421,7 +1418,9 @@ function runDayPlan(destId){
     (area?'Stay in '+area+' neighbourhood the entire day.\n':'Choose the best walkable neighbourhood for the vibe above.\n')+
     'Start time: '+start+'.\n'+
     (savedLocal.length?'Include these real saved spots: '+savedLocal.join(', ')+'.\n':'')+
-    'Only REAL verified places. Do NOT invent names. Walk times must be realistic (2-5 min between nearby spots).\n'+
+    (window._planStartingSpot?'START the day at or very near "'+window._planStartingSpot+'" — this is the anchor spot, first stop or second stop at the latest.\n':'')+
+    (window._tweakMsg?'IMPORTANT USER FEEDBACK on previous plan (address this): '+window._tweakMsg+'\n':'')+
+    'Only REAL verified places. Do NOT invent names.\n'+
     'Return ONLY valid JSON:\n'+
     '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
     '"stops":[{"time":"11:00am","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"4 min walk east on King St","transit_to_next":"10 min Uber (~$8) — use INSTEAD of walk_to_next for the one transit leg if used","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
@@ -1451,9 +1450,12 @@ function renderDayPlanHtml(plan,vibe,destId){
     '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
     '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(plan.start)+' · '+esc(String(plan.hours))+' hours · '+esc(plan.vibe||vibe||'')+'</div></div>'+
     '<div style="display:flex;gap:5px;flex-shrink:0">'+
-    '<button style="padding:5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2)" onclick="refreshDayPlan()">🔄 Refresh</button>'+
     '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="saveDayPlan()">💾 Save</button>'+
-    '</div></div>';
+    '</div></div>'+
+    '<div style="display:flex;gap:7px;margin-bottom:14px;background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border)">'+
+      '<input id="tweak-inp" type="text" placeholder="Tweak this plan… e.g. \'more budget\', \'skip touristy spots\'" style="flex:1;padding:8px 12px;background:var(--bg4);border:1.5px solid var(--border);border-radius:20px;font-size:13px;color:var(--text);outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendTweak()">'+
+      '<button onclick="sendTweak()" style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;font-size:16px;flex-shrink:0">→</button>'+
+    '</div>';
   (plan.stops||[]).forEach(function(s,i){
     var c2=typeColors[s.type]||typeColors.default;
     html+='<div style="display:flex;gap:10px;margin-bottom:10px;">'+
@@ -1472,6 +1474,9 @@ function renderDayPlanHtml(plan,vibe,destId){
       '</div></div>';
   });
   if(g('place-recs'))g('place-recs').innerHTML=html;
+  // Clear the loading spinner below the photos
+  var _dpLoad=g('dest-photo-loading');
+  if(_dpLoad){var _aiLbl=_dpLoad.querySelector('div[style*="text-align:center"]');if(_aiLbl)_aiLbl.style.display='none';}
 }
 
 function enrichPlanWithRealTimes(plan,d,cb){
@@ -1524,13 +1529,30 @@ function enrichPlanWithRealTimes(plan,d,cb){
   }
 }
 
-function refreshDayPlan(){
+function sendTweak(){
+  var inp=g('tweak-inp');if(!inp)return;
+  var msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  refreshDayPlan(msg);
+}
+function refreshDayPlan(tweakMsg){
   if(!currentPlanData)return;
-  // Re-run with same settings
   var destId=currentPlanData._destId||'';
   var d=S.dests.find(function(x){return x.id===destId||x.name===currentPlanCity;});
-  if(d)runDayPlan(d.id);
-  else toast('Could not refresh — open Plan a day again');
+  if(!d){toast('Could not refresh — open Plan a day again');return;}
+  // Restore saved settings from last run
+  var sh=g('dp-start'),hh=g('dp-hours');
+  if(sh&&currentPlanData.start)sh.value=currentPlanData.start;
+  if(hh&&currentPlanData.hours)hh.value=String(currentPlanData.hours);
+  // Restore vibe selection
+  if(currentPlanData.vibe){
+    document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(b){
+      b.classList.toggle('on',b.textContent.trim()===currentPlanData.vibe);
+    });
+  }
+  window._tweakMsg=tweakMsg||'';
+  if(!tweakMsg)window._planStartingSpot=null;
+  runDayPlan(d.id);
 }
 function saveDayPlan(){
   var plan=currentPlanData;
@@ -1559,7 +1581,7 @@ function shareDayPlan(encoded){
 
 // ── Places CRUD ───────────────────────────────────────────
 function setType(t,el){
-  var ci=g('city-inp');if(ci)ci.placeholder=t==='local'?'Search restaurants, bars, parks…':'Search cities, countries…';
+  var ci=g('city-inp');if(ci)ci.placeholder=t==='local'?'Search tourist attractions, restaurants, bars, parks…':'Search cities, countries…';
   S.placeType=t;
   document.querySelectorAll('.tt-btn').forEach(function(b){b.classList.remove('on');});
   el.classList.add('on');
