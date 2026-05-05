@@ -810,7 +810,7 @@ function syncMap(){
     var m=L.marker([lat,lng],{icon:icon}).addTo(map);
     var popupEl=document.createElement('div');
     popupEl.style.minWidth='150px';
-    popupEl.innerHTML='<b style="font-size:14px">'+esc(d.name)+'</b>'+(d.category?'<span style="font-size:10px;color:#888;margin-left:5px">'+esc(d.category)+'</span>':'')+'<br><small style="color:#888">'+esc(d.country||'')+'</small><div style="margin-top:8px;display:flex;gap:5px"><button class="mp-exp" style="flex:1;padding:5px 0;background:#BA7517;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Explore</button><button class="mp-day" style="flex:1;padding:5px 0;background:#FAEEDA;color:#BA7517;border:1px solid #FAC775;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Plan day</button></div>';
+    popupEl.innerHTML='<b style="font-size:14px">'+esc(d.name)+'</b>'+(d.category?'<span style="font-size:10px;color:#888;margin-left:5px">'+esc(d.category)+'</span>':'')+'<br><small style="color:#888">'+esc(getPlaceMeta(d))+'</small><div style="margin-top:8px;display:flex;gap:5px"><button class="mp-exp" style="flex:1;padding:5px 0;background:#BA7517;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Explore</button><button class="mp-day" style="flex:1;padding:5px 0;background:#FAEEDA;color:#BA7517;border:1px solid #FAC775;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Plan day</button></div>';
     popupEl.querySelector('.mp-exp').addEventListener('click',function(){map.closePopup();openPlaceDetail(d.id);});
     popupEl.querySelector('.mp-day').addEventListener('click',function(){map.closePopup();openPlaceDetail(d.id,true);});
     m.bindPopup(popupEl,{maxWidth:200});
@@ -856,14 +856,70 @@ function flyToHome(lat,lng){
 
 var _localTagFilters=[];
 var _localCityFilter='all';
+var listFilter='all';
+
+function normCity(v){return (v||'').toString().trim();}
+function getPlaceCity(d){
+  if(!d)return'';
+  if(d.city)return normCity(d.city);
+  var meta=(d.country||'').split(',').map(function(x){return x.trim();}).filter(Boolean);
+  if(meta.length>1)return meta[0];
+  var near=nearestDestForSpot(d,80);
+  if(near)return near.name;
+  var hc=localStorage.getItem('wl_homecity')||'';
+  if(hc&&d.type==='local')return hc.split(',')[0].trim();
+  return'';
+}
+function nearestDestForSpot(spot,maxKm){
+  if(!spot||spot.type!=='local')return null;
+  var lat=parseFloat(spot.lat),lng=parseFloat(spot.lng);
+  if(!isFinite(lat)||!isFinite(lng))return null;
+  var best=null,bestKm=Infinity;
+  S.dests.filter(function(x){return x.type==='dest';}).forEach(function(d){
+    var km=kmBetween(lat,lng,parseFloat(d.lat),parseFloat(d.lng));
+    if(isFinite(km)&&km<bestKm){best=d;bestKm=km;}
+  });
+  return bestKm<=(maxKm||50)?best:null;
+}
+function getPlaceMeta(d){
+  if(!d)return'';
+  if(d.type==='local'){
+    var city=getPlaceCity(d);
+    var bits=[city,d.country].filter(function(x,i,a){return x&&a.indexOf(x)===i;});
+    return bits.join(', ');
+  }
+  return d.country||'';
+}
+function localTagValues(d){
+  var tags=d.tags&&d.tags.length?d.tags.slice():(d.category&&d.category!=='local'?[d.category]:[]);
+  var joined=tags.join(' ').toLowerCase();
+  if(joined.indexOf('bar')>-1||joined.indexOf('pub')>-1||joined.indexOf('nightclub')>-1)tags.push('🍺 Beer/pub');
+  if(joined.indexOf('cocktail')>-1||joined.indexOf('bar')>-1)tags.push('🍸 Cocktails');
+  if(joined.indexOf('cafe')>-1||joined.indexOf('coffee')>-1)tags.push('☕ Cafe');
+  if(joined.indexOf('restaurant')>-1||joined.indexOf('food')>-1)tags.push('🍽 Fine dining');
+  if(joined.indexOf('fast_food')>-1||joined.indexOf('cheap')>-1)tags.push('🥙 Cheap eats');
+  if(joined.indexOf('park')>-1||joined.indexOf('garden')>-1)tags.push('🌳 Park');
+  if(joined.indexOf('attraction')>-1||joined.indexOf('tourism')>-1)tags.push('🏛 Sightseeing');
+  return tags.filter(function(x,i,a){return x&&a.indexOf(x)===i;});
+}
+function localSpotMatchesFilters(d){
+  if(!d||d.type!=='local')return false;
+  if(_localCityFilter!=='all'&&getPlaceCity(d)!==_localCityFilter)return false;
+  if(_localTagFilters.length){
+    var tags=localTagValues(d);
+    return tags.some(function(x){return _localTagFilters.indexOf(x)>-1;});
+  }
+  return true;
+}
+function getFilteredLocalSpots(){return S.dests.filter(localSpotMatchesFilters);}
 
 function setLocalTagFilter(tag,el){
   if(tag==='all'){
     _localTagFilters=[];
     document.querySelectorAll('#local-tag-filters .ltf-btn').forEach(function(b){b.classList.remove('on');});
-    el.classList.add('on');
+    if(el)el.classList.add('on');
   } else {
-    el.classList.toggle('on');
+    if(el)el.classList.toggle('on');
     var allBtn=document.querySelector('#local-tag-filters .ltf-btn[data-tag="all"]');
     if(allBtn)allBtn.classList.remove('on');
     _localTagFilters=[];
@@ -873,96 +929,88 @@ function setLocalTagFilter(tag,el){
   syncList();
   updateLocalPlanBtn();
 }
-
-function setLocalCityFilter(v){_localCityFilter=v;syncList();updateLocalPlanBtn();}
-
+function setLocalCityFilter(v){_localCityFilter=v||'all';syncList();updateLocalPlanBtn();}
 function updateLocalPlanBtn(){
   var btn=g('local-plan-btn');if(!btn)return;
-  var n=S.dests.filter(function(d){
-    if(d.type!=='local')return false;
-    if(_localCityFilter!=='all'&&(d.city||d.country)!==_localCityFilter)return false;
-    if(_localTagFilters.length){var t=d.tags&&d.tags.length?d.tags:[d.category||''];return t.some(function(x){return _localTagFilters.indexOf(x)>-1;});}
-    return true;
-  }).length;
+  var n=getFilteredLocalSpots().length;
   btn.textContent='📅 Plan a day using '+n+' filtered spot'+(n!==1?'s':'');
   btn.style.display=n?'block':'none';
 }
-
 function showLocalTagFilters(show){
   var el=g('local-tag-filters');
   if(el)el.style.display=show?'block':'none';
   if(show){populateLocalCityFilter();updateLocalPlanBtn();}
   else{_localTagFilters=[];_localCityFilter='all';}
 }
-
 function populateLocalCityFilter(){
   var sel=g('local-city-sel');if(!sel)return;
-  var cities=[...new Set(S.dests.filter(function(d){return d.type==='local'&&(d.city||d.country);}).map(function(d){return d.city||d.country;}))].sort();
+  S.dests.forEach(function(d){if(d.type==='local'&&!d.city){var c=getPlaceCity(d);if(c)d.city=c;}});
+  var cities=[...new Set(S.dests.filter(function(d){return d.type==='local'&&getPlaceCity(d);}).map(function(d){return getPlaceCity(d);} ))].sort();
   sel.innerHTML='<option value="all">All cities</option>'+cities.map(function(ct){return'<option value="'+esc(ct)+'">'+esc(ct)+'</option>';}).join('');
+  if(_localCityFilter!=='all'&&cities.indexOf(_localCityFilter)<0)_localCityFilter='all';
   sel.value=_localCityFilter;
+  backfillLocalCities();
 }
-
+function backfillLocalCities(){
+  if(window._cityBackfillRunning)return;
+  var missing=S.dests.filter(function(d){return d.type==='local'&&!d.city&&isFinite(parseFloat(d.lat))&&isFinite(parseFloat(d.lng));}).slice(0,8);
+  if(!missing.length)return;
+  window._cityBackfillRunning=true;
+  var i=0,changed=false;
+  function next(){
+    if(i>=missing.length){window._cityBackfillRunning=false;if(changed){save();populateLocalCityFilter();syncList();}return;}
+    var d=missing[i++];
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+encodeURIComponent(d.lat)+'&lon='+encodeURIComponent(d.lng)+'&addressdetails=1',{headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();})
+    .then(function(res){var a=res.address||{};var c=a.city||a.town||a.village||a.municipality||a.county||'';if(c){d.city=c;changed=true;}setTimeout(next,250);})
+    .catch(function(){setTimeout(next,250);});
+  }
+  next();
+}
 function planDayFromFiltered(){
-  var spots=S.dests.filter(function(d){
-    if(d.type!=='local')return false;
-    if(_localCityFilter!=='all'&&(d.city||d.country)!==_localCityFilter)return false;
-    if(_localTagFilters.length){var t=d.tags&&d.tags.length?d.tags:[d.category||''];return t.some(function(x){return _localTagFilters.indexOf(x)>-1;});}
-    return true;
-  });
+  var spots=getFilteredLocalSpots();
   if(!spots.length){toast('No spots match filters');return;}
-  var cityKey=_localCityFilter!=='all'?_localCityFilter:(spots[0]&&(spots[0].city||spots[0].country))||'';
-  var dest=S.dests.find(function(x){
-    if(x.type!=='dest')return false;
-    return x.name.toLowerCase()===cityKey.toLowerCase()||x.country===cityKey;
-  })||S.dests.find(function(x){return x.type==='dest';});
-  if(!dest){toast('Add a destination city first');return;}
-  // Open that dest in place detail with auto-plan + pre-loaded spots
+  var cityKey=_localCityFilter!=='all'?_localCityFilter:getPlaceCity(spots[0]);
+  var dest=S.dests.find(function(x){return x.type==='dest'&&x.name.toLowerCase()===cityKey.toLowerCase();})||nearestDestForSpot(spots[0],80);
+  if(!dest){
+    dest={id:'_tmp_filtered_'+Date.now(),name:cityKey||getPlaceMeta(spots[0])||'Filtered spots',country:spots[0].country||'',city:cityKey||'',lat:spots[0].lat,lng:spots[0].lng,type:'dest'};
+    S.dests.push(dest);
+    setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==dest.id;});},30000);
+  }
   window._planWithSpots=spots;
+  window._forceSavedOnly=true;
   openPlaceDetail(dest.id,true);
 }
-
-var listFilter='all';
-
-
-function showLocalTagFilters(show){
-  var el=g('local-tag-filters');
-  if(el)el.style.display=show?'block':'none';
-  if(!show)_localTagFilter='all';
-}
-
 function setListFilter(f,el){
   listFilter=f;
   showLocalTagFilters(f==='local');
   document.querySelectorAll('.list-filter-btn').forEach(function(b){b.classList.remove('on');});
-  el.classList.add('on');
+  if(el)el.classList.add('on');
+  var inp=g('city-inp');
+  if(inp)inp.placeholder=f==='local'?'Search local spots, such as tourist attractions, restaurants, bars…':'Search cities, countries…';
   syncList();
 }
 function syncList(){
   var filtered=S.dests.filter(function(d){
-    if(listFilter!=='all'&&d.type!==listFilter)return false;
-    if(listFilter==='local'&&_localTagFilter&&_localTagFilter!=='all'){
-      var tags=d.tags&&d.tags.length?d.tags:[d.category||""];
-      return tags.some(function(t){return t===_localTagFilter;});
-    }
+    if(listFilter==='dest')return d.type==='dest';
+    if(listFilter==='local')return localSpotMatchesFilters(d);
     return true;
   });
   g('dcnt').textContent=S.dests.length+' saved';
   var el=g('dlist');
   if(!filtered.length){
-    el.innerHTML='<div class="empty-state"><p>'+(listFilter==='all'?'Search above to add a destination or local spot.':listFilter==='dest'?'No destinations saved yet.':'No local spots. Use 📍 mode to add.')+'</p></div>';
+    el.innerHTML='<div class="empty-state"><p>'+(listFilter==='all'?'Search above to add a destination or local spot.':listFilter==='dest'?'No destinations saved yet.':'No local spots match these filters.')+'</p></div>';
     return;
   }
   el.innerHTML=filtered.map(function(d){
     var isLocal=d.type==='local';
-    var tags=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
+    var tags=isLocal?localTagValues(d):[];
     var tagsHtml=isLocal&&tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'';
     return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">'+
       '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+(isLocal?'📍':'✈️')+'</div>'+
       '<div class="dest-info">'+
         '<div class="dest-name">'+esc(d.name)+'</div>'+
-        '<div class="dest-meta">'+esc(d.country||'')+'</div>'+
-        (d.tags&&d.tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+d.tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'')+
-        tagsHtml+
+        '<div class="dest-meta">'+esc(getPlaceMeta(d))+'</div>'+tagsHtml+
       '</div>'+
       '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
       '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button>'+
@@ -1221,7 +1269,7 @@ function addRecToLocal(destId,encoded){
     var rec=JSON.parse(decodeURIComponent(encoded));
     if(!S.dests.find(function(x){return x.name.toLowerCase()===rec.name.toLowerCase()&&x.country===dest.country;})){
       var recTags=rec.tags&&rec.tags.length?rec.tags:[rec.type||'local'];
-      S.dests.push({id:uid(),name:rec.name,country:dest.country||'',lat:dest.lat,lng:dest.lng,type:'local',category:recTags[0]||'local',tags:recTags});
+      S.dests.push({id:uid(),name:rec.name,country:dest.country||'',city:dest.name||dest.city||'',lat:dest.lat,lng:dest.lng,type:'local',category:recTags[0]||'local',tags:recTags});
       save();syncMap();syncList();toast('Saved to Local spots!');
     } else {toast('Already saved');}
   }catch(e){}
@@ -1253,21 +1301,18 @@ function saveSpotTags(id){
 function planDayNearSpot(spotId){
   var spot=S.dests.find(function(x){return x.id===spotId;});if(!spot)return;
   closePlaceDetail();
-  var nearDest=S.dests.find(function(x){
-    if(x.type!=='dest')return false;
-    return x.country===spot.country||x.name.toLowerCase().indexOf((spot.city||'').toLowerCase())>-1;
-  });
+  var spotCity=getPlaceCity(spot);
+  var nearDest=S.dests.find(function(x){return x.type==='dest'&&spotCity&&x.name.toLowerCase()===spotCity.toLowerCase();})||nearestDestForSpot(spot,80);
   if(!nearDest){
-    // Make a temp dest at the spot's location
-    nearDest={id:'_tmp_'+spotId,name:spot.city||spot.name,country:spot.country,lat:spot.lat,lng:spot.lng,type:'dest'};
+    nearDest={id:'_tmp_'+spotId,name:spotCity||spot.name,country:spot.country,city:spotCity||'',lat:spot.lat,lng:spot.lng,type:'dest'};
     S.dests.push(nearDest);
-    setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==nearDest.id;});},15000);
+    setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==nearDest.id;});},30000);
   }
   window._planWithSpot=spot;
   window._planStartingSpot=spot.name;
+  window._forceSavedOnly=true;
   setTimeout(function(){openPlaceDetail(nearDest.id,true);},100);
 }
-
 
 function editSpotTags(id){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
@@ -1309,14 +1354,20 @@ function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet'
 function planDay(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
   var savedSpots=S.dests.filter(function(x){
-    return x.type==='local'&&(x.country===d.country||x.name.toLowerCase().indexOf(d.name.toLowerCase())>-1);
+    if(x.type!=='local')return false;
+    if(getPlaceCity(x)&&getPlaceCity(x)===d.name)return true;
+    if(d.city&&getPlaceCity(x)===d.city)return true;
+    var km=kmBetween(parseFloat(x.lat),parseFloat(x.lng),parseFloat(d.lat),parseFloat(d.lng));
+    return isFinite(km)&&km<=40;
   });
   var _ws=window._planWithSpot;
   var _wss=window._planWithSpots;
+  var _force=!!window._forceSavedOnly;
   window._planWithSpot=null;
   window._planWithSpots=null;
+  window._forceSavedOnly=false;
   window._dpSaved=_wss||(_ws?[_ws].concat(savedSpots.filter(function(x){return x.id!==_ws.id;})):savedSpots);
-  window._dpUseSaved=false;
+  window._dpUseSaved=_force;
   currentPlanCity=d.name;
   g('place-recs').innerHTML=
     '<div style="background:var(--bg2);border-radius:var(--rsm);padding:13px;margin-bottom:10px;border:1px solid var(--border);">'+
@@ -1342,9 +1393,9 @@ function planDay(destId){
       '</div>'+
       '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Recommendations from:</div>'+
       '<div style="display:flex;gap:7px;margin-bottom:12px;">'+
-        '<button id="dp-use-ai" class="filter-pill on" onclick="setDPMode(this,false)">🤖 AI recommendations</button>'+
-        (savedSpots.length?
-          '<button id="dp-use-saved" class="filter-pill" onclick="setDPMode(this,true)">📍 My saved spots ('+savedSpots.length+')</button>'
+        '<button id="dp-use-ai" class="filter-pill '+(window._dpUseSaved?'':'on')+'" onclick="setDPMode(this,false)">🤖 AI recommendations</button>'+
+        (window._dpSaved&&window._dpSaved.length?
+          '<button id="dp-use-saved" class="filter-pill '+(window._dpUseSaved?'on':'')+'" onclick="setDPMode(this,true)">📍 My saved spots ('+window._dpSaved.length+')</button>'
         :'')+
       '</div>'+
       '<button style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="runDayPlan(\''+destId+'\')">Build my day →</button>'+
@@ -1367,19 +1418,23 @@ function togDPVibe(el){
 }
 function runDayPlan(destId){
   var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
+  var prior=window._lastDayPlanConfig||{};
   var _tweak=window._tweakMsg||'';
-  var _startSpot=window._planStartingSpot||'';
   window._tweakMsg='';
-  var hours=g('dp-hours')?g('dp-hours').value:'6';
-  var start=g('dp-start')?g('dp-start').value:'11:00am';
-  var vibe='';
-  document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
-  var cats=[];
-  document.querySelectorAll('#dp-cats .filter-pill.on').forEach(function(b){cats.push(b.textContent.trim());});
-  // Include any saved local spots for this area
-  var spots=window._dpSaved||[];
-  var useSaved=(g('dp-use-saved')&&g('dp-use-saved').classList.contains('on'))&&spots.length>0;
-  var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
+  var hours=g('dp-hours')?g('dp-hours').value:(prior.hours||'6');
+  var start=g('dp-start')?g('dp-start').value:(prior.start||'11:00am');
+  var vibe=prior.vibe||'';
+  if(g('dp-vibes')){
+    vibe='';
+    document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+  }
+  vibe=vibe||'🗺 Sightseeing';
+  var spots=window._dpSaved||prior.spots||[];
+  var useSaved=g('dp-use-saved')?g('dp-use-saved').classList.contains('on'):!!prior.useSaved;
+  useSaved=!!(useSaved&&spots.length);
+  var anchor=window._planStartingSpot||prior.anchor||'';
+  var savedLocal=useSaved?spots.map(function(s,i){return (i+1)+'. ID '+s.id+': '+s.name+' | city '+getPlaceCity(s)+' | tags '+((s.tags&&s.tags.join(', '))||s.category||'')+' | lat '+s.lat+' | lng '+s.lng;}):[];
+  window._lastDayPlanConfig={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor};
   var dpEl=g('dest-photo-loading');
   if(dpEl){
     dpEl.innerHTML=
@@ -1391,8 +1446,8 @@ function runDayPlan(destId){
           '<div style="width:32px;height:32px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px"></div>'+
           '<div style="font-size:16px;font-weight:700;color:var(--text)">AI is planning your '+esc(vibe||'day')+'…</div>'+
           '<div style="font-size:12px;color:var(--text3);margin-top:4px">Browse photos while you wait</div>'+
-          '<span id="photo-counter" style="font-size:11px;color:var(--text3);display:block;margin-top:2px"></span>'+
-        '</div>'+
+          '<span id="photo-counter" style="font-size:11px;color:var(--text3);display:block;margin-top:2px"></span>'+ 
+        '</div>'+ 
       '</div>';
     loadDestPhotos(d.name,d.country);
   }
@@ -1406,24 +1461,24 @@ function runDayPlan(destId){
   var isLocal=vibe.indexOf('Local')>-1;
   var vibeInstructions=
     isDateNight?'DATE NIGHT: Every stop must be romantic. Choose intimate restaurants with great ambience, cocktail bars with mood lighting, scenic evening walks. No tourist traps. Think candles, wine lists, rooftops.\n':
-    isFoodTour?'FOOD TOUR: This is entirely about eating and drinking. Every stop is a food or drink experience — markets, tastings, local specialties, street food, a standout restaurant. No museums, no shops. Start light, build to a main meal, end with dessert or drinks.\n':
-    isNightlife?'NIGHTLIFE: Evening/night only. Start with dinner then move through bars, cocktail spots, live music, clubs. Every stop after the first should be a drinking or nightlife venue. Set start time to 7pm or later if not already.\n':
-    isSightseeing?'SIGHTSEEING: Mix of iconic landmarks, viewpoints, museums, and cultural sites in one walkable area. One food stop for lunch. Keep it educational and visual — the goal is to SEE the city.\n':
-    isOutdoors?'OUTDOORS: Parks, waterfronts, trails, gardens, markets. Every stop should involve being outside. One cafe stop is fine. Avoid indoor venues unless weather forces it.\n':
-    isLocal?'LIVE LIKE A LOCAL: Avoid tourist spots completely. Choose neighbourhood cafes, local markets, side-street bars, spots only residents know. No Tripadvisor top-10 places.\n':
+    isFoodTour?'FOOD TOUR: This is entirely about eating and drinking. Every stop is a food or drink experience. No museums, no shops. Start light, build to a main meal, end with dessert or drinks.\n':
+    isNightlife?'NIGHTLIFE: Evening or night only. Start with dinner then move through bars, cocktail spots, live music, clubs. Every stop after the first should be a drinking or nightlife venue. Preserve the selected start time exactly.\n':
+    isSightseeing?'SIGHTSEEING: Mix iconic landmarks, viewpoints, museums, and cultural sites in one walkable area. One food stop for lunch.\n':
+    isOutdoors?'OUTDOORS: Parks, waterfronts, trails, gardens, markets. Every stop should involve being outside. One cafe stop is fine.\n':
+    isLocal?'LIVE LIKE A LOCAL: Avoid tourist spots completely. Choose neighbourhood cafes, local markets, side-street bars, spots only residents know.\n':
     'Mix sightseeing, food, and drinks in one walkable neighbourhood.\n';
   var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour day itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
     'VIBE: '+vibe+'. '+vibeInstructions+
-    'NEIGHBOURHOOD RULE (non-negotiable): Choose ONE specific neighbourhood. ALL stops must be physically within that neighbourhood — no exceptions. Adjacent stops 2-10 min walk apart. A 5-min walk ≈ 400m. Max 1.2km between any two stops. ONE Uber/transit max for the whole day, only if truly unmissable.\n'+
-    (area?'Stay in '+area+' neighbourhood the entire day.\n':'Choose the best walkable neighbourhood for the vibe above.\n')+
-    'Start time: '+start+'.\n'+
-    (savedLocal.length?'Include these real saved spots: '+savedLocal.join(', ')+'.\n':'')+
-    (window._planStartingSpot?'START the day at or very near "'+window._planStartingSpot+'" — this is the anchor spot, first stop or second stop at the latest.\n':'')+
-    (window._tweakMsg?'IMPORTANT USER FEEDBACK on previous plan (address this): '+window._tweakMsg+'\n':'')+
+    'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood or tightly adjacent neighbourhoods. Adjacent stops should normally be a 10 min walk or less and never more than a 20 min walk. A 5-minute walk is about 400m. No adjacent stops more than 1.5km apart. Use only ONE Uber/transit leg for the entire plan and only for something truly unmissable. Do not invent walking times. If unsure, choose closer stops.\n'+
+    (area?'Stay in '+area+' neighbourhood or immediately adjacent blocks.\n':'Choose the best compact neighbourhood for this vibe and keep the day tightly clustered.\n')+
+    'Start time: '+start+'. Preserve this start time exactly.\n'+
+    (useSaved?'SAVED-SPOTS-ONLY MODE: Build the day ONLY from the saved spots below. Do not recommend any spot that is not in this list. Include each chosen spot id in the JSON as "id".\nSaved spots:\n'+savedLocal.join('\n')+'\n':'')+
+    (anchor?'START the day at or very near "'+anchor+'". This must be the first stop or second stop at the latest.\n':'')+
+    (_tweak?'IMPORTANT USER FEEDBACK on previous plan. Address this while preserving the same start time, duration, vibe, saved spot scope and geography rules: '+_tweak+'\n':'')+
     'Only REAL verified places. Do NOT invent names.\n'+
     'Return ONLY valid JSON:\n'+
     '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+hours+',"vibe":"'+vibe+'",'+
-    '"stops":[{"time":"11:00am","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"4 min walk east on King St","transit_to_next":"10 min Uber (~$8) — use INSTEAD of walk_to_next for the one transit leg if used","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
+    '"neighbourhood":"...","stops":[{"id":"saved spot id if applicable","time":"'+start+'","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"leave blank, app verifies","transit_to_next":"leave blank unless this is the one Uber/transit leg","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
   ai([{role:'user',content:prompt}],function(err,text){
     if(err){
       g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
@@ -1432,13 +1487,10 @@ function runDayPlan(destId){
     try{
       var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
       plan.city=plan.city||currentPlanCity||d&&d.name||'';
-      plan._destId=destId;
+      plan.start=start;plan.hours=parseInt(hours)||hours;plan.vibe=vibe;plan._destId=destId;
+      plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor};
       currentPlanData=plan;
-      // Enrich with real routing times from OSRM (async, updates in place)
-      enrichPlanWithRealTimes(plan,d,function(){
-        currentPlanData=plan;
-        renderDayPlanHtml(plan,vibe,destId);
-      });
+      enrichPlanWithRealTimes(plan,d,function(){currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);});
       renderDayPlanHtml(plan,vibe,destId);
     }catch(e){g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
   },1800);
@@ -1450,6 +1502,7 @@ function renderDayPlanHtml(plan,vibe,destId){
     '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(plan.title)+'</div>'+
     '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(plan.start)+' · '+esc(String(plan.hours))+' hours · '+esc(plan.vibe||vibe||'')+'</div></div>'+
     '<div style="display:flex;gap:5px;flex-shrink:0">'+
+    '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="refreshDayPlan()">↻ Refresh</button>'+
     '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="saveDayPlan()">💾 Save</button>'+
     '</div></div>'+
     '<div style="display:flex;gap:7px;margin-bottom:14px;background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border)">'+
@@ -1479,51 +1532,74 @@ function renderDayPlanHtml(plan,vibe,destId){
   if(_dpLoad){var _aiLbl=_dpLoad.querySelector('div[style*="text-align:center"]');if(_aiLbl)_aiLbl.style.display='none';}
 }
 
+function kmBetween(lat1,lng1,lat2,lng2){
+  lat1=parseFloat(lat1);lng1=parseFloat(lng1);lat2=parseFloat(lat2);lng2=parseFloat(lng2);
+  if(!isFinite(lat1)||!isFinite(lng1)||!isFinite(lat2)||!isFinite(lng2))return Infinity;
+  var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function formatWalk(km){
+  var metres=Math.round(km*1000);
+  var mins=Math.max(1,Math.round(metres/80));
+  var dist=metres<1000?metres+'m':(Math.round(km*10)/10)+'km';
+  return mins+' min walk ('+dist+')';
+}
+function findSavedSpotForStop(stop,settings){
+  var spots=(settings&&settings.spots)||window._dpSaved||[];
+  if(!stop)return null;
+  if(stop.id){
+    var byId=spots.find(function(s){return String(s.id)===String(stop.id);});
+    if(byId)return byId;
+  }
+  var nm=(stop.name||'').toLowerCase().trim();
+  return spots.find(function(s){return s.name.toLowerCase().trim()===nm;})||null;
+}
 function enrichPlanWithRealTimes(plan,d,cb){
   var stops=plan.stops||[];
   if(stops.length<2){cb();return;}
+  var settings=plan._settings||window._lastDayPlanConfig||{};
   var city=d.name+(d.country?', '+d.country:'');
-  // Geocode all stops in parallel using Nominatim
   var coords=new Array(stops.length).fill(null);
   var done=0;
   stops.forEach(function(s,i){
-    var q=encodeURIComponent(s.name+', '+city);
-    fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1',
-      {headers:{'Accept-Language':'en','User-Agent':'Wanderlist-app'}})
+    var saved=findSavedSpotForStop(s,settings);
+    if(saved){coords[i]={lat:parseFloat(saved.lat),lng:parseFloat(saved.lng)};s.id=saved.id;s.name=saved.name;finish();return;}
+    var q=encodeURIComponent((s.name||'')+', '+city);
+    fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1&addressdetails=1',{headers:{'Accept-Language':'en'}})
     .then(function(r){return r.json();})
-    .then(function(results){
-      if(results&&results[0])coords[i]={lat:parseFloat(results[0].lat),lng:parseFloat(results[0].lon)};
-      if(++done===stops.length)routeBetweenStops();
-    }).catch(function(){if(++done===stops.length)routeBetweenStops();});
+    .then(function(results){if(results&&results[0])coords[i]={lat:parseFloat(results[0].lat),lng:parseFloat(results[0].lon)};finish();})
+    .catch(function(){finish();});
   });
-
+  function finish(){if(++done===stops.length)routeBetweenStops();}
   function routeBetweenStops(){
+    var transitUsed=false;
     var pending=0;
     for(var i=0;i<stops.length-1;i++){
       var from=coords[i],to=coords[i+1];
-      if(!from||!to)continue;
-      // Determine mode: transit_to_next → car, otherwise foot
-      var isTransit=!!stops[i].transit_to_next;
-      var profile=isTransit?'car':'foot';
+      if(!from||!to){stops[i].walk_to_next='Distance unavailable. Verify before going.';continue;}
+      var km=kmBetween(from.lat,from.lng,to.lat,to.lng);
+      var needsTransit=km>1.5||!!stops[i].transit_to_next;
+      if(needsTransit&&transitUsed){
+        stops[i].walk_to_next='Too far for this plan ('+(Math.round(km*10)/10)+'km). Refresh for a tighter route.';
+        stops[i].transit_to_next='';
+        continue;
+      }
+      if(needsTransit){transitUsed=true;stops[i].walk_to_next='';stops[i].transit_to_next='Uber/transit recommended ('+(Math.round(km*10)/10)+'km)';continue;}
+      stops[i].transit_to_next='';
       pending++;
-      (function(idx,fr,to2,prof,transit){
-        var url='https://router.project-osrm.org/route/v1/'+prof+'/'+fr.lng+','+fr.lat+';'+to2.lng+','+to2.lat+'?overview=false';
+      (function(idx,fr,to2,kmFallback){
+        var url='https://router.project-osrm.org/route/v1/foot/'+fr.lng+','+fr.lat+';'+to2.lng+','+to2.lat+'?overview=false';
         fetch(url).then(function(r){return r.json();}).then(function(data){
           var route=data&&data.routes&&data.routes[0];
-          if(route){
-            var secs=Math.round(route.duration);
-            var mins=Math.max(1,Math.round(secs/60));
-            if(transit){
-              // Keep AI's transit description but update the time
-              stops[idx].transit_to_next=mins+' min Uber/transit';
-            } else {
-              var dist=Math.round(route.distance);
-              stops[idx].walk_to_next=mins+' min walk'+(dist<200?' ('+dist+'m)':dist<1000?' ('+Math.round(dist)+'m)':' ('+Math.round(dist/100)/10+'km)');
-            }
-          }
+          if(route&&route.distance/1000<=1.8){
+            var mins=Math.max(1,Math.round(route.duration/60));
+            var kmRoute=route.distance/1000;
+            stops[idx].walk_to_next=mins+' min walk ('+(kmRoute<1?Math.round(kmRoute*1000)+'m':Math.round(kmRoute*10)/10+'km')+')';
+          } else stops[idx].walk_to_next=formatWalk(kmFallback);
           if(--pending===0)cb();
-        }).catch(function(){if(--pending===0)cb();});
-      })(i,from,to,profile,isTransit);
+        }).catch(function(){stops[idx].walk_to_next=formatWalk(kmFallback);if(--pending===0)cb();});
+      })(i,from,to,km);
     }
     if(pending===0)cb();
   }
@@ -1537,21 +1613,14 @@ function sendTweak(){
 }
 function refreshDayPlan(tweakMsg){
   if(!currentPlanData)return;
-  var destId=currentPlanData._destId||'';
+  var cfg=currentPlanData._settings||window._lastDayPlanConfig||{};
+  var destId=cfg.destId||currentPlanData._destId||'';
   var d=S.dests.find(function(x){return x.id===destId||x.name===currentPlanCity;});
   if(!d){toast('Could not refresh — open Plan a day again');return;}
-  // Restore saved settings from last run
-  var sh=g('dp-start'),hh=g('dp-hours');
-  if(sh&&currentPlanData.start)sh.value=currentPlanData.start;
-  if(hh&&currentPlanData.hours)hh.value=String(currentPlanData.hours);
-  // Restore vibe selection
-  if(currentPlanData.vibe){
-    document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(b){
-      b.classList.toggle('on',b.textContent.trim()===currentPlanData.vibe);
-    });
-  }
+  window._lastDayPlanConfig={destId:d.id,hours:String(cfg.hours||currentPlanData.hours||6),start:cfg.start||currentPlanData.start||'11:00am',vibe:cfg.vibe||currentPlanData.vibe||'🗺 Sightseeing',useSaved:!!cfg.useSaved,spots:cfg.spots||window._dpSaved||[],anchor:cfg.anchor||''};
+  window._dpSaved=window._lastDayPlanConfig.spots;
+  window._planStartingSpot=window._lastDayPlanConfig.anchor;
   window._tweakMsg=tweakMsg||'';
-  if(!tweakMsg)window._planStartingSpot=null;
   runDayPlan(d.id);
 }
 function saveDayPlan(){
@@ -1602,7 +1671,7 @@ function addDests(arr){
     }
   });
   if(!n){toast('Already saved');return;}
-  save();syncMap();syncList();toast('Added '+n+' place'+(n!==1?'s':''));
+  save();syncMap();if(listFilter==='local')populateLocalCityFilter();syncList();toast('Added '+n+' place'+(n!==1?'s':''));
 }
 function rmDest(id){
   var d=S.dests.find(function(x){return x.id===id;});
@@ -1735,24 +1804,26 @@ function hideAC(){g('ac').style.display='none';acResults=[];}
 function onCityKey(e){if(e.key==='Escape')hideAC();}
 function selectAC(i){
   var r=acResults[i];if(!r)return;
-  var name,country,lat,lng,cat='';
+  var name,country,lat,lng,cat='',city='';
   if(r._overpass){
-    name=r.tags.name;cat=getOPCat(r.tags);country=r.tags['addr:country']||localStorage.getItem('wl_homecity')||'';
+    name=r.tags.name;cat=getOPCat(r.tags);
+    city=r.tags['addr:city']||r.tags['addr:town']||r.tags['addr:village']||(localStorage.getItem('wl_homecity')||'').split(',')[0].trim();
+    country=r.tags['addr:country']||((localStorage.getItem('wl_homecity')||'').split(',').slice(1).join(',').trim())||'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
   }else{
-    var p=formatPlace(r);name=p.primary;country=p.country;cat=p.type&&p.type!=='administrative'?p.type:'';
+    var p=formatPlace(r);name=p.primary;country=p.country;city=p.city;cat=p.type&&p.type!=='administrative'?p.type:'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
   }
   g('city-inp').value='';hideAC();
-  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat,fp&&fp.city||'');}
-  else{addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest'}]);}
+  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat,city);}
+  else{addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest',city:city}]);}
 }
 var _pendingAdd=null;
 function showCatPicker(name,country,lat,lng,detectedCat,city){
   _pendingAdd={name:name,country:country,lat:lat,lng:lng,city:city||''};
   g('place-title').textContent='Tag this spot';
   g('place-body').innerHTML='<p style="font-size:15px;font-weight:600;margin-bottom:2px">'+esc(name)+'</p>'+
-    '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">'+esc(country)+'</p>'+
+    '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">'+esc([city,country].filter(Boolean).join(', '))+'</p>'+
     '<p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Pick all that apply:</p>'+
     '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px" id="cat-pick"><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">☕ Cafe</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍺 Beer/pub</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍸 Cocktails</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌿 Patio</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍽 Fine dining</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🥙 Cheap eats</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌳 Park</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏛 Sightseeing</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🎭 Culture</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🛍 Shopping</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏖 Beach</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌃 Nightlife</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏃 Activity</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">📸 Viewpoint</button></div>'+
     '<button onclick="confirmCatAdd()" style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Add to My Places</button>';
