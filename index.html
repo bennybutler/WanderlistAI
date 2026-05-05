@@ -312,7 +312,7 @@ textarea::placeholder{color:var(--text3);}
 /* ── Trip card hero photo ── */
 .card-hero-wrap{overflow:hidden;position:relative;height:0;}
 .card-hero-wrap.loaded{height:140px;}
-.card-hero{width:100%;height:140px;object-fit:cover;object-position:center top;display:block;transition:opacity .5s;image-rendering:auto;}
+.card-hero{width:100%;height:140px;object-fit:cover;object-position:center 60%;display:block;transition:opacity .5s;}
 .card-hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.04) 0%,rgba(0,0,0,.5) 100%);}
 .card-hero-cities{position:absolute;bottom:10px;left:14px;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);}
 
@@ -320,8 +320,13 @@ textarea::placeholder{color:var(--text3);}
 .empty-state h3{font-family:'Fraunces',Georgia,serif;font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.01em;}
 .empty-cta{padding:12px 28px;background:var(--gold);color:#fff;border:none;border-radius:26px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 3px 14px rgba(184,115,10,.35);margin-top:6px;}
 
-/* ── Sheet snap handle ── */
-.sheet-handle{cursor:grab;} .sheet-handle:active{cursor:grabbing;}
+/* ── Trip detail tabs ── */
+.det-tab{flex:1;padding:12px 8px;background:none;border:none;font-size:14px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;border-bottom:3px solid transparent;transition:all .15s;margin-bottom:-2px;}
+.det-tab.on{color:var(--gold);border-bottom-color:var(--gold);}
+.det-panel{padding-top:4px;}
+.det-stat{flex:1;text-align:center;padding:6px 0;}
+.det-stat-val{font-family:'Fraunces',Georgia,serif;font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.02em;}
+.det-stat-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:1px;}
 
 </style>
 </head>
@@ -849,13 +854,7 @@ function syncMap(){
   mkrs=filtered.map(function(d){
     var lat=parseFloat(d.lat),lng=parseFloat(d.lng);
     var mc=d.type==='local'?(catCol[d.category]||'#1a6eb5'):'#B8730A';
-    var mnm=d.name.split(',')[0];if(mnm.length>14)mnm=mnm.substring(0,13)+'…';
-    var mem={'restaurant':'🍽','bar':'🍺','cafe':'☕','pub':'🍺','park':'🌳','attraction':'🏛','activity':'🎯','cocktail bar':'🍸','nightclub':'🌃','shop':'🛍'};
-    var memi=d.type==='local'?(mem[d.category]||'📍'):'✈';
-    var icon=L.divIcon({
-      html:'<div style="background:'+mc+';color:#fff;border-radius:12px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.28);border:2px solid rgba(255,255,255,.95);font-family:-apple-system,system-ui,sans-serif;display:flex;align-items:center;gap:4px;line-height:1.2">'+memi+' '+mnm+'</div>',
-      iconSize:null,iconAnchor:[0,0],popupAnchor:[20,-30],className:''
-    });
+    var icon=L.divIcon({html:'<div style="width:16px;height:16px;background:'+mc+';border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',iconSize:[16,16],iconAnchor:[8,8],popupAnchor:[0,-12],className:''});
     var m=L.marker([lat,lng],{icon:icon}).addTo(map);
     var popupEl=document.createElement('div');
     popupEl.style.minWidth='150px';
@@ -1068,11 +1067,15 @@ function openPlaceDetail(id,autoPlanDay){
       '<button class="filter-pill" onclick="setPlaceFilter(\'activity\',this)">🎯 Activities</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
     '</div>'+
-    '<div id="place-recs"><div class="skel-card" style="margin-top:4px">'+[1,2,3,4].map(function(){return'<div style="display:flex;gap:12px;margin-bottom:14px"><div class="skel" style="width:40px;height:40px;border-radius:50%;flex-shrink:0"></div><div style="flex:1"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:40%"></div><div class="skel skel-line" style="width:75%"></div></div></div>';}).join('')+'</div></div>'+
+    '<div id="place-recs"><div style="text-align:center;padding:32px 0">'+
+      '<div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div>'+
+      '<div style="font-size:15px;font-weight:600;color:var(--text2)">Finding the best spots in '+esc(d.name)+'…</div>'+
+    '</div></div>'+
     '<div class="section-lbl" style="margin-top:14px">Plan a day here</div>'+
     '<button style="width:100%;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;" onclick="planDay(\''+id+'\')" >Plan a day in '+esc(d.name)+'</button>';
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
-  // Fetch recs if not cached
+  // Only fetch recs when in Explore mode (not when opening for day planning)
+  if(autoPlanDay)return;
   if(placeRecs[id]){renderPlaceRecs(id);}
   else{
     var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Only REAL verified places — do NOT invent names. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
@@ -1877,13 +1880,24 @@ function setTripFilter(f,el){
 var _cardPhotos={};
 function fetchCardPhoto(dest,cardId){
   if(_cardPhotos[dest]){applyCardPhoto(cardId,_cardPhotos[dest]);return;}
-  fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(dest)+'&prop=pageimages&piprop=thumbnail&pithumbsize=900&format=json&origin=*')
-  .then(function(r){return r.json();})
-  .then(function(d){
-    var p=Object.values((d&&d.query&&d.query.pages)||{})[0];
-    var src=p&&p.thumbnail&&p.thumbnail.source;
-    if(src){_cardPhotos[dest]=src;applyCardPhoto(cardId,src);}
-  }).catch(function(){});
+  // Try dest name + " city" for better landmark photos (not just Wikipedia lead image)
+  var tries=[dest,dest+' city',dest+' skyline'];
+  var ti=0;
+  function tryNext(){
+    if(ti>=tries.length)return;
+    var term=tries[ti++];
+    fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(term)+'&prop=pageimages|images&piprop=thumbnail&pithumbsize=900&imlimit=5&format=json&origin=*')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var p=Object.values((d&&d.query&&d.query.pages)||{})[0];
+      var src=p&&p.thumbnail&&p.thumbnail.source;
+      var bad=['map','flag','coat','arms','locator','blank','relief','location','logo','seal'];
+      if(src&&!bad.some(function(w){return src.toLowerCase().indexOf(w)>-1;})){
+        _cardPhotos[dest]=src;applyCardPhoto(cardId,src);
+      } else tryNext();
+    }).catch(tryNext);
+  }
+  tryNext();
 }
 function applyCardPhoto(cardId,src){
   var wrap=document.getElementById('hw-'+cardId);if(!wrap)return;
@@ -2115,172 +2129,156 @@ function getSeasonDates(season,nights){
 function openDetail(id){
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
   var group=it._group||parseInt(g('group-sel').value)||2;
+  var nights=it.duration_days||7;
   g('det-title').textContent=it.title||'Trip';
-  // Build cost rows
   function costRow(label,budget,premium,budgetUrl,premiumUrl){
     var bOpen=budgetUrl?"window.open('"+budgetUrl+"','_blank')":'';
     var pOpen=premiumUrl?"window.open('"+premiumUrl+"','_blank')":'';
-    return '<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">'+
-      '<span style="flex:1;font-size:13px;color:var(--text2);line-height:1.4;padding-right:8px">'+label+'</span>'+
-      '<div style="min-width:88px;text-align:center;cursor:'+(budgetUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(bOpen?'onclick="'+bOpen+'"':'')+'>'+
-        '<span style="font-size:18px;font-weight:700;color:var(--green);font-family:Fraunces,serif;display:block">'+fmtCurr(budget)+(budgetUrl?' ↗':'')+'</span>'+
+    return '<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;font-size:13px;color:var(--text2)">'+label+'</span>'+
+      '<div style="width:90px;text-align:right;cursor:'+(budgetUrl?'pointer':'default')+'" '+(bOpen?'onclick="'+bOpen+'"':'')+'>'+
+        '<span style="font-size:15px;font-weight:700;color:var(--green);font-family:Fraunces,serif">'+fmtCurr(budget)+(budgetUrl?' ↗':'')+'</span>'+
       '</div>'+
-      '<div style="min-width:88px;text-align:center;cursor:'+(premiumUrl?'pointer':'default')+';padding:3px 4px;border-radius:7px" '+(pOpen?'onclick="'+pOpen+'"':'')+'>'+
-        '<span style="font-size:18px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;display:block">'+fmtCurr(premium)+(premiumUrl?' ↗':'')+'</span>'+
+      '<div style="width:90px;text-align:right;cursor:'+(premiumUrl?'pointer':'default')+'" '+(pOpen?'onclick="'+pOpen+'"':'')+'>'+
+        '<span style="font-size:15px;font-weight:700;color:var(--gold);font-family:Fraunces,serif">'+fmtCurr(premium)+(premiumUrl?' ↗':'')+'</span>'+
       '</div>'+
-    '</div>';
-  }
-  var costHtml='';
-  if(it.costs){
-    var b=it.costs.budget,p=it.costs.premium;
-    // Build real booking URLs with dates from best_season
-    var dest0=(it.destinations||[])[0]||'';
-    var fromCity=it._from||'';
-    // Convert best_season month range to approximate check-in/out dates (next occurrence)
-    var dates=getSeasonDates(it.best_season,it.duration_days||7);
-    var cin=dates.in,cout=dates.out;
-    var nights=it.duration_days||7;
-    // URL-encoded versions
-    var destEnc=encodeURIComponent(dest0);
-    var fromEnc=encodeURIComponent(fromCity);
-    // Google Flights: best for showing actual prices with prefilled route+dates
-    // Build multi-city flight links: outbound to first city, then city-to-city, then return home from last city
-    var allDests=it.destinations||[];
-    var lastDest=allDests[allDests.length-1]||dest0;
-    var lastDestEnc=encodeURIComponent(lastDest.split(',')[0].trim());
-    var lastDates=getSeasonDates(it.best_season,(it.duration_days||7));
-    var returnDate=lastDates.out;
-    var skDate2=function(s){return s.replace(/-/g,'').substring(2);};
-    var fromClean=(fromCity||'').split(',')[0].trim().replace(/ /g,'+');
-    var dest0Clean=(dest0||'').split(',')[0].trim().replace(/ /g,'+');
-    var gflightBudget='https://www.google.com/travel/flights#flt='+fromClean+'.'+dest0Clean+'.'+cin+';c:USD;e:1;tt:o';
-    var lastDestClean=(lastDest||'').split(',')[0].trim().replace(/ /g,'+');
-    var gflightPrem='https://www.google.com/travel/flights#flt='+lastDestClean+'.'+fromClean+'.'+returnDate+';c:USD;e:1;tt:o';
-    // Booking.com with dates, guests, rating filter
-    var bookBudget='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price';
-    var bookPrem='https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+group+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5&order=review_score_and_price';
-    // Airbnb with dates and guest count
-    // Total nightly price = per-person cost * group (they share the place)
-    var airBudgetNightly=Math.round(b.accommodation_pp*group/nights);
-    var airPremNightly=Math.round(p.accommodation_pp*group/nights);
-    var airbnbBudget='https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airBudgetNightly+'&room_types%5B%5D=Entire%20home%2Fapt';
-    var airbnbPrem='https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+group+'&price_max='+airPremNightly+'&price_min='+Math.round(airBudgetNightly*1.1)+'&room_types%5B%5D=Entire%20home%2Fapt';
-    // Hostelworld budget
-    var hostelUrl='https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+group;
-    costHtml=
-      '<div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:8px;border:1px solid var(--border);">'+
-        '<div style="margin-bottom:10px">'+
-          '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;font-weight:600">SELECT CITY TO SEARCH:</div>'+
-          '<div style="display:flex;gap:5px;flex-wrap:wrap" id="det-city-sel">'+
-            (it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="det-city-btn filter-pill'+(i===0?' on':'')+'" data-city="'+esc(dn)+'" data-id="'+esc(id)+'" style="font-size:11px">'+esc(dn)+'</button>';}).join('')+
-          '</div>'+
-        '</div>'+
-        '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;line-height:1.5">'+
-          'ℹ️ Prices are AI estimates based on typical costs. Tap the green (budget) or gold (premium) amounts to search real listings with your dates.<br>'+
-          '<b>Dates:</b> '+cin+' → '+cout+' · <b>Group:</b> '+group+' people'+
-        '</div>'+
-        '<div style="display:flex;align-items:center;padding-bottom:6px;border-bottom:2px solid var(--border);margin-bottom:2px">'+
-          '<span style="flex:1"></span>'+
-          '<div style="min-width:88px;text-align:center;font-size:16px;font-weight:700;color:var(--green)">💰 Budget</div>'+
-          '<div style="min-width:88px;text-align:center;font-size:16px;font-weight:700;color:var(--gold)">✨ Premium</div>'+
-        '</div>'+
-        '<div style="font-size:15px;font-weight:700;color:var(--text);padding:14px 0 6px;border-bottom:2px solid var(--gold-md);margin-bottom:2px">✈ Flights <span style="font-size:11px;font-weight:500;color:var(--text3)">per person · tap ↗ to search</span></div>'+
-        costRow('Outbound: '+fromCity+' → '+dest0,b.flights_pp,p.flights_pp,gflightBudget,gflightBudget)+
-        costRow('Return: '+lastDest.split(',')[0]+' → '+fromCity,b.flights_pp,p.flights_pp,gflightPrem,gflightPrem)+
-        '<div style="font-size:15px;font-weight:700;color:var(--text);padding:14px 0 6px;border-bottom:2px solid var(--gold-md);margin-bottom:2px">🏨 Accommodations <span style="font-size:11px;font-weight:500;color:var(--text3)">per person · shared · tap ↗ to search</span></div>'+
-        '<div id="det-city-cost-rows">'+
-        costRow('Hotels — Booking.com',b.accommodation_pp,p.accommodation_pp,bookBudget,bookPrem)+
-        costRow('Airbnb (entire home)',b.accommodation_pp,p.accommodation_pp,airbnbBudget,airbnbPrem)+
-        costRow('Hostels — Hostelworld',Math.round(b.accommodation_pp*0.25),Math.round(b.accommodation_pp*0.45),hostelUrl,hostelUrl)+
-        '</div>'+
-        '<div style="font-size:15px;font-weight:700;color:var(--text);padding:14px 0 6px;border-bottom:2px solid var(--gold-md);margin-bottom:2px">🍽 Food & Activities <span style="font-size:11px;font-weight:500;color:var(--text3)">per person</span></div>'+
-        costRow('Food & drink',b.food_pp,p.food_pp,'','')+
-        costRow('Activities & tours',b.activities_pp,p.activities_pp,'','')+
-
-        '<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:2px solid var(--border)">'+
-          '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">'+
-            '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em">Total/person</div>'+
-            '<div style="font-size:11px;color:var(--text3);margin-top:1px">'+group+' ppl · '+nights+' nights</div>'+
-          '</div>'+
-          '<div style="min-width:88px;text-align:center;background:rgba(45,106,18,.08);border-radius:10px;padding:8px 4px">'+
-            '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em">Budget</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1.1">'+fmtCurr(b.flights_pp*2+b.accommodation_pp+b.food_pp+b.activities_pp)+'</div>'+
-            '<div style="font-size:9px;color:var(--green);opacity:.7;margin-top:1px">(2 flights+accom+food+activities)</div>'+
-          '</div>'+
-          '<div style="min-width:88px;text-align:center;background:rgba(184,115,10,.08);border-radius:10px;padding:8px 4px">'+
-            '<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em">Premium</div>'+
-            '<div style="font-size:28px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1.1">'+fmtCurr(p.flights_pp*2+p.accommodation_pp+p.food_pp+p.activities_pp)+'</div>'+
-            '<div style="font-size:9px;color:var(--gold);opacity:.7;margin-top:1px">(2 flights+accom+food+activities)</div>'+
-          '</div>'+
-        '</div>'+
-        '<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">💰 '+esc(b.notes)+'</p>'+
-        '<p style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5">✨ '+esc(p.notes)+'</p>'+
-        '<p style="font-size:11px;color:var(--blue);margin-top:5px">👥 Hotel/Airbnb shared among '+group+' people · '+nights+' nights</p>'+
-      '</div>';
-  } else {
-    var budgetPP=it.cost_budget_usd||0,premiumPP=it.cost_premium_usd||0;
-    costHtml='<div class="cost-boxes">'+
-      '<div class="cost-box lo"><div class="cost-lbl">Budget / person</div><div class="cost-val">$'+budgetPP.toLocaleString()+'</div><div class="cost-note">Hostels, local food, budget flights</div></div>'+
-      '<div class="cost-box hi"><div class="cost-lbl">Premium / person</div><div class="cost-val">$'+premiumPP.toLocaleString()+'</div><div class="cost-note">Hotels, dining, direct flights</div></div>'+
     '</div>';
   }
   g('det-body').innerHTML=
-    '<div class="itin-tags" style="margin-bottom:10px">'+(it.destinations||[]).map(function(d){return'<span class="itin-tag">'+esc(d)+'</span>';}).join('')+'</div>'+
-    '<p style="font-size:13px;color:var(--text2);margin-bottom:4px">'+(it.duration_days||'')+' days · '+esc(it.region||'')+' · Best: '+esc(it.best_season||'')+'</p>'+
-    (it.worst_season?'<p style="font-size:12px;color:var(--text3);margin-bottom:10px">Avoid: '+esc(it.worst_season)+'</p>':'<div style="margin-bottom:10px"></div>')+
-    '<div style="display:flex;gap:7px;margin-bottom:12px">'+
-      '<button onclick="viewTripOnMap(\''+id+'\',false)" style="flex:1;padding:9px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🗺 View on map</button>'+
-      '<button onclick="viewTripOnMap(\''+id+'\',true)" style="flex:1;padding:9px;background:var(--blue-lt);border:1px solid var(--blue-md);color:var(--blue);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✈ Show route</button>'+
+    // ── Tab bar ──
+    '<div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;flex-shrink:0" id="det-tabs">'+
+      '<button class="det-tab on" onclick="setDetTab(\'overview\',this)">Overview</button>'+
+      '<button class="det-tab" onclick="setDetTab(\'budget\',this)">Budget</button>'+
+      '<button class="det-tab" onclick="setDetTab(\'book\',this)">Book</button>'+
     '</div>'+
-    '<div class="section-lbl">Cost breakdown — per person</div>'+
-    costHtml+
-    '<div class="section-lbl">Day by day</div>'+
-    '<div id="det-days-content">'+
-    (it.days||[]).map(function(d){return'<div class="detail-day"><div class="detail-day-lbl">'+esc(d.day)+' · '+esc(d.location)+'</div><div class="detail-day-d">'+esc(d.description)+'</div></div>';}).join('')+
-    '</div>'+
-    '<div style="background:linear-gradient(135deg,#FFF4E6,#FEE8C4);border:2px solid var(--gold-md);border-radius:16px;padding:16px;margin:16px 0 14px">'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
-        '<div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;box-shadow:0 2px 8px rgba(184,115,10,.35)">🤖</div>'+
-        '<div>'+
-          '<div style="font-size:15px;font-weight:700;color:var(--text);font-family:Fraunces,serif;letter-spacing:-.01em">Tweak this itinerary</div>'+
-          '<div style="font-size:11px;color:var(--text3);margin-top:1px">Add/remove cities · adjust time · change style</div>'+
+
+    // ── OVERVIEW TAB ──
+    '<div id="det-overview" class="det-panel">'+
+      // Hero info bar
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:14px 0 10px;border-bottom:1px solid var(--border);margin-bottom:14px">'+
+        '<div class="det-stat"><div class="det-stat-val">'+(it.duration_days||'?')+'</div><div class="det-stat-lbl">days</div></div>'+
+        '<div class="det-stat"><div class="det-stat-val">'+esc((it.region||'').split(' ')[0])+'</div><div class="det-stat-lbl">region</div></div>'+
+        '<div class="det-stat"><div class="det-stat-val">'+esc(it.best_season||'—')+'</div><div class="det-stat-lbl">best season</div></div>'+
+        '<div class="det-stat"><div class="det-stat-val">'+group+'</div><div class="det-stat-lbl">people</div></div>'+
+      '</div>'+
+      // City tags
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">'+
+        (it.destinations||[]).map(function(d,i){return'<span style="background:'+(i===0?'var(--gold)':'var(--gold-lt)')+';color:'+(i===0?'#fff':'var(--gold)')+';font-size:13px;font-weight:700;padding:6px 14px;border-radius:22px">'+esc(d.split(',')[0])+'</span>';}).join('')+
+      '</div>'+
+      // Action buttons
+      '<div style="display:flex;gap:8px;margin-bottom:16px">'+
+        '<button onclick="viewTripOnMap(\''+id+'\',false)" style="flex:1;padding:12px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🗺 Map</button>'+
+        '<button onclick="viewTripOnMap(\''+id+'\',true)" style="flex:1;padding:12px;background:var(--blue-lt);border:1px solid var(--blue-md);color:var(--blue);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✈ Route</button>'+
+      '</div>'+
+      // Day by day - clean timeline
+      '<div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Itinerary</div>'+
+      '<div id="det-days-content">'+
+        (it.days||[]).map(function(d,i){
+          return '<div style="display:flex;gap:12px;margin-bottom:14px">'+
+            '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:3px">'+
+              '<div style="width:10px;height:10px;border-radius:50%;background:var(--gold);flex-shrink:0"></div>'+
+              (i<(it.days.length-1)?'<div style="width:2px;flex:1;background:var(--gold-md);margin-top:4px;min-height:16px;opacity:.4"></div>':'')+
+            '</div>'+
+            '<div style="flex:1;padding-bottom:4px">'+
+              '<div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+esc(d.day)+'</div>'+
+              '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">'+esc(d.location)+'</div>'+
+              '<div style="font-size:14px;color:var(--text2);line-height:1.6">'+esc(d.description)+'</div>'+
+            '</div>'+
+          '</div>';
+        }).join('')+
+      '</div>'+
+      // AI tweak box
+      '<div style="background:linear-gradient(135deg,#FFF4E6,#FEE8C4);border:2px solid var(--gold-md);border-radius:16px;padding:14px;margin-top:16px">'+
+        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">'+
+          '<div style="width:30px;height:30px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px">🤖</div>'+
+          '<div style="font-size:15px;font-weight:700;color:var(--text);font-family:Fraunces,serif">Tweak this itinerary</div>'+
+        '</div>'+
+        '<div id="itin-chat-msgs-'+id+'" style="max-height:120px;overflow-y:auto;margin-bottom:8px;font-size:13px;line-height:1.6;color:var(--text2)"></div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<input id="itin-chat-inp-'+id+'" type="text" placeholder="e.g. More time in Paris, cut Amsterdam" style="flex:1;padding:10px 14px;background:rgba(255,255,255,.85);border:1.5px solid var(--gold-md);border-radius:24px;color:var(--text);font-size:14px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')">'+
+          '<button onclick="sendItinChat(\''+id+'\')" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;flex-shrink:0;font-size:18px;box-shadow:0 2px 8px rgba(184,115,10,.35);display:flex;align-items:center;justify-content:center">→</button>'+
         '</div>'+
       '</div>'+
-      '<div id="itin-chat-msgs-'+id+'" style="max-height:150px;overflow-y:auto;margin-bottom:10px;font-size:13px;line-height:1.6;color:var(--text2)"></div>'+
-      '<div style="display:flex;gap:8px">'+
-        '<input id="itin-chat-inp-'+id+'" type="text" placeholder="e.g. More time in Paris, cut Amsterdam" style="flex:1;padding:10px 15px;background:rgba(255,255,255,.85);border:1.5px solid var(--gold-md);border-radius:24px;color:var(--text);font-size:13px;outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')sendItinChat(\''+id+'\')">'+
-        '<button onclick="sendItinChat(\''+id+'\')" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;flex-shrink:0;font-size:18px;box-shadow:0 3px 10px rgba(184,115,10,.4);display:flex;align-items:center;justify-content:center">→</button>'+
+    '</div>'+
+
+    // ── BUDGET TAB ──
+    '<div id="det-budget" class="det-panel" style="display:none">'+
+      (it.costs?
+        // Big total cards up top
+        '<div style="display:flex;gap:10px;margin-bottom:16px;margin-top:14px">'+
+          '<div style="flex:1;background:var(--green-lt);border:1.5px solid var(--green-bd);border-radius:16px;padding:16px;text-align:center">'+
+            '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Budget /pp</div>'+
+            '<div style="font-size:30px;font-weight:700;color:var(--green);font-family:Fraunces,serif;line-height:1">'+fmtCurr(it.costs.budget.flights_pp*2+it.costs.budget.accommodation_pp+it.costs.budget.food_pp+it.costs.budget.activities_pp)+'</div>'+
+          '</div>'+
+          '<div style="flex:1;background:var(--gold-lt);border:1.5px solid var(--gold-md);border-radius:16px;padding:16px;text-align:center">'+
+            '<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Premium /pp</div>'+
+            '<div style="font-size:30px;font-weight:700;color:var(--gold);font-family:Fraunces,serif;line-height:1">'+fmtCurr(it.costs.premium.flights_pp*2+it.costs.premium.accommodation_pp+it.costs.premium.food_pp+it.costs.premium.activities_pp)+'</div>'+
+          '</div>'+
+        '</div>'+
+        // City selector
+        '<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Select city to search accommodation:</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="det-city-sel">'+
+          (it.destinations||[]).map(function(d,i){var dn=d.split(',')[0].trim();return'<button class="det-city-btn filter-pill'+(i===0?' on':'')+'" data-city="'+esc(dn)+'" data-id="'+esc(id)+'" style="font-size:12px">'+esc(dn)+'</button>';}).join('')+
+        '</div>'+
+        // Cost breakdown
+        '<div style="background:var(--bg2);border-radius:14px;padding:14px;border:1px solid var(--border)">'+
+          '<div style="display:flex;padding-bottom:8px;border-bottom:2px solid var(--border);margin-bottom:4px">'+
+            '<span style="flex:1;font-size:12px;font-weight:700;color:var(--text3)">Category</span>'+
+            '<span style="width:90px;text-align:right;font-size:14px;font-weight:700;color:var(--green)">💰 Budget</span>'+
+            '<span style="width:90px;text-align:right;font-size:14px;font-weight:700;color:var(--gold)">✨ Prem</span>'+
+          '</div>'+
+          '<div style="font-size:12px;font-weight:700;color:var(--text3);padding:10px 0 6px;text-transform:uppercase;letter-spacing:.06em">✈ Flights</div>'+
+          costRow('Outbound',it.costs.budget.flights_pp,it.costs.premium.flights_pp,
+            'https://www.google.com/travel/flights#flt='+(it._from||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it.destinations||[])[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+getSeasonDates(it.best_season,it.duration_days||7).in+';c:USD;e:1;tt:o',
+            'https://www.google.com/travel/flights#flt='+(it._from||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it.destinations||[])[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+getSeasonDates(it.best_season,it.duration_days||7).in+';c:USD;e:1;tt:o')+
+          costRow('Return',it.costs.budget.flights_pp,it.costs.premium.flights_pp,
+            'https://www.google.com/travel/flights#flt='+((it.destinations||[]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'')).split(',')[0].trim().replace(/ /g,'+')+'.'+getSeasonDates(it.best_season,it.duration_days||7).out+';c:USD;e:1;tt:o',
+            'https://www.google.com/travel/flights#flt='+((it.destinations||[]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'')).split(',')[0].trim().replace(/ /g,'+')+'.'+getSeasonDates(it.best_season,it.duration_days||7).out+';c:USD;e:1;tt:o')+
+          '<div style="font-size:12px;font-weight:700;color:var(--text3);padding:10px 0 6px;text-transform:uppercase;letter-spacing:.06em">🏨 Accommodation</div>'+
+          '<div id="det-city-cost-rows">'+
+          costRow('Hotels',it.costs.budget.accommodation_pp,it.costs.premium.accommodation_pp,'','')+ 
+          costRow('Airbnb',it.costs.budget.accommodation_pp,it.costs.premium.accommodation_pp,'','')+
+          costRow('Hostel',Math.round(it.costs.budget.accommodation_pp*.25),Math.round(it.costs.premium.accommodation_pp*.45),'','')+
+          '</div>'+
+          '<div style="font-size:12px;font-weight:700;color:var(--text3);padding:10px 0 6px;text-transform:uppercase;letter-spacing:.06em">🍽 Food & Activities</div>'+
+          costRow('Food & drink',it.costs.budget.food_pp,it.costs.premium.food_pp,'','')+
+          costRow('Activities',it.costs.budget.activities_pp,it.costs.premium.activities_pp,'','')+
+        '</div>'+
+        '<p style="font-size:12px;color:var(--text3);margin-top:10px;line-height:1.6">'+group+' people · '+nights+' nights · tap ↗ to search real prices</p>'
+      :'<p style="color:var(--text3);padding:20px 0;text-align:center">Budget info not available for this trip.</p>')+
+      // Budget tracker
+      '<div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 8px">Trip tracker</div>'+
+      '<div id="budget-tracker-'+id+'" style="background:var(--bg2);border-radius:14px;padding:14px;border:1px solid var(--border)">'+
+        buildBudgetTracker(it)+
       '</div>'+
     '</div>'+
-    '<div class="section-lbl">Trip budget tracker</div>'+
-    '<div id="budget-tracker-'+id+'" style="background:var(--bg2);border-radius:var(--rsm);padding:12px;border:1px solid var(--border);margin-bottom:12px">'+
-      buildBudgetTracker(it)+
-    '</div>'+
-    '<div class="section-lbl">Book your trip</div>'+
-    '<div id="det-book-links">'+
-(function(){
-      var dest0=(it.destinations||[])[0]||'';
-      var destEnc=encodeURIComponent(dest0);
-      var fromEnc=encodeURIComponent(it._from||'');
-      var grp=it._group||group||2;
-      var dates=getSeasonDates(it.best_season,it.duration_days||7);
-      var cin=dates.in,cout=dates.out;
-      var nights=it.duration_days||7;
-      var links=[
-        ['✈ Outbound flight (one-way)','https://www.google.com/travel/flights#flt='+(it._from||'').split(',')[0].trim().replace(/ /g,'+')+'.'+dest0.split(',')[0].trim().replace(/ /g,'+')+'.'+cin+';c:USD;e:1;tt:o'],
-        ['✈ Return flight (one-way)','https://www.google.com/travel/flights#flt='+((it.destinations||[dest0]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'').split(',')[0].trim().replace(/ /g,'+'))+'.'+cout+';c:USD;e:1;tt:o'],
-        ['🏨 Booking.com (budget 2-3★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
-        ['🏨 Booking.com (premium 4-5★)','https://www.booking.com/searchresults.html?ss='+destEnc+'&checkin='+cin+'&checkout='+cout+'&group_adults='+grp+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
-        ['🏠 Airbnb (select city above for price filters)','https://www.airbnb.com/s/'+destEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+cin+'&checkout='+cout+'&adults='+grp+'&room_types%5B%5D=Entire%20home%2Fapt'],
-        ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+destEnc+'&arrival='+cin+'&departure='+cout+'&guests='+grp],
-        ['🎟 Viator (tours & activities)','https://www.viator.com/searchResults/all?text='+destEnc]
-      ];
-      return '<p style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dates pre-filled based on best travel season ('+cin+' to '+cout+'). Adjust on each site as needed.</p>'+
-        links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank">'+l[0]+'<span>→</span></a>';}).join('');
-    })()+
+
+    // ── BOOK TAB ──
+    '<div id="det-book" class="det-panel" style="display:none">'+
+      '<div style="padding-top:14px" id="det-book-links">'+
+      (function(){
+        var d0=(it.destinations||[])[0]||'';
+        var dEnc=encodeURIComponent(d0);
+        var fEnc=encodeURIComponent(it._from||'');
+        var grp2=it._group||group||2;
+        var dt=getSeasonDates(it.best_season,it.duration_days||7);
+        var ci=dt.in,co=dt.out;
+        var links=[
+          ['✈ Outbound flight','https://www.google.com/travel/flights#flt='+(it._from||'').split(',')[0].trim().replace(/ /g,'+')+'.'+d0.split(',')[0].trim().replace(/ /g,'+')+'.'+ci+';c:USD;e:1;tt:o'],
+          ['✈ Return flight','https://www.google.com/travel/flights#flt='+((it.destinations||[d0]).slice(-1)[0]||'').split(',')[0].trim().replace(/ /g,'+')+'.'+((it._from||'').split(',')[0].trim().replace(/ /g,'+'))+'.'+co+';c:USD;e:1;tt:o'],
+          ['🏨 Hotels — Booking.com (budget)','https://www.booking.com/searchresults.html?ss='+dEnc+'&checkin='+ci+'&checkout='+co+'&group_adults='+grp2+'&no_rooms=1&nflt=class%3D2%3Bclass%3D3&order=price'],
+          ['🏨 Hotels — Booking.com (premium)','https://www.booking.com/searchresults.html?ss='+dEnc+'&checkin='+ci+'&checkout='+co+'&group_adults='+grp2+'&no_rooms=1&nflt=class%3D4%3Bclass%3D5'],
+          ['🏠 Airbnb','https://www.airbnb.com/s/'+dEnc+'/homes?tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&checkin='+ci+'&checkout='+co+'&adults='+grp2+'&room_types%5B%5D=Entire%20home%2Fapt'],
+          ['🛏 Hostelworld','https://www.hostelworld.com/pwa/hostelworld/search?location='+dEnc+'&arrival='+ci+'&departure='+co+'&guests='+grp2],
+          ['🎟 Viator — tours & activities','https://www.viator.com/searchResults/all?text='+dEnc],
+        ];
+        return '<p style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.6">Best season dates: <strong>'+ci+'→'+co+'</strong>. Adjust on each site as needed.</p>'+
+          links.map(function(l){return'<a class="book-link" href="'+l[1]+'" target="_blank" style="font-size:15px">'+l[0]+'<span>→</span></a>';}).join('');
+      })()+
+      '</div>'+
     '</div>';
+
   g('det-bg').classList.add('on');g('det-sheet').classList.add('on');
-  // Wire city selector - use onclick directly on buttons (safest, no stacking)
   setTimeout(function(){
     var body=g('det-body');if(!body)return;
     body.querySelectorAll('.det-city-btn').forEach(function(btn){
@@ -2290,12 +2288,19 @@ function openDetail(id){
         selDetCity(btn,btn.dataset.city,btn.dataset.id);
       };
     });
-    // Auto-click first city to populate booking links immediately
     var first=body.querySelector('.det-city-btn');
     if(first)first.onclick();
   },80);
 }
-function sendItinChat(id){
+function setDetTab(tab,el){
+  document.querySelectorAll('.det-tab').forEach(function(b){b.classList.remove('on');});
+  if(el)el.classList.add('on');
+  ['overview','budget','book'].forEach(function(t){
+    var p=document.getElementById('det-'+t);
+    if(p)p.style.display=t===tab?'block':'none';
+  });
+}
+
   var it=S.itins.find(function(x){return x._id===id;});if(!it)return;
   var inp=g('itin-chat-inp-'+id);if(!inp)return;
   var msg=inp.value.trim();if(!msg)return;
