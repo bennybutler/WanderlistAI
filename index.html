@@ -329,7 +329,7 @@ textarea::placeholder{color:var(--text3);}
         <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
       </label>
     </div>
-    <div id="local-tag-filters" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border)"><div style="padding:5px 12px;overflow-x:auto"><div style="display:flex;gap:4px;min-width:max-content"><button class="mf-btn on ltf-btn" data-tag="all" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn ltf-btn" data-tag="☕ Cafe" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn ltf-btn" data-tag="🍺 Beer/pub" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn ltf-btn" data-tag="🍸 Cocktails" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn ltf-btn" data-tag="🌿 Patio" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn ltf-btn" data-tag="🍽 Fine dining" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn ltf-btn" data-tag="🥙 Cheap eats" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn ltf-btn" data-tag="🌳 Park" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn ltf-btn" data-tag="🏛 Sightseeing" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn ltf-btn" data-tag="🎭 Culture" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn ltf-btn" data-tag="🛍 Shopping" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn ltf-btn" data-tag="🏖 Beach" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn ltf-btn" data-tag="🌃 Nightlife" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn ltf-btn" data-tag="🏃 Activity" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn ltf-btn" data-tag="📸 Viewpoint" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button></div></div><div style="padding:5px 12px 6px;display:flex;gap:8px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap">City:</span><select id="local-city-sel" style="flex:1;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);outline:none" onchange="setLocalCityFilter(this.value)"><option value="all">All cities</option></select></div><div style="padding:4px 12px 8px"><button id="local-plan-btn" onclick="planDayFromFiltered()" style="display:none;width:100%;padding:9px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day using filtered spots</button></div></div>
+    <div id="local-tag-filters" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border)"><div style="padding:5px 12px;overflow-x:auto"><div style="display:flex;gap:4px;min-width:max-content"><button class="mf-btn on ltf-btn" data-tag="all" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn ltf-btn" data-tag="☕ Cafe" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn ltf-btn" data-tag="🍺 Beer/pub" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn ltf-btn" data-tag="🍸 Cocktails" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn ltf-btn" data-tag="🌿 Patio" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn ltf-btn" data-tag="🍽 Fine dining" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn ltf-btn" data-tag="🥙 Cheap eats" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn ltf-btn" data-tag="🌳 Park" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn ltf-btn" data-tag="🏛 Sightseeing" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn ltf-btn" data-tag="🎭 Culture" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn ltf-btn" data-tag="🛍 Shopping" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn ltf-btn" data-tag="🏖 Beach" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn ltf-btn" data-tag="🌃 Nightlife" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn ltf-btn" data-tag="🏃 Activity" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn ltf-btn" data-tag="📸 Viewpoint" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button><button class="mf-btn ltf-btn" data-tag="🎵 Live music" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎵 Live music',this)">🎵 Live music</button><button class="mf-btn ltf-btn" data-tag="🍹 Happy hour" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍹 Happy hour',this)">🍹 Happy hour</button></div></div><div style="padding:5px 12px 6px;display:flex;gap:8px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap">City:</span><select id="local-city-sel" style="flex:1;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);outline:none" onchange="setLocalCityFilter(this.value)"><option value="all">All cities</option></select></div><div style="padding:4px 12px 8px"><button id="local-plan-btn" onclick="planDayFromFiltered()" style="display:none;width:100%;padding:9px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day using filtered spots</button></div></div>
     <div class="scroll-list" id="dlist"><div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div></div>
   </div>
   <div class="screen" id="s-itin">
@@ -877,7 +877,7 @@ function updateLocalPlanBtn(){
   var btn=g('local-plan-btn');if(!btn)return;
   var localSpots=S.dests.filter(function(d){
     if(d.type!=='local')return false;
-    if(_localCityFilter!=='all'&&d.country!==_localCityFilter)return false;
+    if(_localCityFilter!=='all'&&(d.city||d.country)!==_localCityFilter)return false;
     if(_localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return _localTagFilters.indexOf(t)>-1;});}
     return true;
   });
@@ -896,7 +896,7 @@ function syncList(){
   var filtered=S.dests.filter(function(d){
     if(listFilter!=='all'&&d.type!==listFilter)return false;
     if(listFilter==='local'){
-      if(_localCityFilter&&_localCityFilter!=='all'&&d.country!==_localCityFilter)return false;
+      if(_localCityFilter&&_localCityFilter!=='all'&&(d.city||d.country)!==_localCityFilter)return false;
       if(_localTagFilters&&_localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];if(!tags.some(function(t){return _localTagFilters.indexOf(t)>-1;}))return false;}
     }
     return true;
@@ -926,7 +926,7 @@ function syncList(){
 function flyTo(id){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
   swScreen('s-map');
-  setTimeout(function(){map.invalidateSize();map.flyTo([d.lat,d.lng],10,{duration:1.3});},60);
+  setTimeout(function(){map.invalidateSize();map.flyTo([d.lat,d.lng],17,{duration:1.5});},60);
 }
 
 // ── Place detail ──────────────────────────────────────────
@@ -1181,7 +1181,7 @@ function addRecToLocal(destId,encoded){
 
 function editSpotTags(id){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
-  var LOCAL_TAGS=['☕ Cafe','🍺 Beer/pub','🍸 Cocktails','🌿 Patio','🍽 Fine dining','🥙 Cheap eats','🌳 Park','🏛 Sightseeing','🎭 Culture','🛍 Shopping','🏖 Beach','🌃 Nightlife','🏃 Activity','📸 Viewpoint'];
+  var LOCAL_TAGS=['☕ Cafe','🍺 Beer/pub','🍸 Cocktails','🌿 Patio','🍽 Fine dining','🥙 Cheap eats','🌳 Park','🏛 Sightseeing','🎭 Culture','🛍 Shopping','🏖 Beach','🌃 Nightlife','🏃 Activity','📸 Viewpoint','🎵 Live music','🍹 Happy hour'];
   var current=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
   var tagsHtml=LOCAL_TAGS.map(function(t){return'<button class="filter-pill'+(current.indexOf(t)>-1?' on':'')+'" onclick="togLocalTag(this)" style="font-size:12px;margin:2px">'+t+'</button>';}).join('');
   g('place-title').textContent='Edit tags';
@@ -1189,7 +1189,7 @@ function editSpotTags(id){
     '<p style="font-size:15px;font-weight:600;margin-bottom:2px">'+esc(d.name)+'</p>'+
     '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">'+esc(d.country||'')+'</p>'+
     '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Select all that apply:</p>'+
-    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px" id="cat-pick">'+tagsHtml+'</div>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;max-height:220px;overflow-y:auto" id="cat-pick">'+tagsHtml+'<button onclick="addCustomTag()" style="padding:4px 11px;border-radius:12px;border:1.5px dashed var(--border);background:transparent;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text3);margin:2px">+ Custom</button></div>'+
     '<button onclick="saveSpotTags(\''+id+'\')" style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Save tags</button>'+
     '<button onclick="openPlaceDetail(\''+id+'\')" style="width:100%;padding:9px;margin-top:8px;background:transparent;border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;cursor:pointer;font-family:inherit;color:var(--text3)">Cancel</button>';
 }
@@ -1205,13 +1205,13 @@ function saveSpotTags(id){
 
 function populateLocalCityFilter(){
   var sel=g('local-city-sel');if(!sel)return;
-  var cities=[...new Set(S.dests.filter(function(d){return d.type==='local'&&d.country;}).map(function(d){return d.country;}))].sort();
+  var cities=[...new Set(S.dests.filter(function(d){return d.type==='local'&&(d.city||d.country);}).map(function(d){return d.city||d.country;}))].sort();
   sel.innerHTML='<option value="all">All cities</option>'+cities.map(function(c){return'<option value="'+esc(c)+'"'+(c===_localCityFilter?' selected':'')+'>'+esc(c)+'</option>';}).join('');
 }
 function planDayFromFiltered(){
   var spots=S.dests.filter(function(d){
     if(d.type!=='local')return false;
-    if(_localCityFilter!=='all'&&d.country!==_localCityFilter)return false;
+    if(_localCityFilter!=='all'&&(d.city||d.country)!==_localCityFilter)return false;
     if(_localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return _localTagFilters.indexOf(t)>-1;});}
     return true;
   });
@@ -1227,19 +1227,24 @@ function planDayFromFiltered(){
 
 function planDayFromSpot(spotId){
   var spot=S.dests.find(function(x){return x.id===spotId;});if(!spot)return;
-  // Find nearest destination city or use the spot's country as city context
-  var city=spot.city||spot.country||'';
-  // Find a matching dest for planDay
-  var nearDest=S.dests.find(function(x){return x.type==='dest'&&(x.country===spot.country||x.name===spot.city);});
-  if(nearDest){
-    planDay(nearDest.id,spot.name);
-  } else {
-    // Create a virtual dest from the spot's location
-    var vd={id:'_v',name:spot.name,country:spot.country,lat:spot.lat,lng:spot.lng,type:'dest'};
+  closePlaceDetail();
+  var spotCity=spot.city||spot.country||'';
+  // Find a matching destination — match by city name or country
+  var nearDest=S.dests.find(function(x){
+    if(x.type!=='dest')return false;
+    return x.name.toLowerCase()===spotCity.toLowerCase()||
+           x.name.toLowerCase().indexOf(spotCity.toLowerCase())>-1||
+           x.country===spot.country;
+  });
+  if(!nearDest){
+    // Create a temporary virtual destination at the spot's coordinates
+    var vd={id:'_vtmp',name:spot.city||spot.country||spot.name,country:spot.country,lat:spot.lat,lng:spot.lng,type:'dest'};
     S.dests.push(vd);
-    planDay('_v',spot.name);
-    setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!=='_v';});},5000);
+    nearDest=vd;
+    setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!=='_vtmp';});},10000);
   }
+  swScreen('s-itin');
+  setTimeout(function(){planDay(nearDest.id,spot.name,[spot]);},350);
 }
 
 function closePlaceDetail(){g('place-bg').classList.remove('on');g('place-sheet').classList.remove('on');}
@@ -1254,7 +1259,8 @@ function planDay(destId,startingSpot,forcedSpots){
   window._dpSaved=forcedSpots||savedSpots;
   window._dpUseSaved=false;
   currentPlanCity=d.name;
-  g('place-recs').innerHTML=
+  var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+  _prEl.innerHTML=
     '<div style="background:var(--bg2);border-radius:var(--rsm);padding:13px;margin-bottom:10px;border:1px solid var(--border);">'+
       '<p style="font-size:13px;font-weight:600;margin-bottom:10px;">🗓 Plan a day in '+esc(d.name)+(startingSpot?' · starting near '+esc(startingSpot):'')+' </p>'+
       '<div style="display:flex;gap:8px;margin-bottom:10px;">'+
@@ -1313,6 +1319,7 @@ function runDayPlan(destId){
   var spots=window._dpSaved||[];
   var useSaved=(g('dp-use-saved')&&g('dp-use-saved').classList.contains('on'))&&spots.length>0;
   var savedLocal=useSaved?spots.map(function(s){return s.name+(s.category?' ('+s.category+')':'');}):[];
+  var _planRecs=g('place-recs')||g('ilist');
   var dpEl=g('dest-photo-loading');
   if(dpEl){
     dpEl.innerHTML=
@@ -1329,7 +1336,8 @@ function runDayPlan(destId){
       '</div>';
     loadDestPhotos(d.name,d.country);
   }
-  g('place-recs').innerHTML='';
+  var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+  _prEl.innerHTML='';
   var area=g('dp-area')?g('dp-area').value.trim():'';
   var isDateNight=vibe.indexOf('Date')>-1||vibe.indexOf('date')>-1;
   var isFoodTour=vibe.indexOf('Food')>-1||vibe.indexOf('food')>-1;
@@ -1357,7 +1365,8 @@ function runDayPlan(destId){
     '"stops":[{"time":"11:00am","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details about this place and what to do/order.","walk_to_next":"4 min walk east on King St","transit_to_next":"10 min Uber (~$8) — use INSTEAD of walk_to_next for the one transit leg if used","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
   ai([{role:'user',content:prompt}],function(err,text){
     if(err){
-      g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
+      var _prEl=g('place-recs')||g('ilist');if(!_prEl)return;
+  _prEl.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';
       return;
     }
     try{
@@ -1501,14 +1510,21 @@ function addDests(arr){
   arr.forEach(function(d){
     if(!d.lat||!d.lng||isNaN(parseFloat(d.lat))||isNaN(parseFloat(d.lng)))return;
     if(!S.dests.find(function(x){return x.name.toLowerCase()===d.name.toLowerCase()&&x.country===d.country;})){
-      S.dests.push({id:uid(),name:d.name,country:d.country||'',lat:parseFloat(d.lat),lng:parseFloat(d.lng),type:d.type||'dest'});n++;
+      var entry={id:uid(),name:d.name,country:d.country||'',lat:parseFloat(d.lat),lng:parseFloat(d.lng),type:d.type||'dest'};
+      if(d.city)entry.city=d.city;
+      if(d.category)entry.category=d.category;
+      if(d.tags)entry.tags=d.tags;
+      S.dests.push(entry);n++;
     }
   });
   if(!n){toast('Already saved');return;}
   save();syncMap();syncList();toast('Added '+n+' place'+(n!==1?'s':''));
 }
 function rmDest(id){
-  S.dests=S.dests.filter(function(d){return d.id!==id;});
+  var d=S.dests.find(function(x){return x.id===id;});
+  if(!d)return;
+  if(!confirm('Remove "'+d.name+'"?'))return;
+  S.dests=S.dests.filter(function(x){return x.id!==id;});
   delete placeRecs[id];
   save();syncMap();syncList();toast('Removed');
 }
@@ -1529,7 +1545,7 @@ function formatPlace(r){
   var sub='';
   if(S.placeType==='local'){sub=[city,state,country].filter(Boolean).join(', ');}
   else{sub=[state,country].filter(function(x){return x&&x!==primary;}).join(', ');}
-  return {primary:primary,sub:sub,country:country,type:r.type||r.class||''};
+  return {primary:primary,sub:sub,country:country,city:city,type:r.type||r.class||''};
 }
 function fetchAC(q){
   if(S.placeType==='local'){fetchLocalAC(q);}
@@ -1645,20 +1661,34 @@ function selectAC(i){
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
   }
   g('city-inp').value='';hideAC();
-  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat);}
+  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat,fp&&fp.city||'');}
   else{addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest'}]);}
 }
 var _pendingAdd=null;
-function showCatPicker(name,country,lat,lng,detectedCat){
-  _pendingAdd={name:name,country:country,lat:lat,lng:lng};
+function showCatPicker(name,country,lat,lng,detectedCat,city){
+  _pendingAdd={name:name,country:country,lat:lat,lng:lng,city:city||''};
   g('place-title').textContent='Tag this spot';
   g('place-body').innerHTML='<p style="font-size:15px;font-weight:600;margin-bottom:2px">'+esc(name)+'</p>'+
     '<p style="font-size:12px;color:var(--text3);margin-bottom:12px">'+esc(country)+'</p>'+
     '<p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Pick all that apply:</p>'+
-    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px" id="cat-pick"><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">☕ Cafe</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍺 Beer/pub</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍸 Cocktails</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌿 Patio</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍽 Fine dining</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🥙 Cheap eats</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌳 Park</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏛 Sightseeing</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🎭 Culture</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🛍 Shopping</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏖 Beach</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌃 Nightlife</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏃 Activity</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">📸 Viewpoint</button></div>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px" id="cat-pick" style="max-height:200px;overflow-y:auto"><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">☕ Cafe</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍺 Beer/pub</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍸 Cocktails</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌿 Patio</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🍽 Fine dining</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🥙 Cheap eats</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌳 Park</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏛 Sightseeing</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🎭 Culture</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🛍 Shopping</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏖 Beach</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🌃 Nightlife</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">🏃 Activity</button><button class=\"filter-pill\" onclick=\"togLocalTag(this)\" style=\"font-size:12px;margin:2px\">📸 Viewpoint</button></div>'+
     '<button onclick="confirmCatAdd()" style="width:100%;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Add to My Places</button>';
   g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
 }
+
+function addCustomTag(){
+  var tag=prompt('Enter custom tag name:');
+  if(!tag||!tag.trim())return;
+  tag=tag.trim();
+  var pick=g('cat-pick');if(!pick)return;
+  var btn=document.createElement('button');
+  btn.className='filter-pill on';
+  btn.style.cssText='font-size:12px;margin:2px';
+  btn.textContent=tag;
+  btn.onclick=function(){togLocalTag(this);};
+  pick.insertBefore(btn,pick.lastElementChild);
+}
+
 function togLocalTag(el){el.classList.toggle('on');}
 function selectCat(cat,el){document.querySelectorAll('#cat-pick .filter-pill').forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function confirmCatAdd(){
