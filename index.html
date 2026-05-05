@@ -377,7 +377,7 @@ textarea::placeholder{color:var(--text3);}
   </div>
 
   <!-- SETTINGS -->
-  <div class="screen" id="s-settings">
+  <div class="screen" id="s-settings" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div class="scr-hdr"><h2>Settings</h2></div>
     <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
       <div class="settings-section">
@@ -875,24 +875,34 @@ function setListFilter(f,el){
   syncList();
 }
 function syncList(){
-  var filtered=S.dests.filter(function(d){return listFilter==='all'||d.type===listFilter;});
+  var filtered=S.dests.filter(function(d){
+    if(listFilter!=='all'&&d.type!==listFilter)return false;
+    if(listFilter==='local'&&_localTagFilter&&_localTagFilter!=='all'){
+      var tags=d.tags&&d.tags.length?d.tags:[d.category||""];
+      return tags.some(function(t){return t===_localTagFilter;});
+    }
+    return true;
+  });
   g('dcnt').textContent=S.dests.length+' saved';
   var el=g('dlist');
   if(!filtered.length){
-    el.innerHTML='<div class="empty-state"><p>'+(listFilter==='all'?'Search above to add a destination or local spot.':listFilter==='dest'?'No destinations saved yet. Use ✈ mode above to add cities.':'No local spots saved yet. Use 📍 mode above to add places.')+'</p></div>';
+    el.innerHTML='<div class="empty-state"><p>'+(listFilter==='all'?'Search above to add a destination or local spot.':listFilter==='dest'?'No destinations saved yet.':'No local spots. Use 📍 mode to add.')+'</p></div>';
     return;
   }
   el.innerHTML=filtered.map(function(d){
     var isLocal=d.type==='local';
-    return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">' +
+    var tags=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
+    var tagsHtml=isLocal&&tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'';
+    return '<div class="dest-item" onclick="openPlaceDetail(\''+d.id+'\')">'+
       '<div class="dest-icon '+(isLocal?'local':'dest')+'">'+(isLocal?'📍':'✈️')+'</div>'+
       '<div class="dest-info">'+
         '<div class="dest-name">'+esc(d.name)+'</div>'+
-        '<div class="dest-meta"><span class="dest-badge '+(isLocal?'local':'dest')+'">'+(isLocal?'Local':'Destination')+'</span> '+esc(d.country||'')+'</div>'+
+        '<div class="dest-meta">'+esc(d.country||'')+'</div>'+
+        tagsHtml+
       '</div>'+
       '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
       '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button>'+
-    '</div></div>';
+    '</div>';
   }).join('');
 }
 function flyTo(id){
@@ -909,7 +919,7 @@ function openPlaceDetail(id,autoPlanDay){
   var d=S.dests.find(function(x){return x.id===id;});if(!d)return;
   currentPlaceId=id;
   g('place-title').textContent=d.name;
-  setTimeout(function(){loadDestPhotos(d.name,d.country);},50);
+  if(d.type!=='local'){setTimeout(function(){loadDestPhotos(d.name,d.country);},50);}
   placeFilter='all';
   g('place-body').innerHTML=
     '<div class="filter-pills" id="place-pills">'+
@@ -948,11 +958,11 @@ function setPlaceFilter(f,el){
 function loadDestPhotos(destName,country){
   var el=g('dest-photo-loading');if(!el)return;
   el.innerHTML=
-    '<div style="font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;align-items:center;justify-content:space-between">'+
-      '<span>📸 Browse while recommendations load…</span>'+
+    '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">'+
+      '<span>📸 Browse photos</span>'+
       '<span id="photo-counter"></span>'+
     '</div>'+
-    '<div style="position:relative;border-radius:10px;overflow:hidden;height:80px;background:var(--bg3);margin-bottom:6px" id="photo-wrap">'+
+    '<div style="position:relative;border-radius:12px;overflow:hidden;height:200px;background:var(--bg3);margin-bottom:8px" id="photo-wrap">'+
       '<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center"><span class="spin"></span></div>'+
     '</div>';
 
