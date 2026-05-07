@@ -754,8 +754,8 @@ function uid(){return Date.now()+'-'+Math.random().toString(36).substr(2,6);}
 window.addEventListener('load',function(){
   load();
   map=L.map('map',{zoomControl:false}).setView([25,15],2);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    {attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
   syncMap();syncList();renderItins();initCurrencyLang();renderFriendsList();
   // Load saved settings into fields
   var k=localStorage.getItem('wl_apikey');
@@ -3274,92 +3274,28 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     var isOutdoors=vibe.indexOf('Outdoor')>-1||vibe.indexOf('outdoor')>-1;
     var isLocal=vibe.indexOf('Local')>-1;
     var vibeInstructions=isDateNight?'DATE NIGHT: Every stop must be romantic. Choose intimate restaurants, cocktail bars, rooftops and scenic evening walks.\n':isFoodTour?'FOOD TOUR: Every stop should be food or drink. No museums or shops unless they are food markets.\n':isNightlife?'NIGHTLIFE: Evening or night only. Start with dinner or drinks, then move through bars, cocktail spots, live music or clubs. Preserve the selected start time exactly.\n':isSightseeing?'SIGHTSEEING: Focus on landmarks, viewpoints, museums and cultural sites in one compact area.\n':isOutdoors?'OUTDOORS: Parks, waterfronts, trails, gardens and outdoor markets.\n':isLocal?'LIVE LIKE A LOCAL: Avoid tourist traps. Choose neighbourhood spots and resident favourites.\n':'Mix sightseeing, food and drinks in one compact neighbourhood.\n';
-
-    // ── Fetch real venues from Overpass before prompting AI ──
-    // This ensures Claude only picks from places that actually exist
-    function buildDayPlanWithVenues(realVenues){
-      var venueBlock='';
-      if(realVenues&&realVenues.length>0){
-        venueBlock='REAL VERIFIED VENUES (use ONLY these — do not invent any other places):\n'+
-          realVenues.map(function(v,i){
-            return (i+1)+'. '+v.name+(v.type?' ['+v.type+']':'')+
-              ' | coords: '+v.lat+','+v.lng+
-              (v.address?' | address: '+v.address:'');
-          }).join('\n')+'\n'+
-          'Pick '+Math.min(hours+1,realVenues.length)+' of the above that best fit the vibe and are close together. Use their exact names and coordinates.\n';
-      }
-
-      var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
-        'VIBE: '+vibe+'. '+vibeInstructions+
-        'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood. Adjacent stops ≤15 min walk. No two stops more than 1.5km apart. ONE Uber/transit max.\n'+
-        'Start time: '+start+'. Duration: '+hours+' hours.\n'+
-        venueBlock+
-        (useSaved&&savedLines.length?'ALSO INCLUDE these user-saved spots: '+savedLines.join(', ')+'\n':'')+
-        (anchor?'START at or very near "'+anchor+'".\n':'')+
-        (tweak?'USER FEEDBACK: '+tweak+'. Preserve start time, duration, vibe.\n':'')+
-        'Return ONLY valid JSON:\n'+
-        '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"time":"'+start+'","name":"Exact name from list above","lat":0.0,"lng":0.0,"type":"food|drinks|culture|shopping|nature","description":"Why this spot, what to do/order.","walk_to_next":"","budget_note":"$10-15","premium_note":"upgrade tip"}]}';
-
-      ai([{role:'user',content:prompt}],function(err,text){
-        if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
-        try{
-          var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
-          plan.city=plan.city||currentPlanCity||d.name;plan.start=start;plan.hours=parseInt(hours,10)||hours;plan.vibe=vibe;plan._destId=destId;
-          plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
-          // Inject real coords from venue list into stops
-          if(realVenues&&realVenues.length){
-            (plan.stops||[]).forEach(function(stop){
-              var match=realVenues.find(function(v){
-                return v.name.toLowerCase()===stop.name.toLowerCase()||
-                  stop.name.toLowerCase().indexOf(v.name.toLowerCase())>-1;
-              });
-              if(match){stop.lat=match.lat;stop.lng=match.lng;stop._verified=true;}
-            });
-          }
-          currentPlanData=plan;
-          enrichPlanWithRealTimes(plan,d,function(){currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);});
-          renderDayPlanHtml(plan,vibe,destId);
-        }catch(e){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
-      },2000);
-    }
-
-    // Build Overpass query based on vibe
-    var amenityTypes=isNightlife||isDateNight?'bar|pub|nightclub|cocktail_bar|restaurant':
-      isFoodTour?'restaurant|cafe|bar|food_court|marketplace':
-      isSightseeing?'restaurant|cafe|museum|library':
-      isOutdoors?'park|garden|marketplace':
-      'restaurant|bar|cafe|pub|museum|marketplace';
-    var tourismTypes=isSightseeing||!isNightlife?'museum|attraction|viewpoint|gallery':'viewpoint';
-    var leisureTypes=isOutdoors||isSightseeing?'park|garden|nature_reserve':'park';
-    var rad=Math.min(1500,Math.max(800,hours*180)); // radius scales with hours
-
-    if(d.lat&&d.lng){
-      var opQ='[out:json][timeout:12];('+
-        'node["amenity"~"'+amenityTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
-        'way["amenity"~"'+amenityTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
-        'node["tourism"~"'+tourismTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
-        'node["leisure"~"'+leisureTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
-        ');out center 40;';
-      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(opQ)})
-      .then(function(r){return r.json();})
-      .then(function(data){
-        var els=(data.elements||[]).filter(function(el){
-          return el.tags&&el.tags.name&&el.tags.name.length>1;
-        });
-        var venues=els.map(function(el){
-          var lat=el.lat||(el.center&&el.center.lat);
-          var lng=el.lon||(el.center&&el.center.lon);
-          var addr=[el.tags['addr:housenumber'],el.tags['addr:street']].filter(Boolean).join(' ');
-          return{name:el.tags.name,lat:lat,lng:lng,
-            type:el.tags.amenity||el.tags.tourism||el.tags.leisure||'local',
-            address:addr||''};
-        }).filter(function(v){return v.lat&&v.lng;});
-        buildDayPlanWithVenues(venues.length>=4?venues:[]);
-      })
-      .catch(function(){buildDayPlanWithVenues([]);});
-    } else {
-      buildDayPlanWithVenues([]);
-    }
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
+      'VIBE: '+vibe+'. '+vibeInstructions+
+      'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood or tightly adjacent neighbourhoods. Adjacent stops should normally be 10 min walk or less and must never exceed 20 min walk. A 5-minute walk is about 400m. No adjacent stops can be more than 1.5km apart. Only ONE Uber/transit leg is allowed for the entire plan, and only if something is truly unmissable. Do not invent walking times. The app will verify and overwrite distances.\n'+
+      'Start time: '+start+'. Preserve this start time exactly. Duration: '+hours+' hours.\n'+
+      (useSaved?'SAVED-SPOTS-ONLY MODE: Build the itinerary ONLY from the saved spots below. Do not recommend any spot outside this list. Include the exact saved spot ID in each stop.\nSaved spots:\n'+savedLines.join('\n')+'\n':'')+
+      (anchor?'ANCHOR SPOT: Start at or very near "'+anchor+'". This must be the first stop or second stop at the latest.\n':'')+
+      (anchorCoords?'Anchor coordinates: '+anchorCoords.lat+', '+anchorCoords.lng+'. Keep the plan clustered around this location.\n':'')+
+      (tweak?'USER FEEDBACK ON PREVIOUS PLAN: '+tweak+'. Preserve the same start time, duration, vibe, saved spot scope and geography rules.\n':'')+
+      'Only real places. Return ONLY valid JSON.\n'+
+      '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"id":"saved spot id if applicable","time":"'+start+'","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details.","walk_to_next":"","transit_to_next":"","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
+    ai([{role:'user',content:prompt}],function(err,text){
+      if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
+      try{
+        var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
+        plan.city=plan.city||currentPlanCity||d.name;plan.start=start;plan.hours=parseInt(hours,10)||hours;plan.vibe=vibe;plan._destId=destId;
+        plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
+        currentPlanData=plan;
+        enrichPlanWithRealTimes(plan,d,function(){currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);});
+        renderDayPlanHtml(plan,vibe,destId);
+      }catch(e){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
+    },1800);
+  };
 
   window.findSavedSpotForStop = function(stop,settings){
     var spots=(settings&&settings.spots)||window._dpSaved||[];
@@ -3378,11 +3314,6 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     stops.forEach(function(s,i){
       var saved=window.findSavedSpotForStop(s,settings);
       if(saved&&placeLatLng(saved)){coords[i]=placeLatLng(saved);s.id=saved.id;s.name=saved.name;finish();return;}
-      // Use coords already injected from Overpass lookup (most accurate)
-      if(s.lat&&s.lng&&s._verified){coords[i]={lat:s.lat,lng:s.lng};finish();return;}
-      // If stop has lat/lng from AI response, use those
-      if(s.lat&&s.lng&&Math.abs(s.lat)>0.01){coords[i]={lat:s.lat,lng:s.lng};finish();return;}
-      // Last resort: Nominatim geocode
       var q=encodeURIComponent((s.name||'')+', '+city);
       fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1&addressdetails=1',{headers:{'Accept-Language':'en'}})
       .then(function(r){return r.json();}).then(function(results){if(results&&results[0])coords[i]={lat:parseFloat(results[0].lat),lng:parseFloat(results[0].lon)};finish();}).catch(function(){finish();});
@@ -3686,6 +3617,80 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 
 
 
+</script>
+
+<script>
+/* Google Places — isolated, cannot affect existing code */
+(function(){
+  var GP='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
+  var _orig=window.fetchLocalAC;
+
+  window.fetchLocalAC=function(q){
+    var hc=localStorage.getItem('wl_homecity')||'';
+    fetch('https://places.googleapis.com/v1/places:searchText',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Goog-Api-Key':GP,
+        'X-Goog-FieldMask':'places.displayName,places.location,places.shortFormattedAddress,places.types'
+      },
+      body:JSON.stringify({textQuery:q+(hc?' in '+hc:''),maxResultCount:10,languageCode:'en'})
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var places=d.places||[];
+      if(!places.length){if(_orig)_orig(q);return;}
+      var res=places.map(function(p){
+        var loc=p.location||{};
+        return{
+          lat:loc.latitude,lon:loc.longitude,
+          display_name:(p.displayName&&p.displayName.text)||q,
+          _gp:true,
+          _type:(p.types&&p.types[0]||'').replace(/_/g,' '),
+          _addr:p.shortFormattedAddress||hc
+        };
+      }).filter(function(r){return r.lat&&r.lon;});
+      if(res.length){window.acResults=res;if(typeof renderAC==='function')renderAC();}
+      else if(_orig)_orig(q);
+    })
+    .catch(function(){if(_orig)_orig(q);});
+  };
+
+  var _origRender=window.renderAC;
+  window.renderAC=function(){
+    var hasGP=window.acResults&&window.acResults.some(function(r){return r._gp;});
+    if(!hasGP){if(_origRender)_origRender();return;}
+    var ac=document.getElementById('ac');if(!ac)return;
+    var isLocal=window.S&&window.S.placeType==='local';
+    ac.style.display='block';
+    ac.innerHTML=(window.acResults||[]).map(function(r,i){
+      return'<div class="ac-item" onclick="selectAC('+i+')">'+
+        '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="ac-name">'+(r.display_name||'')+
+            (r._type?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+r._type+'</span>':'')+'</div>'+
+          (r._addr?'<div class="ac-sub">'+r._addr+'</div>':'')+
+        '</div></div>';
+    }).join('');
+  };
+
+  var _origSelect=window.selectAC;
+  window.selectAC=function(i){
+    var r=window.acResults&&window.acResults[i];
+    if(!r||!r._gp){if(_origSelect)_origSelect(i);return;}
+    var hc=localStorage.getItem('wl_homecity')||'';
+    var inp=document.getElementById('city-inp');if(inp)inp.value='';
+    var ac=document.getElementById('ac');if(ac)ac.style.display='none';
+    window.acResults=[];
+    if(window.S&&window.S.placeType==='local'){
+      if(typeof showCatPicker==='function')
+        showCatPicker(r.display_name,r._addr||hc,r.lat,r.lon,r._type||'local',hc);
+    } else {
+      if(typeof addDests==='function')
+        addDests([{name:r.display_name,country:r._addr||hc,lat:r.lat,lng:r.lon,type:'dest'}]);
+    }
+  };
+})();
 </script>
 </body>
 </html>
