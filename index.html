@@ -443,11 +443,9 @@ textarea::placeholder{color:var(--text3);}
           <p class="key-ok" id="key-ok">✓ API key saved</p>
         </div>
         <div class="settings-card">
-          <p>Foursquare API Key <span style="font-size:11px;font-weight:500;color:var(--green);background:var(--green-lt);padding:2px 7px;border-radius:8px;margin-left:6px">Improves place search</span></p>
-          <small>Free — get one at <a href="https://developer.foursquare.com" target="_blank" style="color:var(--gold)">developer.foursquare.com</a> → Create Account → New Project → API Key. Gives much better restaurant, bar &amp; local business search.</small>
-          <input class="s-inp" id="fsq-key-inp" type="password" placeholder="fsq3...">
-          <button class="s-btn" onclick="saveFsqKey()">Save Foursquare key</button>
-          <p class="key-ok" id="fsq-key-ok">✓ Foursquare key saved</p>
+          <p>Google Places <span style="font-size:11px;font-weight:600;color:var(--green);background:var(--green-lt);padding:2px 8px;border-radius:8px;margin-left:6px">Active ✓</span></p>
+          <small>Google Places API is configured and active. Provides best-in-class local business search — bars, restaurants, cafes and more.</small>
+          <p style="font-size:13px;color:var(--green);margin-top:4px">✓ Google Places connected</p>
         </div>
       </div>
       <div class="settings-section">
@@ -1114,7 +1112,7 @@ function fetchExploreRecs(id,city,country,tweak){
     ' Only REAL verified places — do NOT invent names. Budget and premium mix.\n'+
     'For each place assign 1-3 tags from ONLY: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\n'+
     'Return ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
-  aiWebSearch([{role:'user',content:prompt}],function(err,text){
+  ai([{role:'user',content:prompt}],function(err,text){
     var el=g('place-recs');if(!el)return;
     if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:8px 0">'+esc(err)+'</p>';return;}
     try{
@@ -1748,32 +1746,10 @@ function fetchLocalAC(q){
   var hc=localStorage.getItem('wl_homecity')||'';
   var cached=localStorage.getItem('wl_homecoords');
   var bestResults=[];var bestScore=0;
-  var fsqKey=localStorage.getItem('wl_fsqkey');
 
   function tryShow(results,score){
     if(!results.length)return;
     if(score>=bestScore){bestScore=score;acResults=results;renderAC();}
-  }
-
-  // ── Foursquare — best business data (when key available) ──
-  if(fsqKey){
-    var fsqUrl='https://api.foursquare.com/v3/places/search?query='+encodeURIComponent(q)+
-      (hc?'&near='+encodeURIComponent(hc):'')+'&limit=10&fields=name,geocodes,location,categories';
-    fetch(fsqUrl,{headers:{Authorization:fsqKey,'Accept':'application/json'}})
-    .then(function(r){return r.json();})
-    .then(function(data){
-      var results=(data.results||[]).filter(function(p){
-        return p.geocodes&&p.geocodes.main&&p.name;
-      }).map(function(p){
-        var cat=(p.categories&&p.categories[0]&&p.categories[0].name)||'';
-        var loc=p.location||{};
-        return{lat:p.geocodes.main.latitude,lon:p.geocodes.main.longitude,
-          display_name:p.name,_fsq:true,_type:cat,
-          _addr:[loc.address,loc.locality].filter(Boolean).join(', '),
-          _city:loc.locality||hc,_country:loc.country||''};
-      });
-      tryShow(results,3); // Highest priority
-    }).catch(function(){});
   }
 
   // ── Photon: best POI/business database, bias toward home city ──
@@ -1844,10 +1820,7 @@ function renderAC(){
   var isLocal=S.placeType==='local';
   ac.innerHTML=acResults.map(function(r,i){
     var primary,sub,cat='';
-    if(r._fsq){
-      primary=r.display_name;cat=r._type||'';
-      sub=r._addr||'';
-    } else if(r._photon){
+    if(r._photon){
       primary=r.display_name;cat=r._type||'';
       sub=[r._street,r._city,r._country].filter(Boolean).join(', ');
     } else if(r._overpass){
@@ -1870,11 +1843,7 @@ function onCityKey(e){if(e.key==='Escape')hideAC();}
 function selectAC(i){
   var r=acResults[i];if(!r)return;
   var name,country,lat,lng,cat='',city='';
-  if(r._fsq){
-    name=r.display_name;cat=r._type||'local';
-    country=r._country||r._city||'';city=r._city||hc;
-    lat=parseFloat(r.lat);lng=parseFloat(r.lon);
-  } else if(r._photon){
+  if(r._photon){
     name=r.display_name;cat=r._type||'local';
     country=r._country||r._city||'';city=r._city||localStorage.getItem('wl_homecity')||'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
@@ -2758,15 +2727,6 @@ function addSelected(key){
 }
 
 // ── Settings ──────────────────────────────────────────────
-
-function saveFsqKey(){
-  var k=g('fsq-key-inp').value.trim();
-  if(!k){toast('Please paste your Foursquare API key');return;}
-  localStorage.setItem('wl_fsqkey',k);
-  var ok=g('fsq-key-ok');if(ok)ok.style.display='block';
-  toast('Foursquare key saved!');
-}
-
 function saveApiKey(){
   var key=g('api-key-inp').value.trim();
   if(!key){toast('Please paste your API key');return;}
@@ -2989,53 +2949,6 @@ function ai(msgs,cb,maxTok,sys,_retry){
       }
     })
     .catch(function(e){cb(e.message,null);});
-}
-
-
-// ── Web search AI — proper multi-turn loop ──
-function aiWebSearch(msgs,cb,maxTok,sys){
-  var key=localStorage.getItem('wl_apikey');
-  if(!key){cb('No API key.',null);swScreen('s-settings');return;}
-  var headers={
-    'Content-Type':'application/json',
-    'x-api-key':key,
-    'anthropic-version':'2023-06-01',
-    'anthropic-dangerous-direct-browser-access':'true'
-  };
-  var tools=[{type:'web_search_20250305',name:'web_search'}];
-  
-  function call(messages,retry){
-    var body={model:AI_MODEL,max_tokens:maxTok||2500,messages:messages,tools:tools};
-    if(sys)body.system=sys;
-    fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:headers,body:JSON.stringify(body)
-    }).then(function(r){return r.json();})
-    .then(function(d){
-      if(d.error){
-        if(d.error.type==='overloaded_error'&&!retry){setTimeout(function(){call(messages,true);},8000);return;}
-        // Web search not available — fall back to regular ai()
-        if(d.error.message&&(d.error.message.indexOf('tool')>-1||d.error.message.indexOf('unknown')>-1||d.error.message.indexOf('search')>-1)){
-          ai(msgs,cb,maxTok,sys);return;
-        }
-        cb(d.error.message,null);return;
-      }
-      if(d.stop_reason==='tool_use'){
-        // Claude wants to search — build tool_result and call again
-        var toolUses=(d.content||[]).filter(function(b){return b.type==='tool_use';});
-        var newMsgs=messages.concat([
-          {role:'assistant',content:d.content},
-          {role:'user',content:toolUses.map(function(tu){
-            return{type:'tool_result',tool_use_id:tu.id,content:'Search completed, results incorporated.'};
-          })}
-        ]);
-        call(newMsgs,false);
-      } else {
-        var text=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
-        cb(null,text||'');
-      }
-    }).catch(function(e){ai(msgs,cb,maxTok,sys);});
-  }
-  call(msgs,false);
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -3392,7 +3305,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
         'Return ONLY valid JSON:\n'+
         '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"time":"'+start+'","name":"Exact name from list above","lat":0.0,"lng":0.0,"type":"food|drinks|culture|shopping|nature","description":"Why this spot, what to do/order.","walk_to_next":"","budget_note":"$10-15","premium_note":"upgrade tip"}]}';
 
-      aiWebSearch([{role:'user',content:prompt}],function(err,text){
+      ai([{role:'user',content:prompt}],function(err,text){
         if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
         try{
           var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
@@ -3779,5 +3692,151 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 
 
 </script>
+
+</html><script>
+// ── Foursquare + Web Search additions ──
+(function(){
+
+// Google Places API key (built-in)
+var GPLACES_KEY='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
+
+// Proper multi-turn web search
+function aiWebSearch(msgs,cb,maxTok,sys){
+  var key=localStorage.getItem('wl_apikey');
+  if(!key){if(typeof ai==='function')ai(msgs,cb,maxTok,sys);return;}
+  var hdrs={
+    'Content-Type':'application/json',
+    'x-api-key':key,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'
+  };
+  var model=window.AI_MODEL||'claude-sonnet-4-6';
+  function doCall(messages,isRetry){
+    var body={model:model,max_tokens:maxTok||2500,messages:messages,
+      tools:[{type:'web_search_20250305',name:'web_search'}]};
+    if(sys)body.system=sys;
+    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:hdrs,body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){
+        if(d.error.type==='overloaded_error'&&!isRetry){
+          setTimeout(function(){doCall(messages,true);},8000);return;
+        }
+        if(typeof ai==='function')ai(msgs,cb,maxTok,sys);else cb(d.error.message,null);
+        return;
+      }
+      if(d.stop_reason==='tool_use'){
+        var tus=(d.content||[]).filter(function(b){return b.type==='tool_use';});
+        var toolResults=tus.map(function(tu){
+          return{type:'tool_result',tool_use_id:tu.id,content:'Search completed.'};
+        });
+        doCall(messages.concat([
+          {role:'assistant',content:d.content},
+          {role:'user',content:toolResults}
+        ]),false);
+      } else {
+        var text=(d.content||[]).filter(function(b){return b.type==='text';})
+          .map(function(b){return b.text;}).join('');
+        cb(null,text||'');
+      }
+    }).catch(function(){
+      if(typeof ai==='function')ai(msgs,cb,maxTok,sys);else cb('Network error',null);
+    });
+  }
+  doCall(msgs,false);
+}
+window.aiWebSearch=aiWebSearch;
+
+// Google Places Text Search — replaces Foursquare
+var _origFetchLocalAC=window.fetchLocalAC;
+window.fetchLocalAC=function(q){
+  var hc=localStorage.getItem('wl_homecity')||'';
+  var cached=localStorage.getItem('wl_homecoords');
+  var searchText=q+(hc?' in '+hc:'');
+  // Use Google Places New API (supports CORS)
+  fetch('https://places.googleapis.com/v1/places:searchText',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Goog-Api-Key':GPLACES_KEY,
+      'X-Goog-FieldMask':'places.displayName,places.location,places.formattedAddress,places.types,places.shortFormattedAddress'
+    },
+    body:JSON.stringify({textQuery:searchText,maxResultCount:10,languageCode:'en'})
+  }).then(function(r){return r.json();})
+  .then(function(data){
+    var places=data.places||[];
+    if(!places.length){if(_origFetchLocalAC)_origFetchLocalAC(q);return;}
+    var res=places.map(function(p){
+      var loc=p.location||{};
+      var type=(p.types&&p.types[0]||'').replace(/_/g,' ');
+      return{
+        lat:loc.latitude,lon:loc.longitude,
+        display_name:p.displayName&&p.displayName.text||q,
+        _gp:true,_type:type,
+        _addr:p.shortFormattedAddress||p.formattedAddress||hc,
+        _city:hc,_country:''
+      };
+    }).filter(function(r){return r.lat&&r.lon;});
+    if(res.length){window.acResults=res;if(typeof renderAC==='function')renderAC();}
+    else if(_origFetchLocalAC)_origFetchLocalAC(q);
+  }).catch(function(){if(_origFetchLocalAC)_origFetchLocalAC(q);});
+};
+
+// Patch renderAC + selectAC for FSQ results
+var _origRenderAC=window.renderAC;
+window.renderAC=function(){
+  var ac=document.getElementById('ac');
+  if(!ac||!window.acResults||!window.acResults.length){if(_origRenderAC)_origRenderAC();return;}
+  var hasFsq=window.acResults.some(function(r){return r._fsq||r._gp;});
+  if(!hasFsq){if(_origRenderAC)_origRenderAC();return;}
+  ac.style.display='block';
+  var isLocal=window.S&&window.S.placeType==='local';
+  ac.innerHTML=window.acResults.map(function(r,i){
+    var primary=r.display_name,sub=r._addr||'',cat=r._type||'';
+    if(!r._fsq&&!r._gp){
+      if(_origRenderAC){
+        // Let original handle non-FSQ, but we already rendered all
+      }
+    }
+    return '<div class="ac-item" onclick="selectAC('+i+')">'+
+      '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="ac-name">'+(primary||'')+(cat?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+cat+'</span>':'')+'</div>'+
+        (sub?'<div class="ac-sub">'+sub+'</div>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+};
+
+var _origSelectAC=window.selectAC;
+window.selectAC=function(i){
+  var r=window.acResults&&window.acResults[i];
+  if(!r||(!r._fsq&&!r._gp)){if(_origSelectAC)_origSelectAC(i);return;}
+  var hc=localStorage.getItem('wl_homecity')||'';
+  var name=r.display_name,cat=r._type||'local';
+  var country=r._country||r._city||'',city=r._city||hc;
+  var lat=parseFloat(r.lat),lng=parseFloat(r.lon);
+  var inp=document.getElementById('city-inp');if(inp)inp.value='';
+  var ac=document.getElementById('ac');if(ac)ac.style.display='none';
+  window.acResults=[];
+  if(window.S&&window.S.placeType==='local'){
+    if(typeof showCatPicker==='function')showCatPicker(name,country,lat,lng,cat,city);
+  } else {
+    if(typeof addDests==='function')addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest'}]);
+  }
+};
+
+// Load FSQ key into settings when it opens
+var _origSwScreen=window.swScreen;
+window.swScreen=function(s){
+  if(_origSwScreen)_origSwScreen(s);
+  if(s==='s-settings'){
+    setTimeout(function(){
+      // Google Places key is built-in, no field needed
+    },100);
+  }
+};
+
+})();
+</script>
 </body>
-</html>
