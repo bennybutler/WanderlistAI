@@ -442,6 +442,13 @@ textarea::placeholder{color:var(--text3);}
           <button class="s-btn" onclick="saveApiKey()">Save API key</button>
           <p class="key-ok" id="key-ok">✓ API key saved</p>
         </div>
+        <div class="settings-card">
+          <p>Foursquare API Key <span style="font-size:11px;font-weight:500;color:var(--green);background:var(--green-lt);padding:2px 7px;border-radius:8px;margin-left:6px">Improves place search</span></p>
+          <small>Free — get one at <a href="https://developer.foursquare.com" target="_blank" style="color:var(--gold)">developer.foursquare.com</a> → Create Account → New Project → API Key. Gives much better restaurant, bar &amp; local business search.</small>
+          <input class="s-inp" id="fsq-key-inp" type="password" placeholder="fsq3...">
+          <button class="s-btn" onclick="saveFsqKey()">Save Foursquare key</button>
+          <p class="key-ok" id="fsq-key-ok">✓ Foursquare key saved</p>
+        </div>
       </div>
       <div class="settings-section">
         <div class="settings-label">Home city</div>
@@ -1107,7 +1114,7 @@ function fetchExploreRecs(id,city,country,tweak){
     ' Only REAL verified places — do NOT invent names. Budget and premium mix.\n'+
     'For each place assign 1-3 tags from ONLY: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\n'+
     'Return ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
-  ai([{role:'user',content:prompt}],function(err,text){
+  aiWebSearch([{role:'user',content:prompt}],function(err,text){
     var el=g('place-recs');if(!el)return;
     if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:8px 0">'+esc(err)+'</p>';return;}
     try{
@@ -1741,10 +1748,32 @@ function fetchLocalAC(q){
   var hc=localStorage.getItem('wl_homecity')||'';
   var cached=localStorage.getItem('wl_homecoords');
   var bestResults=[];var bestScore=0;
+  var fsqKey=localStorage.getItem('wl_fsqkey');
 
   function tryShow(results,score){
     if(!results.length)return;
     if(score>=bestScore){bestScore=score;acResults=results;renderAC();}
+  }
+
+  // ── Foursquare — best business data (when key available) ──
+  if(fsqKey){
+    var fsqUrl='https://api.foursquare.com/v3/places/search?query='+encodeURIComponent(q)+
+      (hc?'&near='+encodeURIComponent(hc):'')+'&limit=10&fields=name,geocodes,location,categories';
+    fetch(fsqUrl,{headers:{Authorization:fsqKey,'Accept':'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var results=(data.results||[]).filter(function(p){
+        return p.geocodes&&p.geocodes.main&&p.name;
+      }).map(function(p){
+        var cat=(p.categories&&p.categories[0]&&p.categories[0].name)||'';
+        var loc=p.location||{};
+        return{lat:p.geocodes.main.latitude,lon:p.geocodes.main.longitude,
+          display_name:p.name,_fsq:true,_type:cat,
+          _addr:[loc.address,loc.locality].filter(Boolean).join(', '),
+          _city:loc.locality||hc,_country:loc.country||''};
+      });
+      tryShow(results,3); // Highest priority
+    }).catch(function(){});
   }
 
   // ── Photon: best POI/business database, bias toward home city ──
@@ -1815,7 +1844,10 @@ function renderAC(){
   var isLocal=S.placeType==='local';
   ac.innerHTML=acResults.map(function(r,i){
     var primary,sub,cat='';
-    if(r._photon){
+    if(r._fsq){
+      primary=r.display_name;cat=r._type||'';
+      sub=r._addr||'';
+    } else if(r._photon){
       primary=r.display_name;cat=r._type||'';
       sub=[r._street,r._city,r._country].filter(Boolean).join(', ');
     } else if(r._overpass){
@@ -1838,7 +1870,11 @@ function onCityKey(e){if(e.key==='Escape')hideAC();}
 function selectAC(i){
   var r=acResults[i];if(!r)return;
   var name,country,lat,lng,cat='',city='';
-  if(r._photon){
+  if(r._fsq){
+    name=r.display_name;cat=r._type||'local';
+    country=r._country||r._city||'';city=r._city||hc;
+    lat=parseFloat(r.lat);lng=parseFloat(r.lon);
+  } else if(r._photon){
     name=r.display_name;cat=r._type||'local';
     country=r._country||r._city||'';city=r._city||localStorage.getItem('wl_homecity')||'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
@@ -2722,6 +2758,15 @@ function addSelected(key){
 }
 
 // ── Settings ──────────────────────────────────────────────
+
+function saveFsqKey(){
+  var k=g('fsq-key-inp').value.trim();
+  if(!k){toast('Please paste your Foursquare API key');return;}
+  localStorage.setItem('wl_fsqkey',k);
+  var ok=g('fsq-key-ok');if(ok)ok.style.display='block';
+  toast('Foursquare key saved!');
+}
+
 function saveApiKey(){
   var key=g('api-key-inp').value.trim();
   if(!key){toast('Please paste your API key');return;}
@@ -2944,6 +2989,53 @@ function ai(msgs,cb,maxTok,sys,_retry){
       }
     })
     .catch(function(e){cb(e.message,null);});
+}
+
+
+// ── Web search AI — proper multi-turn loop ──
+function aiWebSearch(msgs,cb,maxTok,sys){
+  var key=localStorage.getItem('wl_apikey');
+  if(!key){cb('No API key.',null);swScreen('s-settings');return;}
+  var headers={
+    'Content-Type':'application/json',
+    'x-api-key':key,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'
+  };
+  var tools=[{type:'web_search_20250305',name:'web_search'}];
+  
+  function call(messages,retry){
+    var body={model:AI_MODEL,max_tokens:maxTok||2500,messages:messages,tools:tools};
+    if(sys)body.system=sys;
+    fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:headers,body:JSON.stringify(body)
+    }).then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){
+        if(d.error.type==='overloaded_error'&&!retry){setTimeout(function(){call(messages,true);},8000);return;}
+        // Web search not available — fall back to regular ai()
+        if(d.error.message&&(d.error.message.indexOf('tool')>-1||d.error.message.indexOf('unknown')>-1||d.error.message.indexOf('search')>-1)){
+          ai(msgs,cb,maxTok,sys);return;
+        }
+        cb(d.error.message,null);return;
+      }
+      if(d.stop_reason==='tool_use'){
+        // Claude wants to search — build tool_result and call again
+        var toolUses=(d.content||[]).filter(function(b){return b.type==='tool_use';});
+        var newMsgs=messages.concat([
+          {role:'assistant',content:d.content},
+          {role:'user',content:toolUses.map(function(tu){
+            return{type:'tool_result',tool_use_id:tu.id,content:'Search completed, results incorporated.'};
+          })}
+        ]);
+        call(newMsgs,false);
+      } else {
+        var text=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+        cb(null,text||'');
+      }
+    }).catch(function(e){ai(msgs,cb,maxTok,sys);});
+  }
+  call(msgs,false);
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -3274,28 +3366,92 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     var isOutdoors=vibe.indexOf('Outdoor')>-1||vibe.indexOf('outdoor')>-1;
     var isLocal=vibe.indexOf('Local')>-1;
     var vibeInstructions=isDateNight?'DATE NIGHT: Every stop must be romantic. Choose intimate restaurants, cocktail bars, rooftops and scenic evening walks.\n':isFoodTour?'FOOD TOUR: Every stop should be food or drink. No museums or shops unless they are food markets.\n':isNightlife?'NIGHTLIFE: Evening or night only. Start with dinner or drinks, then move through bars, cocktail spots, live music or clubs. Preserve the selected start time exactly.\n':isSightseeing?'SIGHTSEEING: Focus on landmarks, viewpoints, museums and cultural sites in one compact area.\n':isOutdoors?'OUTDOORS: Parks, waterfronts, trails, gardens and outdoor markets.\n':isLocal?'LIVE LIKE A LOCAL: Avoid tourist traps. Choose neighbourhood spots and resident favourites.\n':'Mix sightseeing, food and drinks in one compact neighbourhood.\n';
-    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
-      'VIBE: '+vibe+'. '+vibeInstructions+
-      'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood or tightly adjacent neighbourhoods. Adjacent stops should normally be 10 min walk or less and must never exceed 20 min walk. A 5-minute walk is about 400m. No adjacent stops can be more than 1.5km apart. Only ONE Uber/transit leg is allowed for the entire plan, and only if something is truly unmissable. Do not invent walking times. The app will verify and overwrite distances.\n'+
-      'Start time: '+start+'. Preserve this start time exactly. Duration: '+hours+' hours.\n'+
-      (useSaved?'SAVED-SPOTS-ONLY MODE: Build the itinerary ONLY from the saved spots below. Do not recommend any spot outside this list. Include the exact saved spot ID in each stop.\nSaved spots:\n'+savedLines.join('\n')+'\n':'')+
-      (anchor?'ANCHOR SPOT: Start at or very near "'+anchor+'". This must be the first stop or second stop at the latest.\n':'')+
-      (anchorCoords?'Anchor coordinates: '+anchorCoords.lat+', '+anchorCoords.lng+'. Keep the plan clustered around this location.\n':'')+
-      (tweak?'USER FEEDBACK ON PREVIOUS PLAN: '+tweak+'. Preserve the same start time, duration, vibe, saved spot scope and geography rules.\n':'')+
-      'Only real places. Return ONLY valid JSON.\n'+
-      '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"id":"saved spot id if applicable","time":"'+start+'","name":"Real Place Name","type":"food|drinks|culture|shopping|nature","description":"Specific details.","walk_to_next":"","transit_to_next":"","budget_note":"$10-15","premium_note":"Optional upgrade tip"}]}';
-    ai([{role:'user',content:prompt}],function(err,text){
-      if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
-      try{
-        var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
-        plan.city=plan.city||currentPlanCity||d.name;plan.start=start;plan.hours=parseInt(hours,10)||hours;plan.vibe=vibe;plan._destId=destId;
-        plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
-        currentPlanData=plan;
-        enrichPlanWithRealTimes(plan,d,function(){currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);});
-        renderDayPlanHtml(plan,vibe,destId);
-      }catch(e){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
-    },1800);
-  };
+
+    // ── Fetch real venues from Overpass before prompting AI ──
+    // This ensures Claude only picks from places that actually exist
+    function buildDayPlanWithVenues(realVenues){
+      var venueBlock='';
+      if(realVenues&&realVenues.length>0){
+        venueBlock='REAL VERIFIED VENUES (use ONLY these — do not invent any other places):\n'+
+          realVenues.map(function(v,i){
+            return (i+1)+'. '+v.name+(v.type?' ['+v.type+']':'')+
+              ' | coords: '+v.lat+','+v.lng+
+              (v.address?' | address: '+v.address:'');
+          }).join('\n')+'\n'+
+          'Pick '+Math.min(hours+1,realVenues.length)+' of the above that best fit the vibe and are close together. Use their exact names and coordinates.\n';
+      }
+
+      var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Create a '+hours+'-hour itinerary for '+d.name+(d.country?', '+d.country:'')+'.\n'+
+        'VIBE: '+vibe+'. '+vibeInstructions+
+        'HARD GEOGRAPHY RULES: Focus on ONE neighbourhood. Adjacent stops ≤15 min walk. No two stops more than 1.5km apart. ONE Uber/transit max.\n'+
+        'Start time: '+start+'. Duration: '+hours+' hours.\n'+
+        venueBlock+
+        (useSaved&&savedLines.length?'ALSO INCLUDE these user-saved spots: '+savedLines.join(', ')+'\n':'')+
+        (anchor?'START at or very near "'+anchor+'".\n':'')+
+        (tweak?'USER FEEDBACK: '+tweak+'. Preserve start time, duration, vibe.\n':'')+
+        'Return ONLY valid JSON:\n'+
+        '{"title":"...","city":"'+d.name+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","neighbourhood":"...","stops":[{"time":"'+start+'","name":"Exact name from list above","lat":0.0,"lng":0.0,"type":"food|drinks|culture|shopping|nature","description":"Why this spot, what to do/order.","walk_to_next":"","budget_note":"$10-15","premium_note":"upgrade tip"}]}';
+
+      aiWebSearch([{role:'user',content:prompt}],function(err,text){
+        if(err){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+(err.indexOf('overload')>-1?'AI is busy, try again in a moment.':esc(err))+'</p>';return;}
+        try{
+          var plan=JSON.parse(text.replace(/```json|```/g,'').trim());
+          plan.city=plan.city||currentPlanCity||d.name;plan.start=start;plan.hours=parseInt(hours,10)||hours;plan.vibe=vibe;plan._destId=destId;
+          plan._settings={destId:destId,hours:String(hours),start:start,vibe:vibe,useSaved:useSaved,spots:spots,anchor:anchor,anchorCoords:anchorCoords};
+          // Inject real coords from venue list into stops
+          if(realVenues&&realVenues.length){
+            (plan.stops||[]).forEach(function(stop){
+              var match=realVenues.find(function(v){
+                return v.name.toLowerCase()===stop.name.toLowerCase()||
+                  stop.name.toLowerCase().indexOf(v.name.toLowerCase())>-1;
+              });
+              if(match){stop.lat=match.lat;stop.lng=match.lng;stop._verified=true;}
+            });
+          }
+          currentPlanData=plan;
+          enrichPlanWithRealTimes(plan,d,function(){currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);});
+          renderDayPlanHtml(plan,vibe,destId);
+        }catch(e){if(safeG('place-recs'))safeG('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the day plan. Try again.</p>';}
+      },2000);
+    }
+
+    // Build Overpass query based on vibe
+    var amenityTypes=isNightlife||isDateNight?'bar|pub|nightclub|cocktail_bar|restaurant':
+      isFoodTour?'restaurant|cafe|bar|food_court|marketplace':
+      isSightseeing?'restaurant|cafe|museum|library':
+      isOutdoors?'park|garden|marketplace':
+      'restaurant|bar|cafe|pub|museum|marketplace';
+    var tourismTypes=isSightseeing||!isNightlife?'museum|attraction|viewpoint|gallery':'viewpoint';
+    var leisureTypes=isOutdoors||isSightseeing?'park|garden|nature_reserve':'park';
+    var rad=Math.min(1500,Math.max(800,hours*180)); // radius scales with hours
+
+    if(d.lat&&d.lng){
+      var opQ='[out:json][timeout:12];('+
+        'node["amenity"~"'+amenityTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
+        'way["amenity"~"'+amenityTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
+        'node["tourism"~"'+tourismTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
+        'node["leisure"~"'+leisureTypes+'"](around:'+rad+','+d.lat+','+d.lng+');'+
+        ');out center 40;';
+      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(opQ)})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var els=(data.elements||[]).filter(function(el){
+          return el.tags&&el.tags.name&&el.tags.name.length>1;
+        });
+        var venues=els.map(function(el){
+          var lat=el.lat||(el.center&&el.center.lat);
+          var lng=el.lon||(el.center&&el.center.lon);
+          var addr=[el.tags['addr:housenumber'],el.tags['addr:street']].filter(Boolean).join(' ');
+          return{name:el.tags.name,lat:lat,lng:lng,
+            type:el.tags.amenity||el.tags.tourism||el.tags.leisure||'local',
+            address:addr||''};
+        }).filter(function(v){return v.lat&&v.lng;});
+        buildDayPlanWithVenues(venues.length>=4?venues:[]);
+      })
+      .catch(function(){buildDayPlanWithVenues([]);});
+    } else {
+      buildDayPlanWithVenues([]);
+    }
 
   window.findSavedSpotForStop = function(stop,settings){
     var spots=(settings&&settings.spots)||window._dpSaved||[];
@@ -3314,6 +3470,11 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     stops.forEach(function(s,i){
       var saved=window.findSavedSpotForStop(s,settings);
       if(saved&&placeLatLng(saved)){coords[i]=placeLatLng(saved);s.id=saved.id;s.name=saved.name;finish();return;}
+      // Use coords already injected from Overpass lookup (most accurate)
+      if(s.lat&&s.lng&&s._verified){coords[i]={lat:s.lat,lng:s.lng};finish();return;}
+      // If stop has lat/lng from AI response, use those
+      if(s.lat&&s.lng&&Math.abs(s.lat)>0.01){coords[i]={lat:s.lat,lng:s.lng};finish();return;}
+      // Last resort: Nominatim geocode
       var q=encodeURIComponent((s.name||'')+', '+city);
       fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1&addressdetails=1',{headers:{'Accept-Language':'en'}})
       .then(function(r){return r.json();}).then(function(results){if(results&&results[0])coords[i]={lat:parseFloat(results[0].lat),lng:parseFloat(results[0].lon)};finish();}).catch(function(){finish();});
