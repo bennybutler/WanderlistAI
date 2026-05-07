@@ -442,11 +442,6 @@ textarea::placeholder{color:var(--text3);}
           <button class="s-btn" onclick="saveApiKey()">Save API key</button>
           <p class="key-ok" id="key-ok">✓ API key saved</p>
         </div>
-        <div class="settings-card">
-          <p>Google Places <span style="font-size:11px;font-weight:600;color:var(--green);background:var(--green-lt);padding:2px 8px;border-radius:8px;margin-left:6px">Active ✓</span></p>
-          <small>Google Places API is configured and active. Provides best-in-class local business search — bars, restaurants, cafes and more.</small>
-          <p style="font-size:13px;color:var(--green);margin-top:4px">✓ Google Places connected</p>
-        </div>
       </div>
       <div class="settings-section">
         <div class="settings-label">Home city</div>
@@ -3692,151 +3687,76 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 
 
 </script>
-
-</html><script>
-// ── Foursquare + Web Search additions ──
+<script>
 (function(){
+  // Google Places key - built in
+  var GP='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
 
-// Google Places API key (built-in)
-var GPLACES_KEY='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
-
-// Proper multi-turn web search
-function aiWebSearch(msgs,cb,maxTok,sys){
-  var key=localStorage.getItem('wl_apikey');
-  if(!key){if(typeof ai==='function')ai(msgs,cb,maxTok,sys);return;}
-  var hdrs={
-    'Content-Type':'application/json',
-    'x-api-key':key,
-    'anthropic-version':'2023-06-01',
-    'anthropic-dangerous-direct-browser-access':'true'
-  };
-  var model=window.AI_MODEL||'claude-sonnet-4-6';
-  function doCall(messages,isRetry){
-    var body={model:model,max_tokens:maxTok||2500,messages:messages,
-      tools:[{type:'web_search_20250305',name:'web_search'}]};
-    if(sys)body.system=sys;
-    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:hdrs,body:JSON.stringify(body)})
-    .then(function(r){return r.json();})
+  // Override fetchLocalAC to use Google Places
+  var _orig=window.fetchLocalAC;
+  window.fetchLocalAC=function(q){
+    var hc=localStorage.getItem('wl_homecity')||'';
+    fetch('https://places.googleapis.com/v1/places:searchText',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Goog-Api-Key':GP,'X-Goog-FieldMask':'places.displayName,places.location,places.shortFormattedAddress,places.types'},
+      body:JSON.stringify({textQuery:q+(hc?' in '+hc:''),maxResultCount:10,languageCode:'en'})
+    }).then(function(r){return r.json();})
     .then(function(d){
-      if(d.error){
-        if(d.error.type==='overloaded_error'&&!isRetry){
-          setTimeout(function(){doCall(messages,true);},8000);return;
-        }
-        if(typeof ai==='function')ai(msgs,cb,maxTok,sys);else cb(d.error.message,null);
-        return;
-      }
-      if(d.stop_reason==='tool_use'){
-        var tus=(d.content||[]).filter(function(b){return b.type==='tool_use';});
-        var toolResults=tus.map(function(tu){
-          return{type:'tool_result',tool_use_id:tu.id,content:'Search completed.'};
-        });
-        doCall(messages.concat([
-          {role:'assistant',content:d.content},
-          {role:'user',content:toolResults}
-        ]),false);
-      } else {
-        var text=(d.content||[]).filter(function(b){return b.type==='text';})
-          .map(function(b){return b.text;}).join('');
-        cb(null,text||'');
-      }
-    }).catch(function(){
-      if(typeof ai==='function')ai(msgs,cb,maxTok,sys);else cb('Network error',null);
-    });
-  }
-  doCall(msgs,false);
-}
-window.aiWebSearch=aiWebSearch;
+      var places=d.places||[];
+      if(!places.length){if(_orig)_orig(q);return;}
+      var res=places.map(function(p){
+        return{
+          lat:(p.location||{}).latitude,
+          lon:(p.location||{}).longitude,
+          display_name:p.displayName&&p.displayName.text||q,
+          _gp:true,
+          _type:(p.types&&p.types[0]||'').replace(/_/g,' '),
+          _addr:p.shortFormattedAddress||hc
+        };
+      }).filter(function(r){return r.lat&&r.lon;});
+      if(res.length){window.acResults=res;if(typeof renderAC==='function')renderAC();}
+      else if(_orig)_orig(q);
+    }).catch(function(){if(_orig)_orig(q);});
+  };
 
-// Google Places Text Search — replaces Foursquare
-var _origFetchLocalAC=window.fetchLocalAC;
-window.fetchLocalAC=function(q){
-  var hc=localStorage.getItem('wl_homecity')||'';
-  var cached=localStorage.getItem('wl_homecoords');
-  var searchText=q+(hc?' in '+hc:'');
-  // Use Google Places New API (supports CORS)
-  fetch('https://places.googleapis.com/v1/places:searchText',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'X-Goog-Api-Key':GPLACES_KEY,
-      'X-Goog-FieldMask':'places.displayName,places.location,places.formattedAddress,places.types,places.shortFormattedAddress'
-    },
-    body:JSON.stringify({textQuery:searchText,maxResultCount:10,languageCode:'en'})
-  }).then(function(r){return r.json();})
-  .then(function(data){
-    var places=data.places||[];
-    if(!places.length){if(_origFetchLocalAC)_origFetchLocalAC(q);return;}
-    var res=places.map(function(p){
-      var loc=p.location||{};
-      var type=(p.types&&p.types[0]||'').replace(/_/g,' ');
-      return{
-        lat:loc.latitude,lon:loc.longitude,
-        display_name:p.displayName&&p.displayName.text||q,
-        _gp:true,_type:type,
-        _addr:p.shortFormattedAddress||p.formattedAddress||hc,
-        _city:hc,_country:''
-      };
-    }).filter(function(r){return r.lat&&r.lon;});
-    if(res.length){window.acResults=res;if(typeof renderAC==='function')renderAC();}
-    else if(_origFetchLocalAC)_origFetchLocalAC(q);
-  }).catch(function(){if(_origFetchLocalAC)_origFetchLocalAC(q);});
-};
-
-// Patch renderAC + selectAC for FSQ results
-var _origRenderAC=window.renderAC;
-window.renderAC=function(){
-  var ac=document.getElementById('ac');
-  if(!ac||!window.acResults||!window.acResults.length){if(_origRenderAC)_origRenderAC();return;}
-  var hasFsq=window.acResults.some(function(r){return r._fsq||r._gp;});
-  if(!hasFsq){if(_origRenderAC)_origRenderAC();return;}
-  ac.style.display='block';
-  var isLocal=window.S&&window.S.placeType==='local';
-  ac.innerHTML=window.acResults.map(function(r,i){
-    var primary=r.display_name,sub=r._addr||'',cat=r._type||'';
-    if(!r._fsq&&!r._gp){
-      if(_origRenderAC){
-        // Let original handle non-FSQ, but we already rendered all
-      }
+  // Handle Google Places results in renderAC
+  var _origRender=window.renderAC;
+  window.renderAC=function(){
+    if(!window.acResults||!window.acResults.some(function(r){return r._gp;})){
+      if(_origRender)_origRender();return;
     }
-    return '<div class="ac-item" onclick="selectAC('+i+')">'+
-      '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div class="ac-name">'+(primary||'')+(cat?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+cat+'</span>':'')+'</div>'+
-        (sub?'<div class="ac-sub">'+sub+'</div>':'')+
-      '</div>'+
-    '</div>';
-  }).join('');
-};
+    var ac=document.getElementById('ac');if(!ac)return;
+    var isLocal=window.S&&window.S.placeType==='local';
+    ac.style.display='block';
+    ac.innerHTML=window.acResults.map(function(r,i){
+      return'<div class="ac-item" onclick="selectAC('+i+')">'+
+        '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="ac-name">'+(r.display_name||'')+(r._type?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+r._type+'</span>':'')+'</div>'+
+          (r._addr?'<div class="ac-sub">'+r._addr+'</div>':'')+
+        '</div>'+
+      '</div>';
+    }).join('');
+  };
 
-var _origSelectAC=window.selectAC;
-window.selectAC=function(i){
-  var r=window.acResults&&window.acResults[i];
-  if(!r||(!r._fsq&&!r._gp)){if(_origSelectAC)_origSelectAC(i);return;}
-  var hc=localStorage.getItem('wl_homecity')||'';
-  var name=r.display_name,cat=r._type||'local';
-  var country=r._country||r._city||'',city=r._city||hc;
-  var lat=parseFloat(r.lat),lng=parseFloat(r.lon);
-  var inp=document.getElementById('city-inp');if(inp)inp.value='';
-  var ac=document.getElementById('ac');if(ac)ac.style.display='none';
-  window.acResults=[];
-  if(window.S&&window.S.placeType==='local'){
-    if(typeof showCatPicker==='function')showCatPicker(name,country,lat,lng,cat,city);
-  } else {
-    if(typeof addDests==='function')addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest'}]);
-  }
-};
-
-// Load FSQ key into settings when it opens
-var _origSwScreen=window.swScreen;
-window.swScreen=function(s){
-  if(_origSwScreen)_origSwScreen(s);
-  if(s==='s-settings'){
-    setTimeout(function(){
-      // Google Places key is built-in, no field needed
-    },100);
-  }
-};
-
+  // Handle selection of Google Places result
+  var _origSelect=window.selectAC;
+  window.selectAC=function(i){
+    var r=window.acResults&&window.acResults[i];
+    if(!r||!r._gp){if(_origSelect)_origSelect(i);return;}
+    var hc=localStorage.getItem('wl_homecity')||'';
+    document.getElementById('city-inp').value='';
+    document.getElementById('ac').style.display='none';
+    window.acResults=[];
+    if(window.S&&window.S.placeType==='local'){
+      if(typeof showCatPicker==='function')
+        showCatPicker(r.display_name,r._addr||hc,r.lat,r.lon,r._type,hc);
+    } else {
+      if(typeof addDests==='function')
+        addDests([{name:r.display_name,country:r._addr||hc,lat:r.lat,lng:r.lon,type:'dest'}]);
+    }
+  };
 })();
 </script>
 </body>
+</html>
