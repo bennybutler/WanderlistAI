@@ -754,8 +754,8 @@ function uid(){return Date.now()+'-'+Math.random().toString(36).substr(2,6);}
 window.addEventListener('load',function(){
   load();
   map=L.map('map',{zoomControl:false}).setView([25,15],2);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
   syncMap();syncList();renderItins();initCurrencyLang();renderFriendsList();
   // Load saved settings into fields
   var k=localStorage.getItem('wl_apikey');
@@ -1079,8 +1079,13 @@ function openPlaceDetail(id,autoPlanDay){
   if(autoPlanDay)return;
   if(placeRecs[id]){renderPlaceRecs(id);}
   else{
-    window._exploreId=id;window._exploreCity=d.name;window._exploreCountry=d.country||'';
-    fetchExploreRecs(id,d.name,d.country||'','');
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Only REAL verified places — do NOT invent names. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    ai([{role:'user',content:prompt}],function(err,text){
+      var el=g('place-recs');if(!el)return;
+      if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
+      try{placeRecs[id]=JSON.parse(text.replace(/```json|```/g,'').trim());renderPlaceRecs(id);}
+      catch(e){el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not load. Try again.</p>';}
+    },1800);
   }
   // For local spots — show current tags + edit button
   if(d.type==='local'){
@@ -1094,54 +1099,6 @@ function openPlaceDetail(id,autoPlanDay){
   }
   if(autoPlanDay)setTimeout(function(){planDay(id);},500);
 }
-
-function fetchExploreRecs(id,city,country,tweak){
-  var el=g('place-recs');if(!el)return;
-  el.innerHTML='<div style="text-align:center;padding:32px 0">'+
-    '<div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div>'+
-    '<div style="font-size:15px;font-weight:600;color:var(--text2)">'+(tweak?'Searching…':'Finding the best spots in '+esc(city)+'…')+'</div>'+
-  '</div>';
-  var lang=LANG_NAMES[getLang()]||'English';
-  var prompt='Respond in '+lang+'. Give me 12 top local recommendations for '+city+(country?', '+country:'')+'.'+
-    (tweak?' User specifically wants: '+tweak+'. Focus the results around this request.':'')+
-    ' Only REAL verified places — do NOT invent names. Budget and premium mix.\n'+
-    'For each place assign 1-3 tags from ONLY: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\n'+
-    'Return ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
-  ai([{role:'user',content:prompt}],function(err,text){
-    var el=g('place-recs');if(!el)return;
-    if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:8px 0">'+esc(err)+'</p>';return;}
-    try{
-      placeRecs[id]=JSON.parse(text.replace(/```json|```/g,'').trim());
-      renderPlaceRecs(id);
-      // Add explore tweak chat below
-      var box=document.createElement('div');
-      box.style.cssText='margin-top:14px;background:linear-gradient(135deg,#FFF4E6,#FEE8C4);border:2px solid var(--gold-md);border-radius:16px;padding:14px;';
-      box.innerHTML=
-        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'+
-          '<div style="width:26px;height:26px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🔍</div>'+
-          '<div style="font-size:14px;font-weight:700;color:var(--text)">Refine results</div>'+
-        '</div>'+
-        '<div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">Try: "best rooftop bars" · "spots that opened this year" · "hidden local gems"</div>'+
-        '<div style="display:flex;gap:8px">'+
-          '<input id="explore-tweak-inp" type="text" placeholder="What are you looking for?" style="flex:1;padding:10px 14px;background:rgba(255,255,255,.85);border:1.5px solid var(--gold-md);border-radius:24px;color:var(--text);font-size:14px;outline:none;font-family:inherit">'+
-          '<button onclick="sendExploreChat()" style="width:40px;height:40px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">→</button>'+
-        '</div>';
-      var inp=box.querySelector('#explore-tweak-inp');
-      if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter')sendExploreChat();});
-      el.appendChild(box);
-    }
-    catch(e){el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not load. Try again.</p>';}
-  },1800);
-}
-function sendExploreChat(){
-  var inp=g('explore-tweak-inp');if(!inp)return;
-  var msg=inp.value.trim();if(!msg)return;
-  var id=window._exploreId,city=window._exploreCity,country=window._exploreCountry;
-  if(!id||!city)return;
-  delete placeRecs[id];
-  fetchExploreRecs(id,city,country,msg);
-}
-
 function setPlaceFilter(f,el){
   placeFilter=f;
   document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
@@ -1740,65 +1697,63 @@ function fetchAC(q){
 function fetchLocalAC(q){
   var hc=localStorage.getItem('wl_homecity')||'';
   var cached=localStorage.getItem('wl_homecoords');
-  var bestResults=[];var bestScore=0;
-
-  function tryShow(results,score){
-    if(!results.length)return;
-    if(score>=bestScore){bestScore=score;acResults=results;renderAC();}
+  
+  // Strategy: try TWO approaches in parallel and show first result
+  // 1. Nominatim with home city context (fast, good for named places)
+  // 2. Overpass for category searches (restaurant, bar etc near home)
+  
+  var nomDone=false,opDone=false;
+  
+  function nomSearch(){
+    var searchQ=q+' '+hc;
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(searchQ)+'&format=json&limit=8&addressdetails=1',{headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(nomDone)return;nomDone=true;
+      var results=res.filter(function(r){return r.lat&&r.lon;});
+      if(results.length){acResults=results;renderAC();}
+      else if(opDone&&!acResults.length){hideAC();}
+    }).catch(function(){nomDone=true;if(opDone&&!acResults.length)hideAC();});
   }
-
-  // ── Photon: best POI/business database, bias toward home city ──
-  var photonUrl='https://photon.komoot.io/api/?q='+encodeURIComponent(q+(hc?' '+hc:''))+'&limit=8&lang=en';
-  if(cached){try{var co=JSON.parse(cached);photonUrl+='&lat='+co.lat+'&lon='+co.lng;}catch(e){}}
-  fetch(photonUrl)
-  .then(function(r){return r.json();})
-  .then(function(data){
-    var features=(data&&data.features)||[];
-    var results=features.map(function(f){
-      var p=f.properties||{};
-      var coords=f.geometry&&f.geometry.coordinates;
-      if(!coords||!coords[0]||!coords[1])return null;
-      return{lat:coords[1],lon:coords[0],display_name:p.name||p.street||q,
-        address:{amenity:p.name,city:p.city||p.town||hc,country:p.country||''},
-        _photon:true,_type:p.osm_value||p.type||'',
-        _city:p.city||p.town||hc,_country:p.country||'',_street:p.street||''};
-    }).filter(function(r){return r&&r.lat&&r.lon&&r.display_name;});
-    tryShow(results,2);
-  }).catch(function(){});
-
-  // ── Overpass: name search near home coords ──
+  
+  // Run nominatim search always
+  nomSearch();
+  
+  // Also try Overpass if we have home coords
   if(cached){
     try{
-      var co2=JSON.parse(cached);
-      var qSafe=q.replace(/['"<>]/g,'').trim();
-      if(qSafe.length>1){
-        var opQ='[out:json][timeout:10];('+
-          'node["name"~"'+qSafe+'",i](around:10000,'+co2.lat+','+co2.lng+');'+
-          'way["name"~"'+qSafe+'",i](around:10000,'+co2.lat+','+co2.lng+');'+
-          ');out center 8;';
-        fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(opQ)})
-        .then(function(r){return r.json();})
-        .then(function(data){
-          var els=(data.elements||[]).filter(function(el){return el.tags&&el.tags.name;});
-          var results=els.map(function(el){
-            return{lat:parseFloat(el.lat||(el.center&&el.center.lat)||0),
-              lon:parseFloat(el.lon||(el.center&&el.center.lon)||0),
+      var co=JSON.parse(cached);
+      // Build category-aware Overpass query
+      var catMap={restaurant:'restaurant',restaurants:'restaurant',bar:'bar',bars:'bar',pub:'pub',pubs:'pub',
+        cafe:'cafe',coffee:'cafe',park:'park',parks:'park',gym:'gym',club:'nightclub',clubs:'nightclub',
+        brunch:'restaurant',lunch:'restaurant',dinner:'restaurant',drinks:'bar',nightlife:'bar'};
+      var qLower=q.toLowerCase().trim();
+      var amenityType=catMap[qLower];
+      var opQuery;
+      if(amenityType){
+        // Category search - return up to 15 nearby
+        opQuery='[out:json][timeout:8];(node["amenity"="'+amenityType+'"](around:5000,'+co.lat+','+co.lng+');way["amenity"="'+amenityType+'"](around:5000,'+co.lat+','+co.lng+'););out center 15;';
+      } else {
+        // Name search
+        var qSafe=q.replace(/[^a-zA-Z0-9\s]/g,'').trim();
+        if(!qSafe){opDone=true;return;}
+        opQuery='[out:json][timeout:8];(node["name"~"'+qSafe+'",i](around:15000,'+co.lat+','+co.lng+');way["name"~"'+qSafe+'",i](around:15000,'+co.lat+','+co.lng+'););out center 10;';
+      }
+      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(opQuery)})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(opDone)return;opDone=true;
+        var els=(data.elements||[]).filter(function(el){return el.tags&&el.tags.name;});
+        if(els.length&&(!nomDone||!acResults.length)){
+          acResults=els.map(function(el){
+            return{lat:el.lat||(el.center&&el.center.lat)||0,lon:el.lon||(el.center&&el.center.lon)||0,
               display_name:el.tags.name,tags:el.tags,_overpass:true};
           }).filter(function(r){return r.lat&&r.lon;});
-          tryShow(results,1);
-        }).catch(function(){});
-      }
+          renderAC();
+        }
+      }).catch(function(){opDone=true;});
     }catch(e){}
   }
-
-  // ── Nominatim fallback ──
-  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q+(hc?' '+hc:''))+
-    '&format=json&limit=6&addressdetails=1',{headers:{'Accept-Language':'en'}})
-  .then(function(r){return r.json();})
-  .then(function(res){
-    var results=res.filter(function(r){return r.lat&&r.lon;});
-    tryShow(results,1);
-  }).catch(function(){});
 }
 function getOPCat(tags){
   var a=tags.amenity,l=tags.leisure,t=tags.tourism;
@@ -1815,20 +1770,18 @@ function renderAC(){
   var isLocal=S.placeType==='local';
   ac.innerHTML=acResults.map(function(r,i){
     var primary,sub,cat='';
-    if(r._photon){
-      primary=r.display_name;cat=r._type||'';
-      sub=[r._street,r._city,r._country].filter(Boolean).join(', ');
-    } else if(r._overpass){
+    if(r._overpass){
       primary=r.tags.name;cat=getOPCat(r.tags);
-      sub=[r.tags['addr:street'],r.tags['addr:city']].filter(Boolean).join(', ')||(localStorage.getItem('wl_homecity')||'');
-    } else {
+      var addr=[r.tags['addr:street'],r.tags['addr:city']].filter(Boolean).join(', ');
+      sub=addr||(localStorage.getItem('wl_homecity')||'Near home');
+    }else{
       var p=formatPlace(r);primary=p.primary;sub=p.sub;cat=p.type&&p.type!=='administrative'?p.type:'';
     }
     return '<div class="ac-item" onclick="selectAC('+i+')">'+
       '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
       '<div style="flex:1;min-width:0">'+
-        '<div class="ac-name">'+esc(primary)+(cat?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+esc(cat)+'</span>':'')+'</div>'+
-        (sub?'<div class="ac-sub">'+esc(sub)+'</div>':'')+
+        '<div class="ac-name">'+esc(primary)+(cat?'<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--text3);margin-left:5px">'+esc(cat)+'</span>':'')+'</div>'+
+        '<div class="ac-sub">'+esc(sub)+'</div>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -1837,23 +1790,16 @@ function hideAC(){g('ac').style.display='none';acResults=[];}
 function onCityKey(e){if(e.key==='Escape')hideAC();}
 function selectAC(i){
   var r=acResults[i];if(!r)return;
-  var name,country,lat,lng,cat='',city='';
-  if(r._photon){
-    name=r.display_name;cat=r._type||'local';
-    country=r._country||r._city||'';city=r._city||localStorage.getItem('wl_homecity')||'';
+  var name,country,lat,lng,cat='';
+  if(r._overpass){
+    name=r.tags.name;cat=getOPCat(r.tags);country=r.tags['addr:country']||localStorage.getItem('wl_homecity')||'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
-  } else if(r._overpass){
-    name=r.tags.name;cat=getOPCat(r.tags);
-    country=r.tags['addr:country']||localStorage.getItem('wl_homecity')||'';
-    city=r.tags['addr:city']||localStorage.getItem('wl_homecity')||'';
-    lat=parseFloat(r.lat);lng=parseFloat(r.lon);
-  } else {
-    var fp=formatPlace(r);name=fp.primary;country=fp.country;
-    city=fp.city||'';cat=fp.type&&fp.type!=='administrative'?fp.type:'';
+  }else{
+    var p=formatPlace(r);name=p.primary;country=p.country;cat=p.type&&p.type!=='administrative'?p.type:'';
     lat=parseFloat(r.lat);lng=parseFloat(r.lon);
   }
   g('city-inp').value='';hideAC();
-  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat,city);}
+  if(S.placeType==='local'){showCatPicker(name,country,lat,lng,cat,(typeof fp!=='undefined'&&fp&&fp.city)||'');}
   else{addDests([{name:name,country:country,lat:lat,lng:lng,type:'dest'}]);}
 }
 var _pendingAdd=null;
@@ -2915,11 +2861,10 @@ function swScreen(s){
 }
 
 // ── AI ────────────────────────────────────────────────────
-var AI_MODEL='claude-sonnet-4-6'; // update this one line for new models
 function ai(msgs,cb,maxTok,sys,_retry){
   var key=localStorage.getItem('wl_apikey');
   if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);swScreen('s-settings');return;}
-  var body={model:'claude-sonnet-4-6',max_tokens:maxTok||2000,messages:msgs};
+  var body={model:'claude-sonnet-4-20250514',max_tokens:maxTok||2000,messages:msgs};
   if(sys)body.system=sys;
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
@@ -3617,80 +3562,341 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 
 
 
-</script>
 
-<script>
-/* Google Places — isolated, cannot affect existing code */
+
+/* ──────────────────────────────────────────────────────────────
+   Google Places, Google Directions, Claude 4.7 and web-search upgrade
+   This block is intentionally last so it overrides older functions safely.
+────────────────────────────────────────────────────────────── */
 (function(){
-  var GP='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
-  var _orig=window.fetchLocalAC;
+  function safeG(id){return document.getElementById(id);}
+  function cleanText(s){return String(s||'').replace(/<[^>]*>/g,'').trim();}
+  function num(v){var n=parseFloat(v);return isFinite(n)?n:null;}
+  function coordsFromPlace(p){
+    if(!p)return null;
+    if(p.location&&typeof p.location.lat==='function')return{lat:p.location.lat(),lng:p.location.lng()};
+    if(p.geometry&&p.geometry.location&&typeof p.geometry.location.lat==='function')return{lat:p.geometry.location.lat(),lng:p.geometry.location.lng()};
+    var la=num(p.lat),ln=num(p.lng!=null?p.lng:p.lon);
+    if(la!=null&&ln!=null)return{lat:la,lng:ln};
+    return null;
+  }
+  function kmBetween(a,b){
+    if(!a||!b)return Infinity;
+    var R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
+    var lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
+    var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.sin(dLon/2)*Math.sin(dLon/2)*Math.cos(lat1)*Math.cos(lat2);
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function metresLabel(m){return m<1000?Math.round(m)+'m':(Math.round(m/100)/10)+'km';}
+  function realisticWalkLabelFromMetres(metres,seconds){
+    metres=Math.max(0,metres||0);
+    var speedSeconds=metres/1.33;
+    seconds=Math.max(speedSeconds,seconds||0);
+    var mins=Math.max(1,Math.round(seconds/60));
+    return mins+' min walk ('+metresLabel(metres)+')';
+  }
+  function getGoogleKey(){return localStorage.getItem('wl_google_places_key')||'';}
+  window.getGoogleKey=getGoogleKey;
+  window.saveGooglePlacesKey=function(){
+    var inp=safeG('google-key-inp');if(!inp)return;
+    var v=inp.value.trim();
+    if(v){localStorage.setItem('wl_google_places_key',v);inp.value='';inp.placeholder='Key saved — paste new one to update';toast('Google Places key saved');}
+    else{localStorage.removeItem('wl_google_places_key');inp.placeholder='Paste Google Maps / Places API key';toast('Google Places key cleared');}
+  };
+  function insertGoogleSettings(){
+    if(safeG('google-places-card'))return;
+    var apiInp=safeG('api-key-inp');if(!apiInp)return;
+    var card=apiInp.closest('.settings-card');if(!card||!card.parentNode)return;
+    var section=document.createElement('div');
+    section.className='settings-section';
+    section.id='google-places-card';
+    section.innerHTML='<div class="settings-label">Google Places & walking routes</div>'+ 
+      '<div class="settings-card">'+
+      '<p>Google Maps / Places API Key</p>'+ 
+      '<small>Improves local search, Explore suggestions, venue coordinates, closed-place filtering and walking directions. Enable Maps JavaScript API, Places API and Directions API in Google Cloud. Stored only on this device.</small>'+ 
+      '<input class="s-inp" id="google-key-inp" type="password" placeholder="Google Places API key saved'+(getGoogleKey()?'Key saved — paste new one to update':'Paste Google Maps / Places API key')+'">'+
+      '<button class="s-btn" onclick="saveGooglePlacesKey()">Save Google key</button>'+ 
+      '<button class="s-btn outline" style="margin-left:8px" onclick="localStorage.removeItem(\'wl_google_places_key\');var i=document.getElementById(\'google-key-inp\');if(i)i.placeholder=\'Paste Google Maps / Places API key\';toast(\'Google key cleared\')">Clear</button>'+ 
+      '</div>';
+    card.parentNode.parentNode.insertBefore(section,card.parentNode.nextSibling);
+  }
+  window.addEventListener('load',function(){setTimeout(insertGoogleSettings,250);});
 
+  var googleLoading=false,googleLoaded=false,googleCallbacks=[];
+  window.loadGooglePlacesSDK=function(cb){
+    if(!getGoogleKey()){cb&&cb('No Google key');return;}
+    if(window.google&&google.maps&&google.maps.places){googleLoaded=true;cb&&cb(null);return;}
+    googleCallbacks.push(cb||function(){});
+    if(googleLoading)return;
+    googleLoading=true;
+    var s=document.createElement('script');
+    s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(getGoogleKey())+'&libraries=places,geometry';
+    s.async=true;s.defer=true;
+    s.onload=function(){googleLoaded=true;googleLoading=false;var cbs=googleCallbacks.splice(0);cbs.forEach(function(fn){fn(null);});};
+    s.onerror=function(){googleLoading=false;var cbs=googleCallbacks.splice(0);cbs.forEach(function(fn){fn('Could not load Google Maps SDK');});};
+    document.head.appendChild(s);
+  };
+  function getSearchCentre(){
+    var c=localStorage.getItem('wl_homecoords');
+    if(c){try{var o=JSON.parse(c);if(isFinite(o.lat)&&isFinite(o.lng))return o;}catch(e){}}
+    var dest=(S.dests||[]).find(function(d){return d.type==='dest'&&isFinite(parseFloat(d.lat))&&isFinite(parseFloat(d.lng));});
+    if(dest)return{lat:parseFloat(dest.lat),lng:parseFloat(dest.lng)};
+    return null;
+  }
+  function googlePlacesService(){return new google.maps.places.PlacesService(document.createElement('div'));}
+  function tagFromGoogleTypes(types){
+    types=types||[];
+    if(types.indexOf('cafe')>-1)return'☕ Cafe';
+    if(types.indexOf('bar')>-1||types.indexOf('night_club')>-1)return'🍸 Cocktails';
+    if(types.indexOf('restaurant')>-1||types.indexOf('meal_takeaway')>-1)return'🍽 Fine dining';
+    if(types.indexOf('park')>-1)return'🌳 Park';
+    if(types.indexOf('tourist_attraction')>-1||types.indexOf('museum')>-1)return'🏛 Sightseeing';
+    if(types.indexOf('shopping_mall')>-1||types.indexOf('store')>-1)return'🛍 Shopping';
+    return'📍 Local';
+  }
+  function cityFromAddressComponents(components){
+    components=components||[];
+    var c=components.find(function(x){return x.types&&x.types.indexOf('locality')>-1;})||
+      components.find(function(x){return x.types&&x.types.indexOf('postal_town')>-1;})||
+      components.find(function(x){return x.types&&x.types.indexOf('administrative_area_level_2')>-1;});
+    return c?c.long_name:'';
+  }
+  function countryFromAddressComponents(components){
+    components=components||[];
+    var c=components.find(function(x){return x.types&&x.types.indexOf('country')>-1;});
+    return c?c.long_name:'';
+  }
+  window.googleLocalSearch=function(query,cb){
+    loadGooglePlacesSDK(function(err){
+      if(err){cb(err);return;}
+      var centre=getSearchCentre();
+      var svc=googlePlacesService();
+      var request={query:query+(localStorage.getItem('wl_homecity')?' near '+localStorage.getItem('wl_homecity'):''),fields:['name','place_id','geometry','formatted_address','business_status','rating','user_ratings_total','types'],radius:12000};
+      if(centre)request.location=new google.maps.LatLng(centre.lat,centre.lng);
+      svc.textSearch(request,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No Google results');return;}
+        var filtered=results.filter(function(r){return r.business_status!=='CLOSED_PERMANENTLY'&&r.geometry&&r.geometry.location;}).slice(0,10).map(function(r){
+          var c=coordsFromPlace(r);
+          return{_googlePlace:true,place_id:r.place_id,name:r.name,display_name:r.name,formatted_address:r.formatted_address||'',business_status:r.business_status||'',rating:r.rating||'',user_ratings_total:r.user_ratings_total||'',types:r.types||[],lat:c.lat,lon:c.lng,lng:c.lng};
+        });
+        cb(null,filtered);
+      });
+    });
+  };
+  function getGooglePlaceDetails(placeId,cb){
+    loadGooglePlacesSDK(function(err){
+      if(err){cb(err);return;}
+      googlePlacesService().getDetails({placeId:placeId,fields:['name','place_id','formatted_address','address_components','geometry','business_status','rating','user_ratings_total','types','opening_hours','website','url']},function(place,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!place){cb(status||'No details');return;}
+        cb(null,place);
+      });
+    });
+  }
+
+  var prevFetchLocalAC=window.fetchLocalAC||fetchLocalAC;
   window.fetchLocalAC=function(q){
-    var hc=localStorage.getItem('wl_homecity')||'';
-    fetch('https://places.googleapis.com/v1/places:searchText',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'X-Goog-Api-Key':GP,
-        'X-Goog-FieldMask':'places.displayName,places.location,places.shortFormattedAddress,places.types'
-      },
-      body:JSON.stringify({textQuery:q+(hc?' in '+hc:''),maxResultCount:10,languageCode:'en'})
-    })
-    .then(function(r){return r.json();})
-    .then(function(d){
-      var places=d.places||[];
-      if(!places.length){if(_orig)_orig(q);return;}
-      var res=places.map(function(p){
-        var loc=p.location||{};
-        return{
-          lat:loc.latitude,lon:loc.longitude,
-          display_name:(p.displayName&&p.displayName.text)||q,
-          _gp:true,
-          _type:(p.types&&p.types[0]||'').replace(/_/g,' '),
-          _addr:p.shortFormattedAddress||hc
-        };
-      }).filter(function(r){return r.lat&&r.lon;});
-      if(res.length){window.acResults=res;if(typeof renderAC==='function')renderAC();}
-      else if(_orig)_orig(q);
-    })
-    .catch(function(){if(_orig)_orig(q);});
+    if(!getGoogleKey()){prevFetchLocalAC(q);return;}
+    googleLocalSearch(q,function(err,results){
+      if(err||!results||!results.length){prevFetchLocalAC(q);return;}
+      acResults=results;renderAC();
+    });
   };
-
-  var _origRender=window.renderAC;
+  var prevRenderAC=window.renderAC||renderAC;
   window.renderAC=function(){
-    var hasGP=window.acResults&&window.acResults.some(function(r){return r._gp;});
-    if(!hasGP){if(_origRender)_origRender();return;}
-    var ac=document.getElementById('ac');if(!ac)return;
-    var isLocal=window.S&&window.S.placeType==='local';
-    ac.style.display='block';
-    ac.innerHTML=(window.acResults||[]).map(function(r,i){
-      return'<div class="ac-item" onclick="selectAC('+i+')">'+
-        '<span style="font-size:16px;flex-shrink:0">'+(isLocal?'📍':'✈️')+'</span>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div class="ac-name">'+(r.display_name||'')+
-            (r._type?'<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:4px;color:var(--text3);margin-left:5px">'+r._type+'</span>':'')+'</div>'+
-          (r._addr?'<div class="ac-sub">'+r._addr+'</div>':'')+
-        '</div></div>';
-    }).join('');
+    var ac=safeG('ac');
+    if(!acResults||!acResults.length){hideAC();return;}
+    if(acResults[0]&&acResults[0]._googlePlace){
+      ac.style.display='block';
+      ac.innerHTML=acResults.map(function(r,i){
+        var rating=r.rating?' · ★ '+r.rating:'';
+        var status=r.business_status==='OPERATIONAL'?'Open in Google':(r.business_status||'');
+        return '<div class="ac-item" onclick="selectAC('+i+')"><span style="font-size:17px;flex-shrink:0">📍</span><div style="flex:1;min-width:0"><div class="ac-name">'+esc(r.name)+'<span style="font-size:10px;background:var(--blue-lt);padding:1px 5px;border-radius:4px;color:var(--blue);margin-left:5px">Google</span></div><div class="ac-sub">'+esc((r.formatted_address||'')+rating+(status?' · '+status:''))+'</div></div></div>';
+      }).join('');
+      return;
+    }
+    prevRenderAC();
+  };
+  var prevSelectAC=window.selectAC||selectAC;
+  window.selectAC=function(i){
+    var r=acResults[i];if(!r)return;
+    if(r._googlePlace){
+      var quick=function(place){
+        var c=coordsFromPlace(place)||{lat:parseFloat(r.lat),lng:parseFloat(r.lng||r.lon)};
+        var tags=[tagFromGoogleTypes(place.types||r.types||[])];
+        var city=cityFromAddressComponents(place.address_components)||'';
+        var country=countryFromAddressComponents(place.address_components)||'';
+        if(!country){var parts=(place.formatted_address||r.formatted_address||'').split(',');country=(parts[parts.length-1]||'').trim();}
+        var name=place.name||r.name;
+        safeG('city-inp').value='';hideAC();
+        showCatPicker(name,country||'',c.lat,c.lng,tags[0],city);
+        _pendingAdd.google_place_id=place.place_id||r.place_id;
+        _pendingAdd.google_rating=place.rating||r.rating||'';
+        _pendingAdd.google_user_ratings_total=place.user_ratings_total||r.user_ratings_total||'';
+        _pendingAdd.google_business_status=place.business_status||r.business_status||'';
+        _pendingAdd.google_url=place.url||'';
+        setTimeout(function(){
+          document.querySelectorAll('#cat-pick .filter-pill').forEach(function(b){if(tags.indexOf(b.textContent.trim())>-1)b.classList.add('on');});
+        },30);
+      };
+      getGooglePlaceDetails(r.place_id,function(err,place){quick(err?r:place);});
+      return;
+    }
+    prevSelectAC(i);
   };
 
-  var _origSelect=window.selectAC;
-  window.selectAC=function(i){
-    var r=window.acResults&&window.acResults[i];
-    if(!r||!r._gp){if(_origSelect)_origSelect(i);return;}
-    var hc=localStorage.getItem('wl_homecity')||'';
-    var inp=document.getElementById('city-inp');if(inp)inp.value='';
-    var ac=document.getElementById('ac');if(ac)ac.style.display='none';
-    window.acResults=[];
-    if(window.S&&window.S.placeType==='local'){
-      if(typeof showCatPicker==='function')
-        showCatPicker(r.display_name,r._addr||hc,r.lat,r.lon,r._type||'local',hc);
-    } else {
-      if(typeof addDests==='function')
-        addDests([{name:r.display_name,country:r._addr||hc,lat:r.lat,lng:r.lon,type:'dest'}]);
+  window.googleExploreSuggestions=function(dest,cb){
+    if(!getGoogleKey()){cb('No Google key');return;}
+    var centre=coordsFromPlace(dest);
+    var city=(dest.name||'')+(dest.country?', '+dest.country:'');
+    var vibe=placeFilter||'all';
+    var queries=vibe==='bar'?['best cocktail bars in '+city,'best pubs in '+city,'live music bars in '+city]:
+      vibe==='restaurant'?['best new restaurants in '+city,'best local restaurants in '+city,'cheap eats in '+city]:
+      vibe==='park'?['best parks in '+city,'best viewpoints in '+city]:
+      vibe==='activity'?['best attractions in '+city,'things to do in '+city]:
+      ['best restaurants in '+city,'best cocktail bars in '+city,'new restaurants in '+city,'things to do in '+city];
+    loadGooglePlacesSDK(function(err){
+      if(err){cb(err);return;}
+      var svc=googlePlacesService();
+      var all=[],pending=queries.length;
+      queries.forEach(function(q){
+        var req={query:q,fields:['name','place_id','geometry','formatted_address','business_status','rating','user_ratings_total','types'],radius:12000};
+        if(centre)req.location=new google.maps.LatLng(centre.lat,centre.lng);
+        svc.textSearch(req,function(results,status){
+          if(status===google.maps.places.PlacesServiceStatus.OK&&results){
+            results.forEach(function(r){if(r.business_status!=='CLOSED_PERMANENTLY'&&r.geometry&&r.geometry.location)all.push(r);});
+          }
+          if(--pending===0){
+            var seen={};
+            var recs=all.filter(function(r){if(seen[r.place_id])return false;seen[r.place_id]=true;return true;}).sort(function(a,b){
+              return ((b.rating||0)*20+(b.user_ratings_total||0)/100)-((a.rating||0)*20+(a.user_ratings_total||0)/100);
+            }).slice(0,12).map(function(r){
+              var c=coordsFromPlace(r);var tag=tagFromGoogleTypes(r.types||[]);
+              return{name:r.name,place_id:r.place_id,lat:c.lat,lng:c.lng,type:(tag.indexOf('Cafe')>-1?'cafe':tag.indexOf('Cocktails')>-1?'bar':tag.indexOf('Park')>-1?'park':tag.indexOf('Sightseeing')>-1?'activity':'restaurant'),tags:[tag],description:(r.formatted_address||'')+(r.rating?' · Google rating '+r.rating:'')+(r.user_ratings_total?' from '+r.user_ratings_total+' reviews':''),budget:false,emoji:tag.split(' ')[0],price_range:'',google_business_status:r.business_status||'',google_rating:r.rating||'',google_user_ratings_total:r.user_ratings_total||''};
+            });
+            cb(null,recs);
+          }
+        });
+      });
+    });
+  };
+  var prevRefreshExplore=window.refreshExploreSuggestions;
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||currentPlaceId;var d=(S.dests||[]).find(function(x){return x.id===id;});
+    if(!d){toast('Open a destination first');return;}
+    var el=safeG('place-recs');
+    if(el)el.innerHTML='<div style="text-align:center;padding:20px 0"><span class="spin"></span><div style="font-size:13px;color:var(--text3);margin-top:8px">Refreshing with Google Places…</div></div>';
+    if(getGoogleKey()){
+      googleExploreSuggestions(d,function(err,recs){
+        if(!err&&recs&&recs.length){placeRecs[id]=recs;renderPlaceRecs(id);return;}
+        if(prevRefreshExplore)prevRefreshExplore();
+      });
+    }else if(prevRefreshExplore)prevRefreshExplore();
+  };
+
+  var prevAi=window.ai||ai;
+  window.ai=function(msgs,cb,maxTok,sys,_retry,_noTools){
+    var key=localStorage.getItem('wl_apikey');
+    if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);swScreen('s-settings');return;}
+    var text=(msgs||[]).map(function(m){return typeof m.content==='string'?m.content:JSON.stringify(m.content||'');}).join('\n').toLowerCase();
+    var wantsSearch=!_noTools&&(text.indexOf('restaurant')>-1||text.indexOf('itinerary')>-1||text.indexOf('recommendation')>-1||text.indexOf('verified')>-1||text.indexOf('closed')>-1||text.indexOf('new ')>-1);
+    var body={model:'claude-opus-4-7',max_tokens:maxTok||2500,messages:msgs};
+    if(sys)body.system=sys;
+    if(wantsSearch)body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
+    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.error){
+        if(d.error.type==='overloaded_error'&&!_retry){setTimeout(function(){window.ai(msgs,cb,maxTok,sys,true,_noTools);},8000);return;}
+        if(wantsSearch&&!_noTools&&(String(d.error.message||'').indexOf('tool')>-1||String(d.error.message||'').indexOf('web_search')>-1)){window.ai(msgs,cb,maxTok,sys,_retry,true);return;}
+        cb(d.error.message,null);return;
+      }
+      var out=(d.content||[]).filter(function(c){return c.type==='text'&&c.text;}).map(function(c){return c.text;}).join('\n').trim();
+      cb(null,out);
+    }).catch(function(e){cb(e.message,null);});
+  };
+
+  function findStopSaved(stop,settings){
+    var spots=(settings&&settings.spots)||window._dpSaved||[];
+    if(stop&&stop.id){var byId=spots.find(function(s){return String(s.id)===String(stop.id);})||(S.dests||[]).find(function(s){return String(s.id)===String(stop.id);});if(byId)return byId;}
+    var nm=String(stop&&stop.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return spots.find(function(s){return String(s.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()===nm;})||(S.dests||[]).find(function(s){return s.type==='local'&&String(s.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()===nm;})||null;
+  }
+  function googleGeocodeStop(stop,d,settings,cb){
+    var saved=findStopSaved(stop,settings);var c=coordsFromPlace(saved)||coordsFromPlace(stop);if(c){if(saved){stop.id=saved.id;stop.name=saved.name;}cb(c);return;}
+    if(getGoogleKey()){
+      loadGooglePlacesSDK(function(err){
+        if(err){cb(null);return;}
+        var svc=googlePlacesService();var centre=coordsFromPlace(d)||getSearchCentre();
+        var req={query:(stop.name||'')+', '+(d.name||'')+(d.country?', '+d.country:''),fields:['name','place_id','geometry','business_status']};
+        if(centre)req.location=new google.maps.LatLng(centre.lat,centre.lng),req.radius=8000;
+        svc.textSearch(req,function(results,status){
+          if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length){
+            var best=results.filter(function(r){return r.business_status!=='CLOSED_PERMANENTLY'&&r.geometry&&r.geometry.location;})[0]||results[0];
+            var gc=coordsFromPlace(best);if(gc){stop.lat=gc.lat;stop.lng=gc.lng;stop.place_id=best.place_id;cb(gc);return;}
+          }
+          cb(null);
+        });
+      });
+    }else cb(null);
+  }
+  function routeGoogleOrEstimate(fr,to,cb){
+    var straight=kmBetween(fr,to);
+    if(getGoogleKey()){
+      loadGooglePlacesSDK(function(err){
+        if(!err&&google.maps&&google.maps.DirectionsService){
+          var ds=new google.maps.DirectionsService();
+          ds.route({origin:new google.maps.LatLng(fr.lat,fr.lng),destination:new google.maps.LatLng(to.lat,to.lng),travelMode:google.maps.TravelMode.WALKING},function(res,status){
+            if(status==='OK'&&res.routes&&res.routes[0]&&res.routes[0].legs&&res.routes[0].legs[0]){
+              var leg=res.routes[0].legs[0];cb(straight,leg.distance.value,leg.duration.value,'google');return;
+            }
+            cb(straight,straight*1250,(straight*1250)/1.33,'estimate');
+          });
+        }else cb(straight,straight*1250,(straight*1250)/1.33,'estimate');
+      });
+    }else cb(straight,straight*1250,(straight*1250)/1.33,'estimate');
+  }
+  window.enrichPlanWithRealTimes=function(plan,d,cb){
+    var stops=plan.stops||[];if(stops.length<2){cb();return;}
+    var settings=plan._settings||window._lastDayPlanConfig||{};
+    var coords=new Array(stops.length);var pending=stops.length;plan._badLegs=0;
+    stops.forEach(function(s,i){googleGeocodeStop(s,d,settings,function(c){coords[i]=c;if(--pending===0)routeAll();});});
+    function routeAll(){
+      var transitUsed=false,remaining=0;
+      function done(){if(remaining===0)cb();}
+      for(var i=0;i<stops.length-1;i++){
+        (function(idx){
+          var fr=coords[idx],to=coords[idx+1];stops[idx].walk_to_next='';stops[idx].transit_to_next='';
+          if(!fr||!to){stops[idx].walk_to_next='Distance unavailable. Verify before going.';plan._badLegs++;return;}
+          var straight=kmBetween(fr,to);
+          if(straight>1.5){
+            if(!transitUsed){transitUsed=true;stops[idx].transit_to_next='Uber/transit recommended ('+metresLabel(straight*1000)+')';}
+            else{stops[idx].walk_to_next='Too far for this route ('+metresLabel(straight*1000)+'). Refresh for a tighter plan.';plan._badLegs++;}
+            return;
+          }
+          remaining++;
+          routeGoogleOrEstimate(fr,to,function(straightKm,metres,seconds,source){
+            if(metres>1800&&!transitUsed){transitUsed=true;stops[idx].transit_to_next='Uber/transit recommended ('+metresLabel(metres)+')';}
+            else if(metres>1800){stops[idx].walk_to_next='Too far for this route ('+metresLabel(metres)+'). Refresh for a tighter plan.';plan._badLegs++;}
+            else{stops[idx].walk_to_next=realisticWalkLabelFromMetres(metres,seconds)+(source==='google'?' · Google walking route':'');}
+            remaining--;done();
+          });
+        })(i);
+      }
+      done();
     }
   };
 })();
 </script>
+
+<script>
+/* Google Places API default key.
+   Stored as the default value for this app build. Users can overwrite it in Settings. */
+(function(){
+  try{
+    if(!localStorage.getItem('wl_google_key')) localStorage.setItem('wl_google_key','AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8');
+    if(!localStorage.getItem('wl_google_api_key')) localStorage.setItem('wl_google_api_key','AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8');
+  }catch(e){}
+})();
+</script>
+
 </body>
 </html>
