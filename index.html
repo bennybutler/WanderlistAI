@@ -3782,12 +3782,12 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     var mins=Math.max(1,Math.round(seconds/60));
     return mins+' min walk ('+metresLabel(metres)+')';
   }
-  function getGoogleKey(){return localStorage.getItem('wl_google_places_key')||'';}
+  function getGoogleKey(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||'';}
   window.getGoogleKey=getGoogleKey;
   window.saveGooglePlacesKey=function(){
     var inp=safeG('google-key-inp');if(!inp)return;
     var v=inp.value.trim();
-    if(v){localStorage.setItem('wl_google_places_key',v);inp.value='';inp.placeholder='Key saved — paste new one to update';toast('Google Places key saved');}
+    if(v){localStorage.setItem('wl_google_places_key',v);localStorage.setItem('wl_google_key',v);localStorage.setItem('wl_google_api_key',v);inp.value='';inp.placeholder='Key saved — paste new one to update';toast('Google Places key saved');}
     else{localStorage.removeItem('wl_google_places_key');inp.placeholder='Paste Google Maps / Places API key';toast('Google Places key cleared');}
   };
   function insertGoogleSettings(){
@@ -3801,7 +3801,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
       '<div class="settings-card">'+
       '<p>Google Maps / Places API Key</p>'+ 
       '<small>Improves local search, Explore suggestions, venue coordinates, closed-place filtering and walking directions. Enable Maps JavaScript API, Places API and Directions API in Google Cloud. Stored only on this device.</small>'+ 
-      '<input class="s-inp" id="google-key-inp" type="password" placeholder="Google Places API key saved'+(getGoogleKey()?'Key saved — paste new one to update':'Paste Google Maps / Places API key')+'">'+
+      '<input class="s-inp" id="google-key-inp" type="password" placeholder="'+(getGoogleKey()?'Key saved — paste new one to update':'Paste Google Maps / Places API key')+'">'+
       '<button class="s-btn" onclick="saveGooglePlacesKey()">Save Google key</button>'+ 
       '<button class="s-btn outline" style="margin-left:8px" onclick="localStorage.removeItem(\'wl_google_places_key\');var i=document.getElementById(\'google-key-inp\');if(i)i.placeholder=\'Paste Google Maps / Places API key\';toast(\'Google key cleared\')">Clear</button>'+ 
       '</div>';
@@ -4091,8 +4091,10 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
    Stored as the default value for this app build. Users can overwrite it in Settings. */
 (function(){
   try{
-    if(!localStorage.getItem('wl_google_key')) localStorage.setItem('wl_google_key','AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8');
-    if(!localStorage.getItem('wl_google_api_key')) localStorage.setItem('wl_google_api_key','AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8');
+    var _gk='AIzaSyAsFptC6Brkg0CsrEBmsMnjDQPaGD4_rt8';
+    localStorage.setItem('wl_google_places_key',_gk);
+    localStorage.setItem('wl_google_key',_gk);
+    localStorage.setItem('wl_google_api_key',_gk);
   }catch(e){}
 })();
 </script>
