@@ -455,7 +455,7 @@ textarea::placeholder{color:var(--text3);}
           <p>Anthropic API Key</p>
           <small>Required for all AI features. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a> → API Keys → Create Key. Stored only on this device, never shared.</small>
           <input class="s-inp" id="api-key-inp" type="password" placeholder="sk-ant-api03-...">
-          <button type="button" class="s-btn" onclick="saveApiKey()">Save API key</button>
+          <button type="button" class="s-btn" onclick="saveApiKey(this.previousElementSibling.value)">Save API key</button>
           <p class="key-ok" id="key-ok">✓ API key saved</p>
         </div>
       </div>
@@ -2831,17 +2831,23 @@ function addSelected(key){
 }
 
 // ── Settings ──────────────────────────────────────────────
-function saveApiKey(){
-  var inp=g('api-key-inp');
-  if(!inp){alert('Could not find key input');return;}
-  var key=inp.value.trim();
-  if(!key){alert('Please paste your Anthropic API key first');return;}
-  if(!key.startsWith('sk-')){alert('That doesn\'t look like an Anthropic key — it should start with sk-ant-...');return;}
+function saveApiKey(keyVal){
+  // Accept value passed directly from button to avoid duplicate-ID problem
+  var key=(keyVal||'').trim();
+  // If not passed, try finding input (fallback)
+  if(!key){
+    var inputs=document.querySelectorAll('#api-key-inp');
+    for(var i=0;i<inputs.length;i++){if(inputs[i].value.trim()){key=inputs[i].value.trim();break;}}
+  }
+  if(!key){alert('Please paste your Anthropic API key into the box first, then click Save');return;}
   localStorage.setItem('wl_apikey',key);
-  inp.value='';
-  inp.placeholder='✓ Key saved — paste new one to update';
-  var ok=g('key-ok');if(ok){ok.style.display='block';setTimeout(function(){ok.style.display='none';},4000);}
-  alert('✓ API key saved! You can now use all AI features.');
+  // Clear all inputs with this ID
+  document.querySelectorAll('#api-key-inp').forEach(function(inp){
+    inp.value='';inp.placeholder='✓ Key saved — paste new one to update';
+  });
+  var ok=document.getElementById('key-ok');
+  if(ok){ok.style.display='block';setTimeout(function(){ok.style.display='none';},4000);}
+  alert('✓ API key saved! AI features will now work.');
 }
 var homeCityAcTimer=null,homeCityAcResults=[];
 function onHomeCityInput(){
