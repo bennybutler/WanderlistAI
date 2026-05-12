@@ -273,7 +273,7 @@ textarea::placeholder{color:var(--text3);}
 .dest-item{padding:15px 18px;} .dest-name{font-size:16px;font-weight:600;}
 .dest-meta{font-size:13px;} .dest-icon{width:42px;height:42px;font-size:18px;}
 .itin-title{font-size:18px;} .imlv{font-size:15px;}
-.filter-pill{font-size:13px;padding:8px 15px;}
+.filter-pill{font-size:14px;padding:10px 18px;}
 .rec-name{font-size:15px;font-weight:700;} .rec-detail{font-size:13px;}
 .sheet-title{font-size:20px;} .city-inp{font-size:15px;padding:12px 16px;}
 .mf-btn{font-size:13px;padding:8px 16px;}
@@ -1252,6 +1252,7 @@ function openPlaceDetail(id,autoPlanDay){
       '<div style="display:flex;gap:8px">'+
         '<button onclick="flyTo(\''+id+'\');closePlaceDetail()" style="flex:1;padding:11px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text)">🗺 View on map</button>'+
         '<button onclick="planDayNearSpot(\''+id+'\')" style="flex:1;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day near here</button>'+
+      '<button onclick="event.stopPropagation();window.markVisited(\''+id+'\')" style="margin-top:6px;width:100%;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text)">'+(spot&&spot.visited?'⭐ '+((spot.rating||'').split(' ').slice(1).join(' ')||'Visited'):'✓ Mark as visited')+'</button>'+
       '</div>';
     g('place-bg').classList.add('on');g('place-sheet').classList.add('on');
     return;
@@ -1274,7 +1275,7 @@ function openPlaceDetail(id,autoPlanDay){
     '<div class="filter-pills" id="place-pills" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">'+
       '<button class="filter-pill on" onclick="setPlaceFilter(\'all\',this)">All</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'restaurant\',this)">🍽 Food</button>'+
-      '<button class="filter-pill" onclick="setPlaceFilter(\'bar\',this)">🍸 Drinks</button>'+
+      '<button class="filter-pill" onclick="setPlaceFilter(\'bar\',this)">🍸🍷 Drinks</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'park\',this)">🌳 Parks</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'activity\',this)">🎯 Activities</button>'+
       '<button class="filter-pill" onclick="setPlaceFilter(\'budget\',this)">💰 Budget</button>'+
@@ -1293,7 +1294,7 @@ function openPlaceDetail(id,autoPlanDay){
   // ↑ autoPlanDay starts planner; recs fetch only runs for Explore mode
   if(placeRecs[id]&&!window._isDayPlanning){renderPlaceRecs(id);}
   else{
-    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Only REAL verified places — do NOT invent names. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 top local recommendations for '+d.name+(d.country?', '+d.country:'')+'. IMPORTANT: It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+'. Only recommend places that are CURRENTLY OPEN AND OPERATING — skip any permanently closed venues. Prioritize trendy, popular spots that opened or became popular in 2022-2025. Only REAL verified places — do NOT invent names. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
     ai([{role:'user',content:prompt}],function(err,text){
       var el=g('place-recs');if(!el)return;
       if(err){el.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
@@ -1565,8 +1566,13 @@ function saveSpotTags(id){
   openPlaceDetail(id);
 }
 function togLocalTag(el){el.classList.toggle('on');}
+function _autoTagEmoji(s){var m=s.toLowerCase();
+  var pairs=[['wine','🍷'],['beer','🍺'],['coffee','☕'],['brunch','🥞'],['cocktail','🍸'],['rooftop','🌃'],['vegan','🌱'],['pizza','🍕'],['sushi','🍣'],['pub','🍻'],['bar','🍸'],['park','🌳'],['beach','🏖'],['museum','🏛'],['art','🎨'],['music','🎵'],['night','🌃'],['sport','⚽'],['spa','💆'],['shop','🛍'],['book','📚'],['outdoor','🏃'],['hike','🥾'],['bike','🚴'],['dance','💃'],['yoga','🧘'],['cheap','💰'],['budget','💰'],['fancy','✨'],['view','📸']];
+  for(var i=0;i<pairs.length;i++){if(m.indexOf(pairs[i][0])>-1)return pairs[i][1]+' '+s;}
+  return s;}
 function addCustomTag(){
   var tag=prompt('Enter custom tag:');if(!tag||!tag.trim())return;
+  tag=_autoTagEmoji(tag.trim());
   var pick=g('cat-pick');if(!pick)return;
   var btn=document.createElement('button');
   btn.className='filter-pill on';btn.style.cssText='font-size:12px;margin:2px';
@@ -1834,8 +1840,8 @@ function saveDayPlan(){
     var trips=S.itins.filter(function(t){return(t._type||'trip')==='trip';});
     if(!trips.length)return;
     var msg=document.createElement('div');
-    msg.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.18);z-index:2000;font-size:13px;font-family:inherit;white-space:nowrap';
-    msg.innerHTML='Add to a trip? <button style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" id="add-to-trip-btn">Choose trip →</button>';
+    msg.style.cssText='position:fixed;bottom:calc(var(--tab-h, 64px) + var(--sb, 0px) + 14px);left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;font-size:13px;font-family:inherit;white-space:nowrap';
+    msg.innerHTML='<span style="font-size:16px">📁</span> Add plan to a collection? <button style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" id="add-to-trip-btn">Choose →</button>';
     document.body.appendChild(msg);
     document.getElementById('add-to-trip-btn').onclick=function(){
       msg.remove();
@@ -1849,6 +1855,30 @@ function saveDayPlan(){
     if(pills[2])setTripFilter('dayplan',pills[2]);
   },120);
 }
+
+window.markVisited=function(id){
+  var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d)return;
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  var sheet=document.createElement('div');
+  sheet.style.cssText='background:var(--bg);border-radius:22px 22px 0 0;padding:22px 20px calc(24px + var(--sb));width:100%;max-width:480px;font-family:inherit';
+  sheet.innerHTML='<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px">How was '+esc(d.name)+'?</div>'+
+    '<div style="font-size:13px;color:var(--text3);margin-bottom:18px">Rate your experience</div>'+
+    ['🔥 Must return','⭐ Loved it','👍 Good','😐 It was okay','👎 Not for me'].map(function(r,i){
+      var isActive=d.rating===r;
+      return'<button onclick="window._setRating(\''+id+'\',\''+r+'\',this.closest(\'div[style*=inset]\'))" style="width:100%;padding:13px 16px;margin-bottom:8px;background:'+(isActive?'var(--gold-lt)':'var(--bg2)')+';border:'+(isActive?'2px solid var(--gold)':'1px solid var(--border)')+';border-radius:14px;font-size:14px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;color:var(--text)">'+r+'</button>';
+    }).join('')+
+    '<button onclick="this.closest(\'div[style*=inset]\').remove()" style="width:100%;padding:11px;background:none;border:1px solid var(--border);border-radius:14px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text3)">Cancel</button>';
+  overlay.appendChild(sheet);document.body.appendChild(overlay);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+};
+window._setRating=function(id,rating,overlay){
+  var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d)return;
+  d.visited=true;d.rating=rating;d.visitedAt=Date.now();
+  save();if(overlay&&overlay.parentNode)overlay.remove();
+  toast('✓ '+rating);
+  if(typeof syncList==='function')syncList();
+};
 window.showAddToTripPicker=function(planId){
   var trips=S.itins.filter(function(t){return(t._type||'trip')==='trip';});
   if(!trips.length){toast('No trips yet. Create a trip first.');return;}
@@ -1856,8 +1886,8 @@ window.showAddToTripPicker=function(planId){
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;display:flex;align-items:flex-end;justify-content:center';
   var sheet=document.createElement('div');
   sheet.style.cssText='background:var(--bg);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:480px;max-height:60vh;overflow-y:auto;font-family:inherit';
-  sheet.innerHTML='<div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Add plan to a trip</div>'+
-    trips.map(function(t){return'<div onclick="window._addPlanToTrip(\''+t._id+'\',\''+planId+'\',this.parentNode.parentNode)" style="padding:11px 13px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">'+esc(t.title||'Trip')+'<span style="float:right;color:var(--text3);font-weight:400">'+(t.destinations||[]).join(', ').slice(0,40)+'</span></div>';}).join('')+
+  sheet.innerHTML='<div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Add plan to a collection</div>'+
+    trips.map(function(t){var dayPlans=(t.dayPlans||[]).length;return'<div onclick="window._addPlanToTrip(\''+t._id+'\',\''+planId+'\',this.parentNode.parentNode)" style="padding:11px 13px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">'+esc(t.title||'Collection')+(dayPlans?' <span style="background:var(--gold-lt);color:var(--gold);border-radius:8px;padding:1px 6px;font-size:11px;font-weight:700">'+dayPlans+' day'+(dayPlans===1?'':'s')+'</span>':'')+'<br><span style="font-size:11px;font-weight:400;color:var(--text3)">'+(t.destinations||[]).join(', ').slice(0,50)+'</span></div>';}).join('')+
     '<button onclick="this.closest(\'div[style*=inset]\').remove()" style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text3);margin-top:4px">Cancel</button>';
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
@@ -3844,7 +3874,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     if(!d){toast('Open a destination first');return;}
     var el=safeG('place-recs');
     if(el)el.innerHTML='<div style="text-align:center;padding:20px 0"><span class="spin"></span><div style="font-size:13px;color:var(--text3);margin-top:8px">Refreshing suggestions…</div></div>';
-    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 fresh, real local recommendations for '+d.name+(d.country?', '+d.country:'')+'. Avoid repeating the obvious top results if possible. Only REAL verified places. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    var prompt='Respond in '+(LANG_NAMES[getLang()]||'English')+'. Give me 12 fresh, CURRENTLY OPEN local recommendations for '+d.name+(d.country?', '+d.country:'')+'. It is '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+'. Emphasize spots that opened or became trending in 2022-2025. Avoid permanently closed places. Vary the neighbourhood and type — no repeated defaults. Only REAL verified places. Budget and premium mix.\nFor each place, assign 1-3 tags from ONLY this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint"\nReturn ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
     ai([{role:'user',content:prompt}],function(err,text){
       if(err){if(el)el.innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
       try{placeRecs[id]=window.safeParseAIJsonArray(text);window.renderPlaceRecs(id);}
@@ -4990,9 +5020,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
   window.sendExploreTweak = function(){
     var inp = safeG('explore-chat-inp'); if(!inp) return;
     var msg = inp.value.trim();
-    if(!msg){// Refresh without tweak: re-run with diversity seed
-      var seed=Date.now().toString(36);var id0=window.currentPlaceId||currentPlaceId;var d0=(S.dests||[]).find(function(x){return x.id===id0;});if(!d0)return;
-      inp.value='diversify and vary the recommendations, seed='+seed;msg=inp.value.trim();}
+    if(!msg){var _sid=Date.now().toString(36);inp.value='Give me fresh and different recommendations — diversify the mix, seed '+_sid;msg=inp.value.trim();}
     inp.value = '';
     var id = window.currentPlaceId || currentPlaceId;
     var d = (S.dests||[]).find(function(x){return x.id===id;}); if(!d) return;
@@ -5015,7 +5043,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
         if(window.renderPlaceRecs) window.renderPlaceRecs(id); else renderPlaceRecs(id);
         // Re-append chat UI since renderPlaceRecs replaces content
         setTimeout(function(){
-          var chatWrap=safeG('explore-chat-wrap');
+          var chatWrap=safeG('explore-chat-inp');
           if(!chatWrap){
             var body=safeG('place-body');
             if(body)body.innerHTML+=wlTweakBox('Tweak these suggestions','explore-chat-inp','e.g. more hidden gems, less touristy, add rooftops','sendExploreTweak()','');
@@ -5464,6 +5492,7 @@ setTimeout(window.renderCollections, 1200);
 
 <style id="wl-v6-polish-style">
 /* ===== Wanderlist v6 polish ===== */
+.list-filter-btn,.mf-btn{font-size:14px!important;padding:9px 20px!important;}
 .list-filter-btn.on,.mf-btn.on,.pill.on,.filter-pill.on{background:var(--gold)!important;color:#fff!important;border-color:var(--gold)!important;box-shadow:0 2px 8px rgba(184,115,10,.28)!important;}
 .continent-hdr{background:linear-gradient(90deg,var(--gold-lt),transparent)!important;border-top:1px solid var(--gold-md)!important;border-left:4px solid var(--gold)!important;border-radius:10px!important;margin:12px 2px 8px!important;padding:8px 10px!important;color:var(--gold)!important;font-size:12px!important;font-weight:800!important;letter-spacing:.11em!important;box-shadow:var(--shadow-sm)!important;}
 .dest-fly{font-weight:800!important;background:var(--gold-lt)!important;border-color:var(--gold-md)!important;color:var(--gold)!important;}
@@ -8742,7 +8771,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       var vibeInstr2=v2.indexOf('food')>-1||v2.indexOf('tour')>-1?'FOOD TOUR: Every stop must be food or drink. No museums or landmarks.\n':v2.indexOf('night')>-1?'NIGHTLIFE: Evening only — dinner then bars, cocktail spots, live music.\n':v2.indexOf('date')>-1?'DATE NIGHT: Intimate restaurants, rooftop bars, scenic walks. Romantic only.\n':v2.indexOf('outdoor')>-1?'OUTDOORS: Parks, waterfronts, trails, gardens. Mostly outdoor venues.\n':v2.indexOf('local')>-1?'LOCAL VIBE: Spots residents actually use. Avoid famous tourist landmarks.\n':'Mix of local food, one cultural site, and one scenic spot — all walkable.\n';
       var seed2=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
       var recent2=[];try{recent2=JSON.parse(localStorage.getItem('wl_recent_day_plan_spots')||'[]').slice(0,20);}catch(ex){}
-      var prompt2='Create a '+hours2+'-hour day itinerary in '+(d2.name||'this area')+(d2.country?', '+d2.country:'')+'. Vibe: '+vibe2+'. Start at '+start2+'.\n'+vibeInstr2+'Focus on ONE walkable neighbourhood — consecutive stops within 10-minute walk of each other.\nDIVERSITY SEED: '+seed2+'. Vary the neighbourhood and mix each run. Avoid recently used spots: '+(recent2.join(', ')||'none')+'.\n'+(tweak2?'USER REQUEST: '+tweak2+'\n':'')+'Include lat, lng and address for every stop. Return ONLY valid JSON.\n{\"title\":\"...\"，\"city\":\"'+(d2.name||'')+'\"，\"start\":\"'+start2+'\"，\"hours\":'+parseInt(hours2,10||6)+'，\"vibe\":\"'+vibe2+'\"，\"neighbourhood\":\"...\"，\"stops\":[{\"id\":\"\",\"time\":\"'+start2+'\"，\"name\":\"Real Place Name\"，\"lat\":43.0,\"lng\":-79.0,\"address\":\"Full street address\"，\"type\":\"food|drinks|culture|shopping|nature\"，\"description\":\"Specific reason to visit\"，\"walk_to_next\":\"\",\"transit_to_next\":\"\",\"budget_note\":\"\",\"premium_note\":\"\"}]}';
+      var prompt2='IMPORTANT: It is '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+'. Only recommend currently open venues — skip permanently closed places. Prioritize spots opened or trending in 2022-2025.\n'+'Create a '+hours2+'-hour day itinerary in '+(d2.name||'this area')+(d2.country?', '+d2.country:'')+'. Vibe: '+vibe2+'. Start at '+start2+'.\n'+vibeInstr2+'Focus on ONE walkable neighbourhood — consecutive stops within 10-minute walk of each other.\nDIVERSITY SEED: '+seed2+'. Vary the neighbourhood and mix each run. Avoid recently used spots: '+(recent2.join(', ')||'none')+'.\n'+(tweak2?'USER REQUEST: '+tweak2+'\n':'')+'Include lat, lng and address for every stop. Return ONLY valid JSON.\n{\"title\":\"...\"，\"city\":\"'+(d2.name||'')+'\"，\"start\":\"'+start2+'\"，\"hours\":'+parseInt(hours2,10||6)+'，\"vibe\":\"'+vibe2+'\"，\"neighbourhood\":\"...\"，\"stops\":[{\"id\":\"\",\"time\":\"'+start2+'\"，\"name\":\"Real Place Name\"，\"lat\":43.0,\"lng\":-79.0,\"address\":\"Full street address\"，\"type\":\"food|drinks|culture|shopping|nature\"，\"description\":\"Specific reason to visit\"，\"walk_to_next\":\"\",\"transit_to_next\":\"\",\"budget_note\":\"\",\"premium_note\":\"\"}]}';
       (window.ai||ai)([{role:'user',content:prompt2}],function(err,text){
         if(err){if(g('place-recs'))g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
         parseAIObj(text,function(e2,plan){
@@ -8917,6 +8946,1030 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
 
     update(false,'next');
   }
+})();
+</script>
+
+<script id="wl-urgent-plan-explore-collections-rating-fix-v20">
+(function(){
+  if(window.__wl_urgent_plan_explore_collections_rating_v20)return;
+  window.__wl_urgent_plan_explore_collections_rating_v20=true;
+
+  function g(id){return document.getElementById(id);} 
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function uid2(){try{return uid();}catch(e){return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2);}}
+  function toast2(s){try{if(window.toast)window.toast(s);}catch(e){}}
+  function googleKey(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||localStorage.getItem('wl_google_maps_key')||'';}
+  function coords(p){if(!p)return null;var lat=parseFloat(p.lat),lng=parseFloat(p.lng!=null?p.lng:p.lon);if(isFinite(lat)&&isFinite(lng))return{lat:lat,lng:lng};if(p.geometry&&p.geometry.location){var l=p.geometry.location;return{lat:typeof l.lat==='function'?l.lat():l.lat,lng:typeof l.lng==='function'?l.lng():l.lng};}return null;}
+  function km(a,b){if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function openStatus(x){return x&&x!=='CLOSED_PERMANENTLY'&&x!=='CLOSED_TEMPORARILY';}
+  function milesLabel(m){return m<1000?Math.round(m)+'m':(Math.round(m/100)/10)+'km';}
+  function walkLabel(a,b){var d=km(a,b);if(!isFinite(d))return '';var m=d*1000;var min=Math.max(2,Math.round(m/80));return min+' min walk ('+milesLabel(m)+')';}
+  function typeFromGoogle(types){types=types||[];var t=types.join(' ');if(/bar|night_club|liquor|brewery/.test(t))return 'drinks';if(/park|natural|beach|trail|garden/.test(t))return 'nature';if(/museum|art_gallery|tourist_attraction|church|library/.test(t))return 'culture';if(/shopping|store|book_store|clothing_store/.test(t))return 'shopping';return 'food';}
+  function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');}
+
+  var style=document.createElement('style');
+  style.textContent='\n#coll-modal-bg{z-index:9000!important}#coll-modal{z-index:9001!important;top:0!important;bottom:0!important;left:0!important;right:0!important;border-radius:0!important;max-height:none!important;height:100vh!important;padding:calc(18px + var(--st,0px)) 16px calc(20px + var(--sb,0px))!important}.toast,.share-toast{z-index:10000!important}.wl-full-bg{position:fixed;inset:0;background:rgba(0,0,0,.54);z-index:9500;display:flex;align-items:flex-end;justify-content:center}.wl-full-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg4);border-radius:24px 24px 0 0;padding:22px 18px calc(24px + var(--sb,0px));box-shadow:0 -8px 42px rgba(0,0,0,.28);font-family:inherit}.wl-full-title{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-bottom:6px}.wl-full-sub{font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:14px}.wl-rate-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}.wl-rate-btn{padding:14px 0;border-radius:16px;border:1.5px solid var(--border);background:var(--bg2);font-size:18px;font-weight:800;color:var(--text);cursor:pointer;font-family:inherit}.wl-rate-btn.on{background:var(--gold);border-color:var(--gold);color:#fff}.wl-save-row{display:flex;gap:8px;margin:8px 0}.wl-save-card{width:100%;padding:13px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;text-align:left;cursor:pointer;color:var(--text);font-family:inherit}.wl-save-card strong{display:block;font-size:14px;margin-bottom:2px}.wl-save-card span{font-size:12px;color:var(--text3)}.wl-plan-warning{font-size:12px;line-height:1.5;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:12px;padding:10px 12px;color:var(--gold);margin:9px 0 12px}.wl-dp-modebtn{flex:1;padding:11px 10px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.wl-dp-modebtn.on{background:var(--gold);border-color:var(--gold);color:#fff}.wl-dp-input{width:100%;padding:11px 13px;background:var(--bg4);border:1.5px solid var(--border);border-radius:13px;color:var(--text);outline:none;font-family:inherit;font-size:14px}\n';
+  document.head.appendChild(style);
+
+  function ensureGoogle(cb){
+    if(!googleKey()){cb('No Google key');return;}
+    if(window.google&&google.maps&&google.maps.places){cb(null);return;}
+    if(window.loadGooglePlacesSDK){window.loadGooglePlacesSDK(cb);return;}
+    cb('Google Places loader missing');
+  }
+  function placesService(){return new google.maps.places.PlacesService(document.createElement('div'));}
+  function textSearch(query,centre,radius,cb){
+    ensureGoogle(function(err){
+      if(err){cb(err,[]);return;}
+      var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','photos']};
+      if(centre){req.location=new google.maps.LatLng(centre.lat,centre.lng);req.radius=radius||2200;}
+      placesService().textSearch(req,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No results',[]);return;}
+        cb(null,results.filter(function(r){return openStatus(r.business_status)&&coords(r);}).map(function(r){var c=coords(r);return{name:r.name,place_id:r.place_id,address:r.formatted_address||'',lat:c.lat,lng:c.lng,business_status:r.business_status||'',types:r.types||[],rating:r.rating||'',user_ratings_total:r.user_ratings_total||'',photo_url:r.photos&&r.photos[0]&&r.photos[0].getUrl?r.photos[0].getUrl({maxWidth:900,maxHeight:500}):''};}));
+      });
+    });
+  }
+  function collectGoogleCandidates(dest,area,vibe,anchor,cb){
+    var centre=coords(anchor)||coords(dest)||null;
+    var base=(area?area+', ':'')+(dest.name||'')+(dest.country?', '+dest.country:'');
+    var vibeLow=String(vibe||'').toLowerCase();
+    var qs=[];
+    if(vibeLow.indexOf('night')>-1||vibeLow.indexOf('date')>-1)qs=['cocktail bars '+base,'wine bars '+base,'restaurants '+base,'live music '+base];
+    else if(vibeLow.indexOf('food')>-1)qs=['restaurants '+base,'cafes '+base,'bars '+base,'bakeries '+base];
+    else if(vibeLow.indexOf('outdoor')>-1)qs=['parks '+base,'gardens '+base,'cafes '+base,'viewpoints '+base];
+    else if(vibeLow.indexOf('local')>-1)qs=['cafes '+base,'restaurants '+base,'bars '+base,'shops '+base];
+    else qs=['restaurants '+base,'bars '+base,'cafes '+base,'attractions '+base,'shops '+base];
+    if(anchor&&anchor.name)qs.unshift('places near '+anchor.name+' '+base);
+    var seen={},out=[],i=0;
+    function step(){
+      if(i>=qs.length){
+        out.sort(function(a,b){var da=centre?km(a,centre):0,db=centre?km(b,centre):0;return da-db;});
+        cb(null,out.slice(0,36));return;
+      }
+      var q=qs[i++];
+      textSearch(q,centre,area?1800:3500,function(err,res){
+        (res||[]).forEach(function(p){var k=p.place_id||norm(p.name);if(seen[k])return;seen[k]=1;if(centre&&km(p,centre)>4.5)return;out.push(p);});
+        setTimeout(step,80);
+      });
+    }
+    step();
+  }
+
+  function savedForDest(dest){
+    return (S.dests||[]).filter(function(x){
+      if(x.type!=='local')return false;
+      if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;
+      if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;
+      var c=coords(x),d=coords(dest);return c&&d&&km(c,d)<30;
+    });
+  }
+  function filteredSpots(){
+    var arr=(S.dests||[]).filter(function(d){
+      if(d.type!=='local')return false;
+      if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;
+      if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}
+      return true;
+    });
+    return arr;
+  }
+  function buildFromSaved(spots,opts){
+    opts=opts||{};var anchor=opts.anchor||null;var hours=parseInt(opts.hours||6,10)||6;var start=opts.start||'11:00am';
+    var pool=(spots||[]).filter(function(s){return s&&s.name;});
+    if(anchor&&!pool.some(function(s){return s.id===anchor.id;}))pool.unshift(anchor);
+    var centre=coords(anchor)||coords(pool[0])||null;
+    pool=pool.slice().sort(function(a,b){if(anchor&&a.id===anchor.id)return -1;if(anchor&&b.id===anchor.id)return 1;return centre?km(a,centre)-km(b,centre):0;});
+    var maxStops=Math.max(3,Math.min(6,hours));
+    var stops=pool.slice(0,maxStops).map(function(s,i){var type=(s.category||((s.tags||[])[0])||'').toLowerCase();var t=type.indexOf('bar')>-1||type.indexOf('cocktail')>-1||type.indexOf('beer')>-1?'drinks':type.indexOf('park')>-1?'nature':type.indexOf('shop')>-1?'shopping':type.indexOf('sight')>-1||type.indexOf('culture')>-1?'culture':'food';return{ id:s.id,time:addHours(start,i*1.25),name:s.name,type:t,description:(i===0&&anchor?'Start here. ':'')+'Saved spot from your list'+(s.tags&&s.tags.length?' tagged '+s.tags.join(', '):'')+'.',address:s.address||s.country||'',lat:s.lat,lng:s.lng,budget_note:'Use your saved notes and current menu pricing.',premium_note:'Upgrade with reservations, chef picks or best seats.'};});
+    for(var j=0;j<stops.length-1;j++){stops[j].walk_to_next=walkLabel(stops[j],stops[j+1])||'Nearby stop';}
+    return{title:(opts.title||'Saved-spots day plan'),city:opts.city||'',start:start,hours:hours,vibe:opts.vibe||'Saved spots',neighbourhood:opts.area||'',stops:stops};
+  }
+  function addHours(start,offset){
+    var m=String(start).match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return start;var h=parseInt(m[1],10)%12,min=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,min+Math.round(offset*60));var hh=d.getHours(),amp=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+amp;
+  }
+
+  window.setDPMode=function(el,mode){
+    document.querySelectorAll('.wl-dp-modebtn,#dp-use-ai,#dp-use-saved').forEach(function(b){b.classList.remove('on');});
+    if(el)el.classList.add('on');
+    window._dpMode=mode===true?'saved':(mode||'ai');
+  };
+
+  window.planDay=function(destId){
+    var d=(S.dests||[]).find(function(x){return x.id===destId;});if(!d)return;
+    var anchor=window._planWithSpot||null;
+    var forcedFiltered=Array.isArray(window._planWithSpots)&&window._planWithSpots.length?window._planWithSpots.slice():null;
+    window._planWithSpot=null;window._planWithSpots=null;
+    var saved=forcedFiltered||savedForDest(d);
+    if(anchor){saved=[anchor].concat(saved.filter(function(x){return x.id!==anchor.id;}));}
+    window._dpSaved=saved;window._dpAnchor=anchor;window._dpMode=forcedFiltered?'filtered':'ai';
+    currentPlanCity=d.name;
+    var title=forcedFiltered?'Plan from filtered saved spots':anchor?'Plan a day near '+anchor.name:'Plan a day in '+d.name;
+    var savedBtn=saved.length?'<button class="wl-dp-modebtn'+(forcedFiltered?' on':'')+'" onclick="setDPMode(this,\''+(forcedFiltered?'filtered':'saved')+'\')">📍 My saved spots ('+saved.length+')</button>':'';
+    var aiBtn=forcedFiltered?'':'<button class="wl-dp-modebtn on" onclick="setDPMode(this,\'ai\')">🤖 AI recommendations</button>';
+    var warn=googleKey()?'':'<div class="wl-plan-warning">For best accuracy, add a Google Maps or Places API key in Settings. Without it, the app cannot fully verify closed venues or exact addresses before showing the plan.</div>';
+    var html='<div style="background:var(--bg2);border-radius:16px;padding:14px;border:1px solid var(--border);margin-bottom:12px">'+
+      '<div style="font-size:17px;font-weight:800;margin-bottom:4px">'+esc(title)+'</div><div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px">Use a tight walkable cluster. For Ossington, enter Ossington below.</div>'+warn+
+      '<div style="display:flex;gap:8px;margin-bottom:10px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Start time</div><select id="dp-start" class="wl-dp-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option><option>8:00pm</option></select></div><div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Hours out</div><select id="dp-hours" class="wl-dp-input"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option></select></div></div>'+ 
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Neighbourhood or area</div><input id="dp-area" class="wl-dp-input" placeholder="e.g. Ossington, West Queen West, Notting Hill" value="'+esc(anchor&&anchor.neighbourhood||'')+'">'+
+      '<div style="font-size:11px;color:var(--text3);margin:10px 0 6px">Vibe</div><div id="dp-vibes" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px"><button class="filter-pill on" onclick="togDPVibe(this)">🏘 Local</button><button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button><button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button><button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button><button class="filter-pill" onclick="togDPVibe(this)">🗺 Sightseeing</button><button class="filter-pill" onclick="togDPVibe(this)">🌳 Outdoors</button></div>'+ 
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Build from</div><div style="display:flex;gap:8px;margin-bottom:12px">'+aiBtn+savedBtn+'</div>'+ 
+      '<button style="width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+js(destId)+'\')">Build my day</button></div>';
+    var rec=g('place-recs');if(rec)rec.innerHTML=html;
+  };
+
+  function fallbackAIPlan(d,start,hours,vibe,area,anchor,saved,mode){
+    var savedLines=(saved||[]).slice(0,20).map(function(s,i){return (i+1)+'. '+s.name+' | '+(s.address||s.country||'')+' | '+(s.tags||[]).join(', ');}).join('\n');
+    var strictArea=area?'All stops must be physically within '+area+'. Do not use nearby neighbourhoods, downtown, east end, waterfront, or other areas. ':'Choose one specific compact neighbourhood and keep every stop inside it. ';
+    var prompt='Create a '+hours+'-hour day itinerary in '+d.name+(d.country?', '+d.country:'')+'. '+strictArea+'Start '+start+'. Vibe '+vibe+'. '+
+      'Only recommend currently open real venues. Do not include permanently closed places. Do not invent addresses. Keep stops within a 10-minute walk of each other. '+
+      (anchor?'First stop must be '+anchor.name+'. ':'')+
+      (mode==='saved'||mode==='filtered'?'Use ONLY these saved spots, no outside venues:\n'+savedLines:'')+
+      'Return ONLY valid JSON {"title":"","city":"'+d.name+'","neighbourhood":"'+(area||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"time":"","name":"","type":"food|drinks|culture|shopping|nature","description":"","address":"","walk_to_next":"","budget_note":"","premium_note":""}]}';
+    return prompt;
+  }
+
+  window.runDayPlan=function(destId){
+    var d=(S.dests||[]).find(function(x){return x.id===destId;});if(!d)return;
+    var hours=g('dp-hours')?g('dp-hours').value:'6';var start=g('dp-start')?g('dp-start').value:'11:00am';var area=g('dp-area')?clean(g('dp-area').value):'';
+    var vibe='';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});vibe=vibe||'Local';
+    var mode=window._dpMode||'ai';var saved=window._dpSaved||savedForDest(d);var anchor=window._dpAnchor||null;
+    currentPlanData=null;var rec=g('place-recs');if(rec)rec.innerHTML='<div class="ld" style="justify-content:center;padding:24px 0"><span class="spin"></span> Building a tighter, verified day plan...</div>';
+    if((mode==='saved'||mode==='filtered')&&saved.length){
+      var plan=buildFromSaved(saved,{anchor:anchor,start:start,hours:hours,vibe:vibe,area:area,city:d.name,title:mode==='filtered'?'Filtered saved-spots day plan':'Saved-spots day plan'});
+      plan._destId=destId;plan._settings={destId:destId,start:start,hours:hours,vibe:vibe,area:area,mode:mode,spots:saved,anchorSpot:anchor};currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);return;
+    }
+    if(googleKey()){
+      collectGoogleCandidates(d,area,vibe,anchor,function(err,cands){
+        if(err||!cands.length){runFallback();return;}
+        var map={};cands.forEach(function(c){map[norm(c.name)]=c;});
+        var lines=cands.map(function(c,i){return (i+1)+'. '+c.name+' | '+c.address+' | '+typeFromGoogle(c.types)+' | '+(c.rating?('rating '+c.rating):'')+' | id '+(c.place_id||'');}).join('\n');
+        var prompt='Create a '+hours+'-hour day itinerary in '+d.name+(d.country?', '+d.country:'')+'. Start '+start+'. Vibe '+vibe+'. '+(area?'Neighbourhood is '+area+'. ':'')+
+          'Use ONLY venues from this candidate list. Do not add any venue not listed. All candidates are Google Places results that are not permanently closed. Keep the route compact. '+(anchor?'The first stop must be '+anchor.name+'. ':'')+
+          '\nCandidates:\n'+lines+'\nReturn ONLY valid JSON {"title":"","city":"'+d.name+'","neighbourhood":"'+(area||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"time":"","name":"exact candidate name","place_id":"candidate id","type":"food|drinks|culture|shopping|nature","description":"specific but concise","budget_note":"","premium_note":""}]}';
+        ai([{role:'user',content:prompt}],function(e,text){
+          if(e){runFallback();return;}
+          try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));
+            var stops=(plan.stops||[]).map(function(s){var c=map[norm(s.name)]||cands.find(function(x){return x.place_id&&x.place_id===s.place_id;});if(c){s.name=c.name;s.place_id=c.place_id;s.address=c.address;s.lat=c.lat;s.lng=c.lng;s.google_business_status=c.business_status;s.photo_url=c.photo_url;s.type=s.type||typeFromGoogle(c.types);}return s;}).filter(function(s){return coords(s);});
+            if(anchor){var first={id:anchor.id,time:start,name:anchor.name,type:'food',description:'Start at your selected spot, then continue with nearby verified stops.',address:anchor.address||anchor.country||'',lat:anchor.lat,lng:anchor.lng};stops=stops.filter(function(s){return norm(s.name)!==norm(anchor.name);});stops.unshift(first);} 
+            stops=stops.filter(function(s,i){return i===0||!coords(stops[i-1])||km(stops[i-1],s)<=2.5;}).slice(0,Math.max(3,Math.min(6,parseInt(hours,10)||6)));
+            for(var i=0;i<stops.length-1;i++){stops[i].walk_to_next=walkLabel(stops[i],stops[i+1]);}
+            plan.stops=stops;plan.city=d.name;plan._destId=destId;plan._settings={destId:destId,start:start,hours:hours,vibe:vibe,area:area,mode:mode,spots:saved,anchorSpot:anchor};currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);
+          }catch(ex){runFallback();}
+        },4000);
+      });
+    }else runFallback();
+    function runFallback(){
+      if(saved.length&&(anchor||mode==='saved'||mode==='filtered')){var p=buildFromSaved(saved,{anchor:anchor,start:start,hours:hours,vibe:vibe,area:area,city:d.name,title:'Saved-spots day plan'});p._destId=destId;p._settings={destId:destId,start:start,hours:hours,vibe:vibe,area:area,mode:mode,spots:saved,anchorSpot:anchor};currentPlanData=p;renderDayPlanHtml(p,vibe,destId);return;}
+      ai([{role:'user',content:fallbackAIPlan(d,start,hours,vibe,area,anchor,saved,mode)}],function(e,text){if(e){if(rec)rec.innerHTML='<div class="empty-state"><p style="color:red">Could not build the day plan. Add a Google Places key for verified local planning.</p></div>';return;}try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));plan._destId=destId;plan._settings={destId:destId,start:start,hours:hours,vibe:vibe,area:area,mode:mode,spots:saved,anchorSpot:anchor};currentPlanData=plan;renderDayPlanHtml(plan,vibe,destId);}catch(ex){if(rec)rec.innerHTML='<div class="empty-state"><p>Could not parse the day plan. Try again.</p></div>';}} ,4000);
+    }
+  };
+
+  window.refreshDayPlan=function(tweakMsg){
+    var cfg=currentPlanData&&currentPlanData._settings;if(!cfg){toast2('Open Plan a day again to refresh');return;}
+    window._dpSaved=cfg.spots||[];window._dpAnchor=cfg.anchorSpot||null;window._dpMode=cfg.mode||'ai';window._tweakMsg=tweakMsg||'';
+    var d=(S.dests||[]).find(function(x){return x.id===cfg.destId;});if(!d){toast2('Could not find the destination');return;}
+    if(!g('dp-hours')){var holder=document.createElement('div');holder.style.display='none';holder.innerHTML='<select id="dp-hours"><option>'+cfg.hours+'</option></select><select id="dp-start"><option>'+cfg.start+'</option></select><input id="dp-area" value="'+esc(cfg.area||'')+'"><div id="dp-vibes"><button class="filter-pill on">'+esc(cfg.vibe||'Local')+'</button></div>';document.body.appendChild(holder);setTimeout(function(){holder.remove();},2000);} 
+    runDayPlan(cfg.destId);
+  };
+
+  var oldPlanNear=window.planDayNearSpot;
+  window.planDayNearSpot=function(spotId){var spot=(S.dests||[]).find(function(x){return x.id===spotId;});if(!spot){if(oldPlanNear)oldPlanNear(spotId);return;}window._dpAnchor=spot;window._planWithSpot=spot;var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((x.city&&spot.city&&norm(x.city)===norm(spot.city))||(x.name&&spot.city&&norm(x.name)===norm(spot.city))||(x.country&&spot.country&&norm(x.country)===norm(spot.country))||km(x,spot)<30);})||{id:'_tmp_'+spotId,name:spot.city||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};if(!S.dests.some(function(x){return x.id===dest.id;}))S.dests.push(dest);closePlaceDetail&&closePlaceDetail();setTimeout(function(){openPlaceDetail(dest.id,true);},60);};
+
+  window.planDayFromFiltered=function(){var spots=filteredSpots();if(!spots.length){toast2('No spots match the current filters');return;}window._planWithSpots=spots;window._wlFilteredSpots=spots;var first=spots[0];var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||(first.country&&norm(x.country)===norm(first.country))||km(x,first)<30);})||{id:'_tmp_filtered_'+Date.now(),name:first.city||first.country||'Filtered local spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};if(!S.dests.some(function(x){return x.id===dest.id;}))S.dests.push(dest);openPlaceDetail(dest.id,true);};
+
+  window.saveDayPlan=function(){
+    var plan=currentPlanData;if(!plan){toast2('No day plan to save');return;}
+    var bg=document.createElement('div');bg.className='wl-full-bg';
+    var sheet=document.createElement('div');sheet.className='wl-full-sheet';
+    var title=plan.title||'Day plan';
+    var cols=window.loadCollections?window.loadCollections():[];
+    sheet.innerHTML='<div class="wl-full-title">Save day plan</div><div class="wl-full-sub">'+esc(title)+'<br>'+esc((plan.city||'')+' · '+(plan.hours||'')+'h · '+(plan.vibe||''))+'</div>'+ 
+      '<button class="action-btn" id="wl-save-itin">Save to Plans</button>'+ 
+      '<div style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px">Add to collection</div>'+ 
+      (cols.length?cols.map(function(c,i){return'<button class="wl-save-card" data-coll="'+i+'"><strong>📁 '+esc(c.name)+'</strong><span>'+((c.items||[]).length)+' items</span></button>';}).join(''):'<div class="wl-full-sub">No collections yet. Create one below.</div>')+
+      '<div class="wl-save-row"><input id="wl-new-coll" class="wl-dp-input" placeholder="New collection name"><button class="s-btn" id="wl-create-coll" style="padding:11px 14px">Create</button></div>'+ 
+      '<button class="action-btn outline" id="wl-save-cancel">Cancel</button>';
+    bg.appendChild(sheet);document.body.appendChild(bg);
+    function saveItin(){var existing=plan._id&&(S.itins||[]).some(function(x){return x._id===plan._id;});if(!existing){var itin={_id:plan._id||uid2(),_type:'dayplan',title:title,city:plan.city||currentPlanCity||'',hours:plan.hours||6,vibe:plan.vibe||'',start:plan.start||'',neighbourhood:plan.neighbourhood||'',stops:plan.stops||[],highlights:(plan.vibe||'')+' · '+(plan.hours||6)+' hours',duration_days:1};plan._id=itin._id;S.itins.unshift(itin);save();try{renderItins();}catch(e){}}return plan._id;}
+    sheet.querySelector('#wl-save-itin').onclick=function(){saveItin();bg.remove();toast2('Day plan saved to Plans');try{swScreen('s-plans');}catch(e){}};
+    sheet.querySelector('#wl-save-cancel').onclick=function(){bg.remove();};
+    sheet.querySelectorAll('[data-coll]').forEach(function(btn){btn.onclick=function(){saveItin();var idx=parseInt(btn.getAttribute('data-coll'),10);var cols=loadCollections();cols[idx].items=cols[idx].items||[];cols[idx].items.push({name:title,type:'plan',planId:plan._id,city:plan.city,hours:plan.hours,stops:(plan.stops||[]).length,addedAt:Date.now()});saveCollections(cols);bg.remove();toast2('Added to collection');if(window.renderCollections)renderCollections();};});
+    sheet.querySelector('#wl-create-coll').onclick=function(){var name=clean(g('wl-new-coll').value);if(!name){g('wl-new-coll').focus();return;}saveItin();var cols=loadCollections();cols.push({id:'coll_'+Date.now(),name:name,items:[{name:title,type:'plan',planId:plan._id,city:plan.city,hours:plan.hours,stops:(plan.stops||[]).length,addedAt:Date.now()}],createdAt:Date.now()});saveCollections(cols);bg.remove();toast2('Collection created');if(window.renderCollections)renderCollections();};
+    bg.onclick=function(e){if(e.target===bg)bg.remove();};
+  };
+
+  window.markVisited=function(id){
+    var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d)return;
+    var bg=document.createElement('div');bg.className='wl-full-bg';var sheet=document.createElement('div');sheet.className='wl-full-sheet';
+    var buttons='';for(var i=1;i<=10;i++){buttons+='<button class="wl-rate-btn'+(Number(d.rating10)===i?' on':'')+'" data-rate="'+i+'">'+i+'</button>';}
+    sheet.innerHTML='<div class="wl-full-title">Rate '+esc(d.name)+'</div><div class="wl-full-sub">Mark it visited and score it out of 10.</div><div class="wl-rate-grid">'+buttons+'</div><textarea id="wl-rate-note" class="wl-dp-input" style="min-height:90px;resize:none" placeholder="Optional note, what to order, who to bring...">'+esc(d.visitNote||'')+'</textarea><button class="action-btn outline" id="wl-rate-cancel" style="margin-top:12px">Cancel</button>';
+    bg.appendChild(sheet);document.body.appendChild(bg);
+    sheet.querySelectorAll('[data-rate]').forEach(function(b){b.onclick=function(){var r=parseInt(b.getAttribute('data-rate'),10);d.visited=true;d.rating10=r;d.rating=r+'/10';d.visitNote=clean(g('wl-rate-note').value);d.visitedAt=Date.now();save();try{syncList();}catch(e){}bg.remove();toast2('Rated '+r+'/10');};});
+    sheet.querySelector('#wl-rate-cancel').onclick=function(){bg.remove();};bg.onclick=function(e){if(e.target===bg)bg.remove();};
+  };
+
+  var oldRenderPlace=window.renderPlaceRecs;
+  window.renderPlaceRecs=function(id){if(oldRenderPlace)oldRenderPlace(id);setTimeout(function(){var el=g('place-recs');if(!el||g('explore-refresh-row'))return;var row=document.createElement('div');row.id='explore-refresh-row';row.style.cssText='display:flex;gap:8px;margin:8px 0 12px';row.innerHTML='<button onclick="refreshExploreSuggestions()" style="flex:1;padding:10px 12px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Refresh recommendations</button>';el.parentNode.insertBefore(row,el);},50);};
+
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId;var d=(S.dests||[]).find(function(x){return x.id===id;});if(!id||!d){toast2('Open a destination first');return;}
+    if(window.placeRecs)delete window.placeRecs[id];try{localStorage.removeItem('wl_explore_cache_'+id);}catch(e){}
+    var el=g('place-recs');if(el)el.innerHTML='<div class="ld" style="justify-content:center;padding:20px 0"><span class="spin"></span> Refreshing with new spots...</div>';
+    if(googleKey()){
+      collectGoogleCandidates(d,'','Local',null,function(err,cands){
+        if(!err&&cands.length){
+          cands.sort(function(){return Math.random()-.5;});
+          placeRecs[id]=cands.slice(0,12).map(function(c){return{name:c.name,type:typeFromGoogle(c.types)==='drinks'?'bar':typeFromGoogle(c.types),tags:[],description:(c.address||'')+(c.rating?' · Google '+c.rating:''),budget:false,emoji:typeFromGoogle(c.types)==='drinks'?'🍸':'📍',price_range:'',place_id:c.place_id,google_business_status:c.business_status,lat:c.lat,lng:c.lng};});
+          renderPlaceRecs(id);toast2('Recommendations refreshed');return;
+        }
+        fallbackExplore();
+      });
+    }else fallbackExplore();
+    function fallbackExplore(){
+      var seed=Date.now();var prompt='Give me 12 different currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Refresh seed '+seed+'. Avoid repeating the obvious top results from prior attempts. Only real operating places, no permanently closed venues, no invented addresses. Return ONLY valid JSON array [{"name":"","type":"restaurant|bar|cafe|park|activity","tags":["🍸 Cocktails"],"description":"","budget":false,"emoji":"📍","price_range":"$$"}].';
+      ai([{role:'user',content:prompt}],function(err,text){if(err){if(el)el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not refresh suggestions. Try again.</p>';return;}try{placeRecs[id]=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));renderPlaceRecs(id);toast2('Recommendations refreshed');}catch(e){if(el)el.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not parse refreshed suggestions.</p>';}} ,4000);
+    }
+  };
+
+  window.addPlanToCollection=function(plan){window.showCollectionPicker({name:(plan||currentPlanData||{}).title||'Day plan',type:'plan',city:(plan||currentPlanData||{}).city,hours:(plan||currentPlanData||{}).hours,stops:((plan||currentPlanData||{}).stops||[]).length});};
+
+  var oldShow=window.showCollectionPicker;
+  window.showCollectionPicker=function(item){if(oldShow)oldShow(item);var m=g('coll-modal');if(m){m.style.top='0';m.style.height='100vh';m.style.maxHeight='none';m.style.borderRadius='0';m.style.zIndex='9001';}var bg=g('coll-modal-bg');if(bg)bg.style.zIndex='9000';};
+})();
+</script>
+
+<script id="wl-v21-user-request-final-fixes">
+(function(){
+  if(window.__wl_v21_user_request_final_fixes)return;
+  window.__wl_v21_user_request_final_fixes=true;
+
+  function el(id){return document.getElementById(id);} 
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toastMsg(s){try{window.toast?window.toast(s):console.log(s);}catch(e){}}
+  function key(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||localStorage.getItem('wl_google_maps_key')||'';}
+  function uidv(){try{return uid();}catch(e){return 'wl_'+Date.now()+'_'+Math.random().toString(36).slice(2);}}
+  function coords(p){if(!p)return null;var lat=parseFloat(p.lat),lng=parseFloat(p.lng!=null?p.lng:p.lon);if(isFinite(lat)&&isFinite(lng))return{lat:lat,lng:lng};if(p.geometry&&p.geometry.location){var l=p.geometry.location;return{lat:typeof l.lat==='function'?l.lat():l.lat,lng:typeof l.lng==='function'?l.lng():l.lng};}return null;}
+  function km(a,b){a=coords(a);b=coords(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function addHours(start,delta){var m=String(start||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);var h=m?parseInt(m[1],10):11,mi=m&&m[2]?parseInt(m[2],10):0,ap=m?m[3].toLowerCase():'am';if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;var total=h*60+mi+Math.round(delta*60),hh=Math.floor(total/60)%24,mm=total%60,amp=hh>=12?'pm':'am',h12=hh%12||12;return h12+':'+String(mm).padStart(2,'0')+amp;}
+  function walk(a,b){var d=km(a,b);if(!isFinite(d))return '';var metres=d*1000;var mins=Math.max(2,Math.round(metres/80));var dist=metres<1000?Math.round(metres)+'m':(Math.round(metres/100)/10)+'km';return mins+' min walk ('+dist+')';}
+  function openStatus(s){return !s||String(s).indexOf('CLOSED')!==0;}
+
+  var style=document.createElement('style');
+  style.textContent='\n.wl-loading-card{margin:14px 0;padding:24px 18px;border-radius:22px;background:linear-gradient(135deg,var(--gold-lt),var(--bg4));border:1.5px solid var(--gold-md);box-shadow:var(--shadow-md);text-align:center}.wl-loading-icon{width:54px;height:54px;border-radius:50%;margin:0 auto 14px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;box-shadow:0 8px 24px rgba(184,115,10,.28);animation:wlFloat 1.6s ease-in-out infinite}.wl-loading-title{font-family:Fraunces,Georgia,serif;font-size:24px;font-weight:800;line-height:1.2;color:var(--text);letter-spacing:-.03em;margin-bottom:7px}.wl-loading-sub{font-size:15px;line-height:1.5;color:var(--text2);max-width:330px;margin:0 auto}.wl-loading-bar{height:7px;border-radius:20px;background:var(--bg3);overflow:hidden;margin:18px auto 0;max-width:260px}.wl-loading-bar span{display:block;height:100%;width:45%;background:var(--gold);border-radius:20px;animation:wlLoad 1.2s ease-in-out infinite}@keyframes wlFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}@keyframes wlLoad{0%{transform:translateX(-120%)}100%{transform:translateX(260%)}}#local-tag-filters .mf-btn,#local-tag-filters select,.search-city-sel{font-size:15px!important;padding:11px 16px!important;border-radius:26px!important}.search-city-sel{max-width:150px!important;height:46px!important}.search-city-wrap{min-width:150px!important}.city-inp{min-height:46px!important}.dest-rating-badge{font-size:12px;font-weight:900;background:var(--gold);color:#fff;border-radius:14px;padding:3px 8px;margin-left:6px;vertical-align:middle}.wl-rate-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:12000;display:flex;align-items:flex-end;justify-content:center}.wl-rate-sheet{width:100%;max-width:560px;background:var(--bg4);border-radius:26px 26px 0 0;padding:26px 18px calc(26px + var(--sb,0px));box-shadow:0 -10px 44px rgba(0,0,0,.3)}.wl-rate-title{font-family:Fraunces,Georgia,serif;font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:5px}.wl-rate-grid2{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:18px 0}.wl-rate-grid2 button{padding:17px 0;border-radius:17px;border:1.5px solid var(--border);background:var(--bg2);font-size:21px;font-weight:900;color:var(--text);font-family:inherit}.wl-rate-grid2 button.on,.wl-rate-grid2 button:active{background:var(--gold);border-color:var(--gold);color:#fff}.wl-dp-modebtn.on{background:var(--gold)!important;color:#fff!important;border-color:var(--gold)!important}\n';
+  document.head.appendChild(style);
+
+  function loadingHTML(title,sub,icon){return '<div class="wl-loading-card"><div class="wl-loading-icon">'+(icon||'✨')+'</div><div class="wl-loading-title">'+esc(title)+'</div><div class="wl-loading-sub">'+esc(sub)+'</div><div class="wl-loading-bar"><span></span></div></div>';}
+
+  function ensureHomeDestination(){
+    var home=clean(localStorage.getItem('wl_homecity')); if(!home||!window.S||!S.dests)return;
+    var hnorm=norm(home.split(',')[0]);
+    if(S.dests.some(function(d){return d.type==='dest'&&(norm(d.name)===hnorm||norm((d.name||'')+', '+(d.country||''))===norm(home));}))return;
+    function add(lat,lng,country){S.dests.push({id:uidv(),name:home.split(',')[0].trim(),country:country||home,lat:lat,lng:lng,type:'dest',isHome:true});try{save();syncList();syncMap();populateSavedCityDropdowns();}catch(e){}}
+    var cached=localStorage.getItem('wl_homecoords');
+    if(cached){try{var c=JSON.parse(cached);add(c.lat,c.lng,home);return;}catch(e){}}
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(home)+'&format=json&limit=1&addressdetails=1',{headers:{'Accept-Language':'en'}}).then(function(r){return r.json();}).then(function(res){if(res&&res[0]){localStorage.setItem('wl_homecoords',JSON.stringify({lat:parseFloat(res[0].lat),lng:parseFloat(res[0].lon)}));add(parseFloat(res[0].lat),parseFloat(res[0].lon),(res[0].address&&res[0].address.country)||home);}}).catch(function(){});
+  }
+  var oldSaveHome=window.saveHomeCity;
+  window.saveHomeCity=function(v){if(oldSaveHome)oldSaveHome(v);setTimeout(ensureHomeDestination,500);};
+
+  function populateSavedCityDropdowns(){
+    if(!window.S||!S.dests)return;
+    var names=[];
+    var home=clean(localStorage.getItem('wl_homecity')); if(home)names.push(home.split(',')[0].trim());
+    (S.dests||[]).filter(function(d){return d.type==='dest';}).forEach(function(d){if(d.name)names.push(d.name);});
+    names=[].filter.call(names,function(v,i,a){return v&&a.map(norm).indexOf(norm(v))===i;}).sort();
+    var searchSel=el('search-city-sel');
+    if(searchSel){var cur=searchSel.value;searchSel.innerHTML='<option value="">Any city</option>'+names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');searchSel.value=cur&&names.indexOf(cur)>-1?cur:'';var wrap=el('search-city-wrap');if(wrap)wrap.style.display='flex';}
+    var localSel=el('local-city-sel');
+    if(localSel){var cur2=localSel.value||'all';localSel.innerHTML='<option value="all">All cities</option>'+names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');localSel.value=names.indexOf(cur2)>-1?cur2:'all';}
+  }
+  window.populateSavedCityDropdowns=populateSavedCityDropdowns;
+
+  var oldSyncList=window.syncList;
+  window.syncList=function(){
+    if(oldSyncList)oldSyncList();
+    populateSavedCityDropdowns();
+    setTimeout(function(){
+      document.querySelectorAll('#dlist .dest-item').forEach(function(row){
+        var nm=row.querySelector('.dest-name');if(!nm||nm.getAttribute('data-v21'))return;
+        var d=(S.dests||[]).find(function(x){return norm(x.name)===norm(nm.textContent);});
+        if(d&&d.rating10){nm.innerHTML=esc(d.name)+' <span class="dest-rating-badge">'+esc(d.rating10)+'/10</span>';nm.setAttribute('data-v21','1');}
+      });
+    },0);
+  };
+
+  function loadGooglePlaces(cb){
+    if(!(key())){cb('No Google key');return;}
+    if(window.google&&google.maps&&google.maps.places){cb(null);return;}
+    if(window.loadGooglePlacesSDK){window.loadGooglePlacesSDK(cb);return;}
+    window.__wlPlacesCb=function(){cb(null);};
+    var s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key())+'&libraries=places&callback=__wlPlacesCb';s.async=true;s.defer=true;s.onerror=function(){cb('Google Places failed');};document.head.appendChild(s);
+  }
+  function placesText(query,opts,cb){
+    loadGooglePlaces(function(err){
+      if(err){cb(err,[]);return;}
+      var svc=new google.maps.places.PlacesService(document.createElement('div'));
+      var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total']};
+      if(opts&&opts.location){req.location=new google.maps.LatLng(opts.location.lat,opts.location.lng);req.radius=opts.radius||6000;}
+      svc.textSearch(req,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No results',[]);return;}
+        cb(null,results.filter(function(r){return openStatus(r.business_status)&&coords(r);}).map(function(r){var c=coords(r);return{_google:true,display_name:r.name,name:r.name,place_id:r.place_id,lat:c.lat,lon:c.lng,lng:c.lng,address:{city:'',country:'',state:''},_addrStr:r.formatted_address||'',types:r.types||[],business_status:r.business_status||'',rating:r.rating||'',user_ratings_total:r.user_ratings_total||''};}));
+      });
+    });
+  }
+
+  window.fetchLocalAC=function(q){
+    q=clean(q); if(q.length<2){try{hideAC();}catch(e){}return;}
+    var home=clean(localStorage.getItem('wl_homecity'));
+    var city=(el('search-city-sel')&&el('search-city-sel').value)||home;
+    var query=q+(city?' in '+city:'');
+    var cached=localStorage.getItem('wl_homecoords'), loc=null; try{if(cached)loc=JSON.parse(cached);}catch(e){}
+    placesText(query,{location:loc,radius:18000},function(err,res){
+      if(!err&&res.length){window.acResults=res.slice(0,10);renderAC();return;}
+      fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(query)+'&format=json&limit=10&addressdetails=1',{headers:{'Accept-Language':'en'}}).then(function(r){return r.json();}).then(function(list){window.acResults=(list||[]).filter(function(r){return r.lat&&r.lon;});if(window.acResults.length)renderAC();else hideAC();}).catch(function(){hideAC();});
+    });
+  };
+  window.fetchDestinationACStrict=function(q){
+    var query=clean(q);if(query.length<2){hideAC();return;}
+    placesText(query,{radius:50000},function(err,res){
+      if(!err&&res.length){window.acResults=res.slice(0,8);renderAC();return;}
+      fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(query)+'&format=json&limit=8&addressdetails=1',{headers:{'Accept-Language':'en'}}).then(function(r){return r.json();}).then(function(list){window.acResults=(list||[]).filter(function(r){return r.lat&&r.lon;});if(window.acResults.length)renderAC();else hideAC();}).catch(function(){hideAC();});
+    });
+  };
+  window.fetchAC=function(q){if(S.placeType==='local')fetchLocalAC(q);else fetchDestinationACStrict(q);};
+  var oldSelectAC=window.selectAC;
+  window.selectAC=function(i){
+    var r=(window.acResults||[])[i]; if(!r){if(oldSelectAC)oldSelectAC(i);return;}
+    if(r._google){
+      var c=coords(r), name=r.name||r.display_name, addr=r._addrStr||'';
+      var city=(el('search-city-sel')&&el('search-city-sel').value)||clean(localStorage.getItem('wl_homecity')).split(',')[0]||'';
+      el('city-inp').value='';hideAC();
+      if(S.placeType==='local'){showCatPicker(name,addr,c.lat,c.lng,(r.types&&r.types[0])||'local',city);}
+      else{addDests([{name:name,country:addr,lat:c.lat,lng:c.lng,type:'dest'}]);}
+      return;
+    }
+    if(oldSelectAC)oldSelectAC(i);
+  };
+
+  function savedNear(dest){return (S.dests||[]).filter(function(x){return x.type==='local'&&((x.city&&dest.name&&norm(x.city)===norm(dest.name))||(x.country&&dest.country&&norm(x.country)===norm(dest.country))||km(x,dest)<25);});}
+  function makePlanFromCandidates(cands,cfg){
+    cfg=cfg||{};var start=cfg.start||'11:00am',hours=parseInt(cfg.hours||6,10)||6,anchor=cfg.anchor||null,area=cfg.area||'',vibe=cfg.vibe||'Local';
+    var centre=coords(anchor)||coords(cfg.dest)||coords(cands[0]);
+    cands=(cands||[]).filter(function(p){return p&&p.name;});
+    if(anchor){cands=cands.filter(function(p){return norm(p.name)!==norm(anchor.name);});cands.unshift(anchor);}
+    cands.sort(function(a,b){if(anchor&&norm(a.name)===norm(anchor.name))return -1;if(anchor&&norm(b.name)===norm(anchor.name))return 1;return centre?km(a,centre)-km(b,centre):0;});
+    var stops=cands.slice(0,Math.max(3,Math.min(6,hours))).map(function(p,i){var types=(p.types||[]).join(' '), type=/bar|night|brewery|pub/.test(types)||/bar|cocktail|beer|pub/i.test(p.category||'')?'drinks':/park|garden|beach|trail/.test(types)?'nature':/museum|gallery|attraction|culture/.test(types)?'culture':/shop|store/.test(types)?'shopping':'food';return{time:addHours(start,i*1.2),name:p.name,type:type,description:(i===0&&anchor?'Start at your selected spot. ':'')+(p._addrStr||p.address||p.country||'Recommended nearby spot')+(p.rating?' · Google '+p.rating:''),walk_to_next:'',budget_note:'',premium_note:'' ,lat:p.lat,lng:p.lng};});
+    for(var j=0;j<stops.length-1;j++)stops[j].walk_to_next=walk(stops[j],stops[j+1]);
+    return{title:(area?area+' ':'')+(vibe||'Local')+' day plan',city:(cfg.dest&&cfg.dest.name)||'',neighbourhood:area,start:start,hours:hours,vibe:vibe,stops:stops,_destId:cfg.dest&&cfg.dest.id,_source:cfg.source||'AI'};
+  }
+  function currentDPConfig(destId,tweak){
+    var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+    return{dest:(S.dests||[]).find(function(x){return x.id===destId;}),destId:destId,start:el('dp-start')?el('dp-start').value:'11:00am',hours:el('dp-hours')?el('dp-hours').value:'6',area:el('dp-area')?clean(el('dp-area').value):'',vibe:vibe,tweak:tweak||'',useSaved:!!(el('dp-use-saved')&&el('dp-use-saved').classList.contains('on')),anchor:window._dpAnchor||window._planWithSpot||null,filtered:window._wlFilteredSpots||window._planWithSpots||null,nonce:Date.now()};
+  }
+  window.setDPMode=function(btn,useSaved){document.querySelectorAll('#dp-source-row .wl-dp-modebtn,#dp-use-saved,#dp-use-ai').forEach(function(b){b.classList.remove('on');});if(btn)btn.classList.add('on');window._dpUseSaved=!!useSaved;};
+
+  window.planDay=function(destId){
+    var d=(S.dests||[]).find(function(x){return x.id===destId;}); if(!d)return;
+    var saved=window._planWithSpots||savedNear(d), anchor=window._planWithSpot||window._dpAnchor||null;
+    window._wlLastDestId=destId; window._wlFilteredSpots=window._planWithSpots||null; window._dpAnchor=anchor;
+    var html='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:12px">'+
+      '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px">Plan a day in '+esc(d.name)+'</div>'+ 
+      (anchor?'<div class="wl-plan-warning">Starts from '+esc(anchor.name)+'. Pick AI recommendations to add fresh nearby spots, or saved spots to use only your list.</div>':'')+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px"><div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:4px">Start</div><select id="dp-start" class="wl-dp-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option></select></div><div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:4px">Hours</div><select id="dp-hours" class="wl-dp-input"><option>3</option><option>4</option><option selected>6</option><option>8</option><option>10</option></select></div></div>'+ 
+      '<div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:4px">Neighbourhood</div><input id="dp-area" class="wl-dp-input" placeholder="e.g. Ossington, West Queen West, Mile End" value="">'+
+      '<div style="font-size:12px;color:var(--text3);font-weight:800;margin:11px 0 6px">Vibe</div><div id="dp-vibes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="filter-pill on" onclick="togDPVibe(this)">🏘 Local</button><button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button><button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button><button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button><button class="filter-pill" onclick="togDPVibe(this)">🗺 Sightseeing</button></div>'+ 
+      '<div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:6px">Source</div><div id="dp-source-row" style="display:flex;gap:8px;margin-bottom:13px"><button id="dp-use-ai" class="wl-dp-modebtn on" onclick="setDPMode(this,false)">🤖 AI recommendations</button>'+(saved.length?'<button id="dp-use-saved" class="wl-dp-modebtn" onclick="setDPMode(this,true)">📍 Saved spots ('+saved.length+')</button>':'')+'</div>'+ 
+      '<button class="action-btn" onclick="runDayPlan(\''+esc(destId)+'\')">Build my day →</button></div>';
+    var pr=el('place-recs'); if(pr)pr.innerHTML=html;
+  };
+
+  window.runDayPlan=function(destId){
+    var cfg=currentDPConfig(destId,''); if(!cfg.dest)return;
+    var holder=el('place-recs'); if(holder)holder.innerHTML=loadingHTML('Building a better day','Checking live places, distance and your selected source so the plan stays tight and walkable.','🗓');
+    var savedPool=cfg.filtered||savedNear(cfg.dest); if(cfg.anchor&&!savedPool.some(function(s){return s.id===cfg.anchor.id;}))savedPool.unshift(cfg.anchor);
+    window._wlLastDPConfig=JSON.parse(JSON.stringify({destId:destId,start:cfg.start,hours:cfg.hours,area:cfg.area,vibe:cfg.vibe,useSaved:cfg.useSaved,anchorId:cfg.anchor&&cfg.anchor.id,filteredIds:(cfg.filtered||[]).map(function(x){return x.id;})}));
+    if(cfg.useSaved){currentPlanData=makePlanFromCandidates(savedPool,{dest:cfg.dest,start:cfg.start,hours:cfg.hours,area:cfg.area,vibe:cfg.vibe,anchor:cfg.anchor,source:'saved'});renderDayPlanHtml(currentPlanData,cfg.vibe,destId);return;}
+    var query=(cfg.area?cfg.area+' ':'')+(cfg.vibe||'local')+' restaurants bars cafes attractions near '+(cfg.anchor?cfg.anchor.name+' ':'')+cfg.dest.name+' '+(cfg.dest.country||'')+' '+cfg.nonce;
+    placesText(query,{location:coords(cfg.anchor)||coords(cfg.dest),radius:cfg.area?2200:4500},function(err,res){
+      if(!err&&res.length){currentPlanData=makePlanFromCandidates(res,{dest:cfg.dest,start:cfg.start,hours:cfg.hours,area:cfg.area,vibe:cfg.vibe,anchor:cfg.anchor,source:'ai'});renderDayPlanHtml(currentPlanData,cfg.vibe,destId);return;}
+      var prompt='Create a different '+cfg.hours+' hour day plan for '+cfg.dest.name+(cfg.dest.country?', '+cfg.dest.country:'')+'. '+(cfg.area?'Stay strictly in '+cfg.area+'. ':'')+(cfg.anchor?'Start at '+cfg.anchor.name+'. ':'')+'Use only currently open real venues. Do not use saved spots unless explicitly named. Fresh seed '+cfg.nonce+'. Return ONLY valid JSON object with title, city, neighbourhood, start, hours, vibe, stops array. Each stop needs time, name, type, description, walk_to_next.';
+      ai([{role:'user',content:prompt}],function(e,text){if(e){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not build the day plan. Try again.</p>';return;}try{currentPlanData=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));currentPlanData._destId=destId;renderDayPlanHtml(currentPlanData,cfg.vibe,destId);}catch(ex){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not parse the day plan. Try again.</p>';}} ,4000);
+    });
+  };
+  window.refreshDayPlan=function(tweakMsg){
+    var cfg=window._wlLastDPConfig||{};var destId=(currentPlanData&&currentPlanData._destId)||cfg.destId||window._wlLastDestId;if(!destId){toastMsg('Open Plan a day first');return;}
+    if(tweakMsg){window._wlTweakText=tweakMsg;}
+    if(el('dp-start')){runDayPlan(destId);return;}
+    var hidden=document.createElement('div');hidden.style.display='none';hidden.innerHTML='<select id="dp-start"><option>'+esc(cfg.start||((currentPlanData&&currentPlanData.start)||'11:00am'))+'</option></select><select id="dp-hours"><option>'+esc(cfg.hours||((currentPlanData&&currentPlanData.hours)||'6'))+'</option></select><input id="dp-area" value="'+esc(cfg.area||((currentPlanData&&currentPlanData.neighbourhood)||''))+'"><div id="dp-vibes"><button class="filter-pill on">'+esc(cfg.vibe||((currentPlanData&&currentPlanData.vibe)||'Local'))+'</button></div><button id="dp-use-ai" class="on"></button>';document.body.appendChild(hidden);setTimeout(function(){hidden.remove();},2500);runDayPlan(destId);
+  };
+  window.sendTweak=function(){var inp=el('tweak-inp');if(!inp)return;var msg=clean(inp.value);if(!msg)return;inp.value='';window.refreshDayPlan(msg);};
+
+  window.planDayNearSpot=function(spotId){
+    var spot=(S.dests||[]).find(function(x){return x.id===spotId;}); if(!spot)return;
+    window._dpAnchor=spot;window._planWithSpot=spot;window._planWithSpots=null;window._wlFilteredSpots=null;
+    var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((spot.city&&norm(x.name)===norm(spot.city))||(spot.country&&norm(x.country)===norm(spot.country))||km(x,spot)<30);});
+    if(!dest){dest={id:'tmp_'+spotId,name:spot.city||clean(localStorage.getItem('wl_homecity')).split(',')[0]||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};S.dests.push(dest);}
+    try{closePlaceDetail();}catch(e){} setTimeout(function(){openPlaceDetail(dest.id,true);},80);
+  };
+  window.planDayFromFiltered=function(){var spots=(S.dests||[]).filter(function(d){if(d.type!=='local')return false;if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}return true;});if(!spots.length){toastMsg('No spots match filters');return;}window._planWithSpots=spots;window._wlFilteredSpots=spots;window._planWithSpot=null;window._dpAnchor=null;var first=spots[0];var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||(first.country&&norm(x.country)===norm(first.country))||km(x,first)<30);})||{id:'tmp_filtered_'+Date.now(),name:first.city||clean(localStorage.getItem('wl_homecity')).split(',')[0]||first.country||'Filtered saved spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};if(!S.dests.some(function(x){return x.id===dest.id;}))S.dests.push(dest);openPlaceDetail(dest.id,true);};
+
+  window.markVisited=function(id){
+    var d=(S.dests||[]).find(function(x){return x.id===id;}); if(!d)return;
+    var bg=document.createElement('div');bg.className='wl-rate-bg';var sh=document.createElement('div');sh.className='wl-rate-sheet';var buttons='';for(var i=1;i<=10;i++)buttons+='<button data-r="'+i+'" class="'+(Number(d.rating10)===i?'on':'')+'">'+i+'</button>';
+    sh.innerHTML='<div class="wl-rate-title">Rate '+esc(d.name)+'</div><div style="font-size:14px;color:var(--text3);line-height:1.5">Mark this spot as visited and score it out of 10. The score will show beside the spot in Saved.</div><div class="wl-rate-grid2">'+buttons+'</div><textarea id="wl-visit-note" class="wl-dp-input" style="min-height:88px;resize:none" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea><button class="action-btn outline" style="margin-top:12px" id="wl-rate-cancel">Cancel</button>';
+    bg.appendChild(sh);document.body.appendChild(bg);
+    sh.querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){d.visited=true;d.rating10=parseInt(b.getAttribute('data-r'),10);d.rating=d.rating10+'/10';d.visitNote=clean(el('wl-visit-note').value);d.visitedAt=Date.now();save();try{syncList();openPlaceDetail(id);}catch(e){}bg.remove();toastMsg('Rated '+d.rating);};});
+    el('wl-rate-cancel').onclick=function(){bg.remove();};bg.onclick=function(e){if(e.target===bg)bg.remove();};
+  };
+
+  var oldOpenPlace=window.openPlaceDetail;
+  window.openPlaceDetail=function(id,autoPlan){
+    oldOpenPlace&&oldOpenPlace(id,autoPlan);
+    setTimeout(function(){var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d||d.type!=='local')return;var body=el('place-body');if(!body)return;if(body.innerHTML.indexOf('markVisited')<0){body.innerHTML+='<button onclick="window.markVisited(\''+esc(id)+'\')" style="margin-top:12px;width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">'+(d.rating10?'⭐ Rated '+d.rating10+'/10':'✓ Visited, rate out of 10')+'</button>';}} ,60);
+  };
+
+  setTimeout(function(){ensureHomeDestination();populateSavedCityDropdowns();try{syncList();}catch(e){}},900);
+})();
+</script>
+
+<script id="wl-v22-critical-repairs">
+(function(){
+  if(window.__wl_v22_critical_repairs)return; window.__wl_v22_critical_repairs=true;
+  function el(id){return document.getElementById(id);} 
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toastMsg(s){try{window.toast?window.toast(s):console.log(s);}catch(e){}}
+  function key(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||localStorage.getItem('wl_google_maps_key')||'';}
+  function coords(p){if(!p)return null;var lat=parseFloat(p.lat),lng=parseFloat(p.lng!=null?p.lng:p.lon);if(isFinite(lat)&&isFinite(lng))return{lat:lat,lng:lng};if(p.geometry&&p.geometry.location){var l=p.geometry.location;return{lat:typeof l.lat==='function'?l.lat():l.lat,lng:typeof l.lng==='function'?l.lng():l.lng};}return null;}
+  function km(a,b){a=coords(a);b=coords(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function addHours(start,delta){var m=String(start||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);var h=m?parseInt(m[1],10):11,mi=m&&m[2]?parseInt(m[2],10):0,ap=m?m[3].toLowerCase():'am';if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;var total=h*60+mi+Math.round(delta*60),hh=Math.floor(total/60)%24,mm=total%60,amp=hh>=12?'pm':'am',h12=hh%12||12;return h12+':'+String(mm).padStart(2,'0')+amp;}
+  function loadHTML(title,sub){return '<div class="wl-loading-card" style="padding:28px 18px"><div class="wl-loading-icon">🧭</div><div class="wl-loading-title" style="font-size:27px">'+esc(title)+'</div><div class="wl-loading-sub" style="font-size:16px">'+esc(sub)+'</div><div class="wl-loading-bar"><span></span></div></div>';}
+  function walk(a,b){var d=km(a,b);if(!isFinite(d))return '';var min=Math.max(2,Math.round(d/0.075));return min+' min walk'+(d<1?' ('+Math.round(d*1000)+'m)':' ('+(Math.round(d*10)/10)+'km)');}
+  function vibeKey(v){v=String(v||'').toLowerCase();if(v.indexOf('food')>-1)return'food';if(v.indexOf('night')>-1)return'night';if(v.indexOf('date')>-1)return'date';if(v.indexOf('sight')>-1)return'sight';if(v.indexOf('outdoor')>-1)return'outdoor';return'local';}
+  function typeForPlace(p){var t=((p.types||[]).join(' ')+' '+(p.category||'')+' '+(p.type||'')).toLowerCase();if(/bar|night|brewery|pub|cocktail/.test(t))return'drinks';if(/park|garden|beach|trail|nature/.test(t))return'nature';if(/museum|gallery|tourist|attraction|culture|landmark/.test(t))return'culture';if(/shop|store|market/.test(t))return'shopping';return'food';}
+  function savedNear(dest){return (S.dests||[]).filter(function(x){return x.type==='local'&&((x.city&&dest.name&&norm(x.city)===norm(dest.name))||(x.country&&dest.country&&norm(x.country)===norm(dest.country))||km(x,dest)<25);});}
+  function filterByVibe(list,vibe){var k=vibeKey(vibe);return (list||[]).filter(function(p){var ty=typeForPlace(p),txt=(p.name+' '+(p._addrStr||p.country||'')+' '+((p.types||[]).join(' '))).toLowerCase();if(k==='food')return ty==='food'||ty==='drinks'||/restaurant|cafe|bakery|market|bar|pub/.test(txt);if(k==='night')return ty==='drinks'||/bar|pub|cocktail|club|music|night/.test(txt);if(k==='date')return ty==='food'||ty==='drinks'||ty==='nature'||/wine|cocktail|restaurant|park|view|rooftop/.test(txt);if(k==='sight')return ty==='culture'||ty==='nature'||ty==='shopping'||/museum|gallery|market|park|view|landmark|attraction/.test(txt);if(k==='outdoor')return ty==='nature'||/patio|park|garden|waterfront|beach|trail|market/.test(txt);return true;});}
+  function cluster(list,centre,maxKm){centre=coords(centre)||coords(list&&list[0]);list=(list||[]).filter(function(p){return coords(p);});if(centre)list=list.filter(function(p){return km(p,centre)<=maxKm;}).sort(function(a,b){return km(a,centre)-km(b,centre);});return list;}
+  function makePlan(list,cfg){cfg=cfg||{};var k=vibeKey(cfg.vibe),anchor=cfg.anchor||null,centre=coords(anchor)||coords(cfg.dest)||coords(list&&list[0]);var pool=cluster(filterByVibe(list,cfg.vibe),centre,cfg.area?2.2:3.2);if(!pool.length)pool=cluster(list,centre,cfg.area?2.5:4);if(anchor){pool=pool.filter(function(p){return norm(p.name)!==norm(anchor.name);});pool.unshift(anchor);}var maxStops=Math.min(6,Math.max(3,parseInt(cfg.hours||6,10)||6));var stops=pool.slice(0,maxStops).map(function(p,i){var ty=typeForPlace(p);return{time:addHours(cfg.start||'11:00am',i*1.15),name:p.name||p.display_name,type:ty,description:(i===0&&anchor?'Start at your selected spot. ':'')+(p._addrStr||p.address||p.country||'Nearby recommendation')+(p.rating?' · Google '+p.rating:''),walk_to_next:'',lat:parseFloat(p.lat),lng:parseFloat(p.lng!=null?p.lng:p.lon),budget_note:'',premium_note:''};});for(var j=0;j<stops.length-1;j++)stops[j].walk_to_next=walk(stops[j],stops[j+1]);return{title:(cfg.area?cfg.area+' ':'')+(cfg.vibe||'Local')+' day plan',city:(cfg.dest&&cfg.dest.name)||'',neighbourhood:cfg.area||'',start:cfg.start||'11:00am',hours:parseInt(cfg.hours||6,10)||6,vibe:cfg.vibe||'Local',stops:stops,_destId:cfg.dest&&cfg.dest.id,_source:cfg.source||'AI'};}
+  function loadPlaces(cb){if(!key()){cb('No Google key');return;}if(window.google&&google.maps&&google.maps.places){cb(null);return;}if(window.__wlLoadingPlaces){setTimeout(function(){loadPlaces(cb);},300);return;}window.__wlLoadingPlaces=true;window.__wlV22PlacesReady=function(){window.__wlLoadingPlaces=false;cb(null);};var s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key())+'&libraries=places&callback=__wlV22PlacesReady';s.async=true;s.defer=true;s.onerror=function(){window.__wlLoadingPlaces=false;cb('Google Places failed');};document.head.appendChild(s);}
+  function placesSearch(query,loc,radius,cb){loadPlaces(function(err){if(err){cb(err,[]);return;}var svc=new google.maps.places.PlacesService(document.createElement('div'));var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total']};if(loc){req.location=new google.maps.LatLng(loc.lat,loc.lng);req.radius=radius||3500;}svc.textSearch(req,function(results,status){if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No results',[]);return;}cb(null,results.filter(function(r){return r.business_status!=='CLOSED_PERMANENTLY'&&coords(r);}).map(function(r){var c=coords(r);return{name:r.name,display_name:r.name,_google:true,place_id:r.place_id,lat:c.lat,lng:c.lng,lon:c.lng,_addrStr:r.formatted_address||'',types:r.types||[],rating:r.rating||'',business_status:r.business_status||''};}));});});}
+  function fallbackSearch(query,city,cb){var q=query+(city?' '+city:'');fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=10&addressdetails=1',{headers:{'Accept-Language':'en'}}).then(function(r){return r.json();}).then(function(list){if(list&&list.length){cb(null,list.map(function(r){var a=r.address||{},name=a.amenity||a.shop||a.tourism||a.leisure||r.display_name.split(',')[0];return{name:name,display_name:name,lat:parseFloat(r.lat),lng:parseFloat(r.lon),lon:parseFloat(r.lon),_addrStr:r.display_name,types:[r.type||r.class||'']};}));return;}return fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(q)+'&limit=10&lang=en').then(function(r){return r.json();}).then(function(data){var res=((data&&data.features)||[]).map(function(f){var p=f.properties||{},c=f.geometry.coordinates;return{name:p.name||query,display_name:p.name||query,lat:c[1],lng:c[0],lon:c[0],_addrStr:[p.street,p.city,p.country].filter(Boolean).join(', '),types:[p.osm_value||'']};});cb(null,res);});}).catch(function(e){cb(e,[]);});}
+
+  window.fetchLocalAC=function(q){q=clean(q);if(q.length<2){try{hideAC();}catch(e){}return;}var city=(el('search-city-sel')&&el('search-city-sel').value)||clean(localStorage.getItem('wl_homecity'));var loc=null;try{loc=JSON.parse(localStorage.getItem('wl_homecoords')||'null');}catch(e){}placesSearch(q+(city?' in '+city:''),loc,25000,function(err,res){if(!err&&res.length){window.acResults=res.slice(0,10);renderAC();return;}fallbackSearch(q,city,function(e,list){window.acResults=(list||[]).filter(function(x){return coords(x);}).slice(0,10);if(window.acResults.length)renderAC();else hideAC();});});};
+  window.fetchDestinationACStrict=function(q){q=clean(q);if(q.length<2){try{hideAC();}catch(e){}return;}placesSearch(q,null,50000,function(err,res){if(!err&&res.length){window.acResults=res.slice(0,8);renderAC();return;}fallbackSearch(q,'',function(e,list){window.acResults=(list||[]).filter(function(x){return coords(x);}).slice(0,8);if(window.acResults.length)renderAC();else hideAC();});});};
+  window.fetchAC=function(q){if((window.S&&S.placeType)==='local')window.fetchLocalAC(q);else window.fetchDestinationACStrict(q);};
+  var oldOnCityInput=window.onCityInput;window.onCityInput=function(){var q=(el('city-inp')&&el('city-inp').value||'').trim();clearTimeout(window.acTimer);if(q.length<2){try{hideAC();}catch(e){}return;}window.acTimer=setTimeout(function(){window.fetchAC(q);},220);};
+  var oldSelectAC=window.selectAC;window.selectAC=function(i){var r=(window.acResults||[])[i];if(r&&r._google){var c=coords(r),city=(el('search-city-sel')&&el('search-city-sel').value)||clean(localStorage.getItem('wl_homecity')).split(',')[0]||'';el('city-inp').value='';hideAC();if(S.placeType==='local'){showCatPicker(r.name,r._addrStr,c.lat,c.lng,(r.types&&r.types[0])||'local',city);}else{addDests([{name:r.name,country:r._addrStr,lat:c.lat,lng:c.lng,type:'dest'}]);}return;}if(oldSelectAC)oldSelectAC(i);};
+
+  var oldOpen=window.openPlaceDetail;window.openPlaceDetail=function(id,autoPlan){
+    if(autoPlan&&!window._wlFromSpotFlow&&!window._wlFromFilteredFlow){window._dpAnchor=null;window._planWithSpot=null;window._planWithSpots=null;window._wlFilteredSpots=null;}
+    if(oldOpen)oldOpen(id,autoPlan);
+    if(autoPlan){window._wlFromSpotFlow=false;window._wlFromFilteredFlow=false;}
+    setTimeout(function(){var d=(S.dests||[]).find(function(x){return x.id===id;});if(d&&d.type==='dest'){var rec=el('place-recs');if(rec&&!rec.textContent.trim())window.refreshExploreSuggestions&&window.refreshExploreSuggestions();}},3000);
+    setTimeout(function(){var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d||d.type!=='local')return;var body=el('place-body');if(body&&body.innerHTML.indexOf('markVisited')<0){body.innerHTML+='<button onclick="window.markVisited(\''+esc(id)+'\')" style="margin-top:12px;width:100%;padding:14px;background:var(--gold);color:#fff;border:none;border-radius:18px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit">'+(d.rating10?'⭐ Rated '+d.rating10+'/10':'✓ Visited, rate out of 10')+'</button>';}} ,100);
+  };
+  window.planDayNearSpot=function(spotId){var spot=(S.dests||[]).find(function(x){return x.id===spotId;});if(!spot)return;window._wlFromSpotFlow=true;window._dpAnchor=spot;window._planWithSpot=spot;window._planWithSpots=null;window._wlFilteredSpots=null;var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((spot.city&&norm(x.name)===norm(spot.city))||km(x,spot)<30);});if(!dest){dest={id:'tmp_'+spotId,name:spot.city||clean(localStorage.getItem('wl_homecity')).split(',')[0]||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};S.dests.push(dest);}try{closePlaceDetail();}catch(e){}setTimeout(function(){openPlaceDetail(dest.id,true);},80);};
+  window.planDayFromFiltered=function(){var spots=(S.dests||[]).filter(function(d){if(d.type!=='local')return false;if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}return true;});if(!spots.length){toastMsg('No spots match filters');return;}window._wlFromFilteredFlow=true;window._planWithSpots=spots;window._wlFilteredSpots=spots;window._planWithSpot=null;window._dpAnchor=null;var first=spots[0];var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||km(x,first)<30);})||{id:'tmp_filtered_'+Date.now(),name:first.city||clean(localStorage.getItem('wl_homecity')).split(',')[0]||first.country||'Filtered saved spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};if(!S.dests.some(function(x){return x.id===dest.id;}))S.dests.push(dest);openPlaceDetail(dest.id,true);};
+
+  window.runDayPlan=function(destId){var dest=(S.dests||[]).find(function(x){return x.id===destId;});if(!dest)return;var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'',useSaved=!!(el('dp-use-saved')&&el('dp-use-saved').classList.contains('on')),anchor=window._dpAnchor||window._planWithSpot||null,filtered=window._wlFilteredSpots||window._planWithSpots||null,tweak=window._wlTweakText||'';window._wlTweakText='';var holder=el('place-recs');if(holder)holder.innerHTML=loadHTML('Building your '+vibe.replace(/^.*? /,'').toLowerCase()+' plan','Keeping stops close together and using your current source selection.');window._wlLastDPConfig={destId:destId,start:start,hours:hours,area:area,vibe:vibe,useSaved:useSaved,anchorId:anchor&&anchor.id,filteredIds:(filtered||[]).map(function(x){return x.id;})};if(useSaved){var pool=filtered||savedNear(dest);if(anchor&&!pool.some(function(x){return x.id===anchor.id;}))pool.unshift(anchor);currentPlanData=makePlan(pool,{dest:dest,start:start,hours:hours,area:area,vibe:vibe,anchor:anchor,source:'saved'});renderDayPlanHtml(currentPlanData,vibe,destId);return;}var k=vibeKey(vibe),terms={food:'restaurants cafes bakeries food markets wine bars',night:'cocktail bars pubs live music nightlife',date:'romantic restaurants cocktail bars wine bars scenic views',sight:'museums galleries landmarks markets parks viewpoints',outdoor:'parks gardens waterfront patios outdoor markets',local:'cafes bars restaurants boutiques local favourites'}[k];var q=(area?terms+' in '+area+' ':'nearby '+terms+' in ')+dest.name+' '+(dest.country||'')+' '+Date.now();if(anchor)q=terms+' near '+anchor.name+' '+dest.name+' '+Date.now();placesSearch(q,coords(anchor)||coords(dest),area?2500:3800,function(err,res){if(!err&&res.length){currentPlanData=makePlan(res,{dest:dest,start:start,hours:hours,area:area,vibe:vibe,anchor:anchor,source:'ai'});renderDayPlanHtml(currentPlanData,vibe,destId);return;}var strict='Create a '+hours+' hour '+vibe+' day plan for '+dest.name+(dest.country?', '+dest.country:'')+'. '+(area?'Stay strictly in '+area+'. ':'Choose one tight walkable neighbourhood. ')+(anchor?'First stop must be '+anchor.name+'. ':'')+(tweak?'User tweak: '+tweak+'. ':'')+'Every stop must match the vibe. Stops must be close together, ideally under 10 min walk apart. Only real operating places. Return ONLY valid JSON object with title, city, neighbourhood, start, hours, vibe and stops array. Stops need time, name, type, description, walk_to_next.';ai([{role:'user',content:strict}],function(e,text){if(e){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not build the day plan. Try again.</p>';return;}try{currentPlanData=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));currentPlanData._destId=destId;currentPlanData.vibe=currentPlanData.vibe||vibe;renderDayPlanHtml(currentPlanData,vibe,destId);}catch(ex){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3)">Could not parse the day plan. Try again.</p>';}} ,4000);});};
+  window.refreshDayPlan=function(tweak){if(tweak)window._wlTweakText=tweak;var destId=(currentPlanData&&currentPlanData._destId)||(window._wlLastDPConfig&&window._wlLastDPConfig.destId)||window._wlLastDestId;if(!destId){toastMsg('Open Plan a day first');return;}if(el('dp-start')){window.runDayPlan(destId);return;}var cfg=window._wlLastDPConfig||{},tmp=document.createElement('div');tmp.style.display='none';tmp.innerHTML='<select id="dp-start"><option>'+esc(cfg.start||currentPlanData.start||'11:00am')+'</option></select><select id="dp-hours"><option>'+esc(cfg.hours||currentPlanData.hours||'6')+'</option></select><input id="dp-area" value="'+esc(cfg.area||currentPlanData.neighbourhood||'')+'"><div id="dp-vibes"><button class="filter-pill on">'+esc(cfg.vibe||currentPlanData.vibe||'Local')+'</button></div><button id="dp-use-ai" class="on"></button>';document.body.appendChild(tmp);setTimeout(function(){tmp.remove();},2000);window.runDayPlan(destId);};
+  window.sendTweak=function(){var inp=el('tweak-inp');if(!inp)return;var msg=clean(inp.value);if(!msg)return;inp.value='';window.refreshDayPlan(msg);};
+
+  window.refreshExploreSuggestions=function(){var id=window.currentPlaceId||((window.S&&S.dests||[]).find(function(d){return d.type==='dest'&&el('place-title')&&norm(d.name)===norm(el('place-title').textContent);})||{}).id;var d=(S.dests||[]).find(function(x){return x.id===id;});var holder=el('place-recs');if(!d){toastMsg('Open a destination first');return;}if(holder)holder.innerHTML=loadHTML('Refreshing explore','Pulling a fresh set of nearby, operating places.');placesSearch('best restaurants bars cafes attractions in '+d.name+' '+(d.country||'')+' '+Date.now(),coords(d),7000,function(err,res){if(!err&&res.length){placeRecs[id]=res.slice(0,12).map(function(p){return{name:p.name,type:typeForPlace(p)==='drinks'?'bar':typeForPlace(p),tags:[],description:(p._addrStr||'')+(p.rating?' · Google '+p.rating:''),budget:false,emoji:typeForPlace(p)==='drinks'?'🍸':'📍',price_range:'',lat:p.lat,lng:p.lng};});renderPlaceRecs(id);toastMsg('Explore refreshed');return;}var prompt='Give me 12 currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Avoid closed venues and invented places. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range.';ai([{role:'user',content:prompt}],function(e,text){try{placeRecs[id]=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));renderPlaceRecs(id);}catch(ex){if(holder)holder.innerHTML='<p style="font-size:14px;color:var(--text3);padding:14px 0">Explore could not load. Tap refresh to try again.</p><button class="action-btn" onclick="refreshExploreSuggestions()">Refresh recommendations</button>';}} ,4000);});};
+
+  window.markVisited=function(id){var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d)return;var bg=document.createElement('div');bg.className='wl-rate-bg';var sh=document.createElement('div');sh.className='wl-rate-sheet';var buttons='';for(var i=1;i<=10;i++)buttons+='<button data-r="'+i+'" class="'+(Number(d.rating10)===i?'on':'')+'">'+i+'</button>';sh.innerHTML='<div class="wl-rate-title">Rate '+esc(d.name)+'</div><div style="font-size:14px;color:var(--text3);line-height:1.5">Mark this spot as visited and score it out of 10. The score will show beside the spot in Saved.</div><div class="wl-rate-grid2">'+buttons+'</div><textarea id="wl-visit-note" class="wl-dp-input" style="min-height:88px;resize:none" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea><button class="action-btn outline" style="margin-top:12px" id="wl-rate-cancel">Cancel</button>';bg.appendChild(sh);document.body.appendChild(bg);sh.querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){d.visited=true;d.rating10=parseInt(b.getAttribute('data-r'),10);d.rating=d.rating10+'/10';d.visitNote=clean(el('wl-visit-note').value);d.visitedAt=Date.now();save();try{syncList();}catch(e){}bg.remove();toastMsg('Rated '+d.rating);};});el('wl-rate-cancel').onclick=function(){bg.remove();};bg.onclick=function(e){if(e.target===bg)bg.remove();};};
+
+  var oldSync=window.syncList;window.syncList=function(){if(oldSync)oldSync();setTimeout(function(){document.querySelectorAll('#dlist .dest-item').forEach(function(row){var nm=row.querySelector('.dest-name');if(!nm)return;var base=nm.textContent.replace(/\s*\d+\/10\s*$/,'');var d=(S.dests||[]).find(function(x){return norm(x.name)===norm(base);});if(d&&d.type==='local'&&d.rating10&&!nm.querySelector('.dest-rating-badge'))nm.innerHTML=esc(d.name)+' <span class="dest-rating-badge">'+esc(d.rating10)+'/10</span>';});},0);};
+})();
+</script>
+
+
+<script id="wl-v23-user-request-fixes-final">
+(function(){
+  if(window.__wl_v23_user_request_fixes_final)return;
+  window.__wl_v23_user_request_fixes_final=true;
+
+  function el(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toastMsg(s){try{if(window.toast)toast(s);}catch(e){}}
+  function uidSafe(){try{return uid();}catch(e){return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);}}
+  function googlePlacesKey(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_maps_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||'';}
+  function coords(p){
+    if(!p)return null;
+    var lat=parseFloat(p.lat),lng=parseFloat(p.lng!=null?p.lng:p.lon);
+    if(isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180)return{lat:lat,lng:lng};
+    if(p.geometry&&p.geometry.location){var l=p.geometry.location;if(typeof l.lat==='function')return{lat:l.lat(),lng:l.lng()};}
+    return null;
+  }
+  function km(a,b){
+    a=coords(a)||a;b=coords(b)||b;if(!a||!b)return Infinity;
+    var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;
+    var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function metresLabel(m){return m<1000?Math.round(m)+'m':(Math.round(m/100)/10)+'km';}
+  function walkLabel(m,s,src){var mins=Math.max(1,Math.round((s||m/1.33)/60));return mins+' min walk ('+metresLabel(m)+')'+(src==='google'?' · Google walking route':'');}
+  function isOpenStatus(status){return status!=='CLOSED_PERMANENTLY'&&status!=='CLOSED_TEMPORARILY';}
+  function cityOf(p){return clean(p&&p.city)||clean(p&&p.locality)||clean(p&&p.addressCity)||clean(p&&p.country)||'';}
+  function typeFor(p){
+    var txt=((p&&p.types||[]).join(' ')+' '+(p&&p.category||'')+' '+(p&&p.type||'')+' '+((p&&p.tags||[]).join(' '))).toLowerCase();
+    if(/bar|night|brewery|pub|cocktail|wine|drink/.test(txt))return 'drinks';
+    if(/park|garden|beach|trail|nature|view|patio/.test(txt))return 'nature';
+    if(/museum|gallery|tourist|attraction|culture|landmark|sight/.test(txt))return 'culture';
+    if(/shop|store|market/.test(txt))return 'shopping';
+    return 'food';
+  }
+  function stopFromSpot(p,time,note){
+    var c=coords(p);
+    return {id:p.id||'',time:time||'',name:p.name||p.display_name||'Saved spot',type:typeFor(p),description:note||p.description||p._addrStr||p.address||p.country||'Saved spot.',address:p.address||p._addrStr||p.country||'',lat:c?c.lat:parseFloat(p.lat),lng:c?c.lng:parseFloat(p.lng!=null?p.lng:p.lon),place_id:p.place_id||'',budget_note:p.budget_note||'Saved spot',premium_note:p.premium_note||'',walk_to_next:'',transit_to_next:''};
+  }
+  function addTime(start,offsetHours){
+    var m=String(start||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i),mins=11*60;
+    if(m){var h=parseInt(m[1],10)%12;if(/pm/i.test(m[3]))h+=12;mins=h*60+parseInt(m[2]||'0',10);}
+    mins+=Math.round(offsetHours*60);var hh=Math.floor(mins/60)%24,mm=mins%60,amp=hh>=12?'pm':'am',h12=hh%12||12;
+    return h12+':'+String(mm).padStart(2,'0')+amp;
+  }
+  function orderCluster(spots){
+    spots=(spots||[]).filter(function(s){return s&&s.type==='local';});
+    var withCoords=spots.filter(coords), without=spots.filter(function(s){return !coords(s);});
+    if(withCoords.length<3)return spots.slice();
+    var start=withCoords[0], ordered=[start], left=withCoords.slice(1);
+    while(left.length){
+      var last=ordered[ordered.length-1], best=0, bestKm=Infinity;
+      left.forEach(function(s,i){var d=km(last,s);if(d<bestKm){bestKm=d;best=i;}});
+      ordered.push(left.splice(best,1)[0]);
+    }
+    return ordered.concat(without);
+  }
+  function currentFilteredLocalSpots(){
+    var spots=(window.getFilteredLocalSpots?window.getFilteredLocalSpots():(window.S&&S.dests||[]).filter(function(d){
+      if(!d||d.type!=='local')return false;
+      if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;
+      if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}
+      return true;
+    }));
+    return spots.filter(function(s){return s&&s.type==='local';});
+  }
+  function renderFilteredPlanner(dest,spots){
+    var body=el('place-body'), title=el('place-title');
+    if(title)title.textContent=dest.name||'Filtered saved spots';
+    if(el('place-bg'))el('place-bg').classList.add('on');
+    if(el('place-sheet'))el('place-sheet').classList.add('on');
+    if(!body)return;
+    var spotRows=spots.slice(0,12).map(function(s){return '<div style="font-size:12px;color:var(--text2);padding:7px 0;border-bottom:1px solid var(--border)"><b style="color:var(--text)">'+esc(s.name)+'</b><br>'+esc(s.address||s.country||cityOf(s)||'Address not saved')+'</div>';}).join('');
+    body.innerHTML='<div id="dest-photo-loading"></div><div id="place-recs"><div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);padding:14px;margin-bottom:12px">'+
+      '<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px">Plan from filtered saved spots</div>'+ 
+      '<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px">Using '+spots.length+' filtered saved spot'+(spots.length===1?'':'s')+'. No AI category filters are shown because the source list is already filtered.</div>'+ 
+      '<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Start time</div><select id="dp-start" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>4:00pm</option><option>6:00pm</option></select></div>'+ 
+      '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Hours out</div><select id="dp-hours" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option><option>10</option></select></div></div>'+ 
+      '<div style="max-height:180px;overflow:auto;margin-bottom:12px;background:var(--bg4);border-radius:10px;padding:4px 10px">'+spotRows+'</div>'+ 
+      '<button style="width:100%;padding:12px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+esc(dest.id)+'\')">Build my day →</button>'+ 
+      '</div></div>';
+  }
+  function makeFilteredPlan(dest,spots,start,hours){
+    var ordered=orderCluster(spots), maxStops=Math.min(7,Math.max(2,parseInt(hours,10)||6),ordered.length);
+    if(ordered.length>=5)maxStops=Math.max(5,Math.min(7,ordered.length));
+    var stops=ordered.slice(0,maxStops).map(function(s,i){return stopFromSpot(s,addTime(start,i*1.1),'Selected directly from your filtered saved spots.');});
+    for(var i=0;i<stops.length-1;i++)applyLegEstimate(stops[i],stops[i+1]);
+    return {title:'Day plan from filtered saved spots',city:dest.name||'',neighbourhood:'',start:start,hours:parseInt(hours,10)||hours,vibe:'Filtered saved spots only',stops:stops,_destId:dest.id,_source:'filtered-saved',_settings:{destId:dest.id,hours:String(hours),start:start,vibe:'Filtered saved spots only',useSaved:true,spots:spots}};
+  }
+  function applyLegEstimate(a,b){
+    var d=km(a,b);if(!isFinite(d)){a.walk_to_next='Route check failed. Coordinates or address missing.';return;}
+    var metres=Math.round(d*1250), secs=metres/1.33;
+    if(metres>1500){a.walk_to_next='';a.transit_to_next='Uber/driving recommended ('+metresLabel(metres)+')';}
+    else{a.walk_to_next=walkLabel(metres,secs,'estimate');a.transit_to_next='';}
+  }
+  function makeTempDest(spots){
+    var good=spots.map(coords).filter(Boolean), first=spots[0]||{};
+    var lat=good.length?good.reduce(function(a,c){return a+c.lat;},0)/good.length:(parseFloat(first.lat)||0);
+    var lng=good.length?good.reduce(function(a,c){return a+c.lng;},0)/good.length:(parseFloat(first.lng)||0);
+    var city=(window._localCityFilter&&window._localCityFilter!=='all')?window._localCityFilter:(cityOf(first)||first.country||'Filtered saved spots');
+    var dest={id:'tmp_filtered_v23_'+Date.now(),name:city,country:first.country||'',city:city,lat:lat,lng:lng,type:'dest'};
+    S.dests.push(dest);setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==dest.id;});},180000);return dest;
+  }
+
+  window.planDayFromFiltered=function(){
+    var spots=currentFilteredLocalSpots();
+    if(!spots.length){toastMsg('No spots match filters');return;}
+    var dest=makeTempDest(spots);
+    window._wlFromFilteredFlow=true;window._wlDayPlanMode='filtered';window._wlFilteredSpots=spots.slice();window._planWithSpots=spots.slice();window._forceSavedOnly=true;window._planWithSpot=null;window._dpAnchor=null;window._mustIncludeSpot=null;
+    renderFilteredPlanner(dest,spots);
+  };
+
+  var prevRunDayPlan=window.runDayPlan;
+  window.runDayPlan=function(destId){
+    var mode=window._wlDayPlanMode||'';
+    var filtered=(window._wlFilteredSpots||window._planWithSpots||[]).filter(function(s){return s&&s.type==='local';});
+    if(mode==='filtered'||window._wlFromFilteredFlow||filtered.length){
+      var dest=(S.dests||[]).find(function(x){return x.id===destId;})||makeTempDest(filtered);
+      var start=el('dp-start')?el('dp-start').value:'11:00am';
+      var hours=el('dp-hours')?el('dp-hours').value:'6';
+      var holder=el('place-recs');if(holder)holder.innerHTML='<div style="text-align:center;padding:24px"><span class="spin"></span><div style="font-size:13px;color:var(--text3);margin-top:8px">Building from your filtered saved spots…</div></div>';
+      currentPlanData=makeFilteredPlan(dest,filtered,start,hours);
+      if(window.enrichPlanWithRealTimes){window.enrichPlanWithRealTimes(currentPlanData,dest,function(){if(window.renderDayPlanHtml)window.renderDayPlanHtml(currentPlanData,currentPlanData.vibe,destId);});}
+      if(window.renderDayPlanHtml)window.renderDayPlanHtml(currentPlanData,currentPlanData.vibe,destId);
+      window._wlFromFilteredFlow=false;
+      return;
+    }
+    if(prevRunDayPlan)return prevRunDayPlan.apply(this,arguments);
+  };
+
+  function loadPlaces(cb){
+    var k=googlePlacesKey();
+    if(!k){cb('No Google key');return;}
+    if(window.google&&google.maps&&google.maps.places){cb(null);return;}
+    if(window.__wlV23LoadingPlaces){setTimeout(function(){loadPlaces(cb);},300);return;}
+    window.__wlV23LoadingPlaces=true;window.__wlV23PlacesReady=function(){window.__wlV23LoadingPlaces=false;cb(null);};
+    var s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&libraries=places&callback=__wlV23PlacesReady';s.async=true;s.defer=true;s.onerror=function(){window.__wlV23LoadingPlaces=false;cb('Google Places failed');};document.head.appendChild(s);
+  }
+  function placesTextSearch(query,centre,radius,cb){
+    loadPlaces(function(err){
+      if(err){cb(err,[]);return;}
+      var svc=new google.maps.places.PlacesService(document.createElement('div'));
+      var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','photos','opening_hours']};
+      if(centre){req.location=new google.maps.LatLng(centre.lat,centre.lng);req.radius=radius||6000;}
+      svc.textSearch(req,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No results',[]);return;}
+        cb(null,results.filter(function(r){return isOpenStatus(r.business_status)&&coords(r);}).map(function(r){var c=coords(r);return{name:r.name,display_name:r.name,_google:true,place_id:r.place_id,lat:c.lat,lng:c.lng,lon:c.lng,address:r.formatted_address||'',_addrStr:r.formatted_address||'',types:r.types||[],rating:r.rating||'',business_status:r.business_status||'',emoji:'📍',price_range:''};}));
+      });
+    });
+  }
+
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||((window.S&&S.dests||[]).find(function(d){return d.type==='dest'&&el('place-title')&&norm(d.name)===norm(el('place-title').textContent);})||{}).id;
+    var d=(S.dests||[]).find(function(x){return x.id===id;});
+    var holder=el('place-recs');
+    if(!d){toastMsg('Open a destination first');return;}
+    if(holder)holder.innerHTML='<div style="text-align:center;padding:24px 0"><span class="spin"></span><div style="font-size:13px;color:var(--text3);margin-top:8px">Loading Explore recommendations…</div></div>';
+    placesTextSearch('currently open restaurants bars cafes parks attractions in '+d.name+' '+(d.country||''),coords(d),9000,function(err,res){
+      if(!err&&res.length){
+        window.placeRecs=window.placeRecs||{};
+        placeRecs[id]=res.slice(0,12).map(function(p){return{name:p.name,type:typeFor(p)==='drinks'?'bar':typeFor(p),tags:[],description:(p.address||'')+(p.rating?' · Google '+p.rating:''),budget:false,emoji:typeFor(p)==='drinks'?'🍸':'📍',price_range:p.price_range||'',lat:p.lat,lng:p.lng,address:p.address||'',place_id:p.place_id,business_status:p.business_status};});
+        if(window.renderPlaceRecs)renderPlaceRecs(id);
+        return;
+      }
+      var prompt='Give me 12 currently open and operating real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Do not include permanently closed or temporarily closed venues. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range,address when known.';
+      (window.ai||ai)([{role:'user',content:prompt}],function(e,text){
+        try{placeRecs[id]=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));if(window.renderPlaceRecs)renderPlaceRecs(id);}catch(ex){if(holder)holder.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin:8px 0"><div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:5px">Explore could not load</div><div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Add or verify a Google Maps API key in Settings, or tap retry to use AI fallback.</div><button class="action-btn" onclick="refreshExploreSuggestions()">Retry Explore</button></div>';}
+      },4000);
+    });
+  };
+
+  var prevOpenPlaceDetail=window.openPlaceDetail;
+  window.openPlaceDetail=function(id,autoPlanDay){
+    if(prevOpenPlaceDetail)prevOpenPlaceDetail(id,autoPlanDay);
+    if(!autoPlanDay){setTimeout(function(){var d=(S.dests||[]).find(function(x){return x.id===id;});var rec=el('place-recs');if(d&&d.type==='dest'&&rec&&!rec.querySelector('.rec-card'))window.refreshExploreSuggestions();},900);}
+  };
+
+  function getDetails(placeId,cb){
+    loadPlaces(function(err){if(err||!placeId){cb(err||'No place id');return;}new google.maps.places.PlacesService(document.createElement('div')).getDetails({placeId:placeId,fields:['name','place_id','formatted_address','geometry','business_status','photos','types','rating','url','website']},function(p,st){if(st!==google.maps.places.PlacesServiceStatus.OK||!p){cb(st||'No details');return;}cb(null,p);});});
+  }
+  function routeLeg(a,b,cb){
+    var straight=km(a,b), estM=straight*1250, estS=estM/1.33;
+    loadPlaces(function(err){
+      if(err||!window.google||!google.maps||!google.maps.DirectionsService){cb(estM,estS,'estimate');return;}
+      new google.maps.DirectionsService().route({origin:new google.maps.LatLng(a.lat,a.lng),destination:new google.maps.LatLng(b.lat,b.lng),travelMode:google.maps.TravelMode.WALKING},function(res,st){var leg=res&&res.routes&&res.routes[0]&&res.routes[0].legs&&res.routes[0].legs[0];if(st==='OK'&&leg&&leg.distance&&leg.duration)cb(leg.distance.value,leg.duration.value,'google');else cb(estM,estS,'estimate');});
+    });
+  }
+  window.enrichPlanWithRealTimes=function(plan,d,cb){
+    plan=plan||{};var stops=Array.isArray(plan.stops)?plan.stops:[];plan._verification_note=googlePlacesKey()?'Google Places verification attempted':'No Google key saved, using stored or AI coordinates';
+    if(!stops.length){cb&&cb();return;}
+    var pending=stops.length, cArr=new Array(stops.length);
+    stops.forEach(function(s,i){
+      var base=coords(s), saved=(S.dests||[]).find(function(x){return (s.id&&String(x.id)===String(s.id))||norm(x.name)===norm(s.name);});
+      if(saved){s.id=saved.id;s.name=saved.name;s.address=saved.address||s.address||saved.country||'';s.lat=saved.lat||s.lat;s.lng=saved.lng||s.lng;s.place_id=saved.place_id||s.place_id;}
+      base=coords(saved)||coords(s)||base;
+      if(s.place_id){getDetails(s.place_id,function(err,p){if(!err&&p&&isOpenStatus(p.business_status)){var c=coords(p);s.name=p.name||s.name;s.address=p.formatted_address||s.address;s.google_business_status=p.business_status||'';cArr[i]=c||base;}else if(!err&&p&&!isOpenStatus(p.business_status)){s._closed=true;cArr[i]=null;}else cArr[i]=base;done();});}
+      else {cArr[i]=base;done();}
+      function done(){if(--pending===0)after();}
+    });
+    function after(){
+      var before=stops.length;stops=stops.filter(function(s,i){return !s._closed&&(cArr[i]||coords(s));});
+      cArr=cArr.filter(function(c,i){return !plan.stops[i]._closed&&(c||coords(plan.stops[i]));});
+      plan.stops=stops;if(before!==stops.length)plan._verification_note+=' · removed '+(before-stops.length)+' closed or unverified stop(s)';
+      var i=0;function next(){if(i>=stops.length-1){cb&&cb();return;}var j=i++,a=cArr[j]||coords(stops[j]),b=cArr[j+1]||coords(stops[j+1]);if(!a||!b){stops[j].walk_to_next='Route check failed. Coordinates or address missing.';next();return;}routeLeg(a,b,function(m,s,src){if(m>1500){stops[j].walk_to_next='';stops[j].transit_to_next='Uber/driving recommended ('+metresLabel(m)+')';}else{stops[j].walk_to_next=walkLabel(m,s,src);stops[j].transit_to_next='';}next();});}next();
+    }
+  };
+
+  window.savePlannedStopToLocal=function(idx){
+    var plan=window.currentPlanData||currentPlanData||{};var st=plan.stops&&plan.stops[idx];if(!st){toastMsg('Stop not found');return;}
+    if((S.dests||[]).some(function(x){return x.type==='local'&&norm(x.name)===norm(st.name);})){toastMsg('Already saved');return;}
+    var d={id:uidSafe(),name:st.name,country:st.address||plan.city||'',city:plan.city||'',lat:st.lat||0,lng:st.lng||0,type:'local',category:st.type||'local',tags:[st.type||'local'],address:st.address||'',place_id:st.place_id||'',source:'planned-day'};
+    S.dests.push(d);try{save();syncList();syncMap();}catch(e){}toastMsg('Saved to Local spots');
+    var btn=document.querySelector('[data-save-planned-stop="'+idx+'"]');if(btn){btn.textContent='✓ Saved';btn.disabled=true;btn.style.opacity='.65';}
+  };
+
+  var prevRenderDayPlanHtml=window.renderDayPlanHtml;
+  window.renderDayPlanHtml=function(plan,vibe,destId){
+    if(prevRenderDayPlanHtml)prevRenderDayPlanHtml(plan,vibe,destId);
+    setTimeout(function(){
+      var root=document.querySelector('#place-recs .wl-dp2-wrap');if(!root||!plan||!Array.isArray(plan.stops))return;
+      [].slice.call(root.querySelectorAll('.wl-dp2-slide')).forEach(function(slide,i){
+        if(slide.querySelector('[data-save-planned-stop]'))return;
+        var card=slide.querySelector('.wl-dp2-card')||slide;
+        var st=plan.stops[i]||{};
+        if(st.address&&!card.querySelector('.wl-v23-address')){
+          var addr=document.createElement('div');addr.className='wl-v23-address';addr.style.cssText='font-size:12px;color:var(--text3);line-height:1.45;margin:8px 0 0;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px';addr.innerHTML='<b style="color:var(--text2)">Address</b><br>'+esc(st.address);card.appendChild(addr);
+        }
+        var saved=(S.dests||[]).some(function(x){return x.type==='local'&&norm(x.name)===norm(st.name);});
+        var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;margin-top:12px';
+        row.innerHTML='<button data-save-planned-stop="'+i+'" onclick="savePlannedStopToLocal('+i+')" '+(saved?'disabled':'')+' style="flex:1;padding:11px;background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:16px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;'+(saved?'opacity:.65':'')+'">'+(saved?'✓ Saved':'+ Save spot')+'</button>';
+        card.appendChild(row);
+      });
+    },0);
+  };
+})();
+
+
+/* ===== Wanderlist urgent fixes v5 =====
+   Fixes saved-spot day planning, day-plan map rendering, Explore refresh, and loading states. */
+(function(){
+  function el(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toastMsg(m){try{(window.toast||function(x){console.log(x);})(m);}catch(e){}}
+  function coords(p){
+    if(!p)return null;
+    var lat=parseFloat(p.lat), lng=parseFloat(p.lng!=null?p.lng:p.lon);
+    if(isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180)return {lat:lat,lng:lng};
+    if(p.geometry&&p.geometry.location){var l=p.geometry.location;return {lat:typeof l.lat==='function'?l.lat():l.lat,lng:typeof l.lng==='function'?l.lng():l.lng};}
+    return null;
+  }
+  function km(a,b){a=coords(a);b=coords(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function uid(){return Date.now()+'-'+Math.random().toString(36).slice(2,8);}
+  function loadingHTML(title,sub){
+    return '<div style="padding:18px 0">'+
+      '<div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:14px"><span class="spin"></span><div><div style="font-size:14px;font-weight:800;color:var(--text)">'+esc(title)+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(sub||'')+'</div></div></div>'+
+      '<div class="skel-card"><div class="skel skel-line" style="width:70%"></div><div class="skel skel-line" style="width:92%"></div><div class="skel skel-line" style="width:58%;margin-bottom:0"></div></div>'+
+      '<div class="skel-card"><div class="skel skel-line" style="width:62%"></div><div class="skel skel-line" style="width:88%"></div><div class="skel skel-line" style="width:44%;margin-bottom:0"></div></div>'+
+    '</div>';
+  }
+  function localType(s){var t=((s.tags&&s.tags[0])||s.category||'').toLowerCase();if(t.indexOf('bar')>-1||t.indexOf('beer')>-1||t.indexOf('cocktail')>-1||t.indexOf('night')>-1)return 'drinks';if(t.indexOf('park')>-1||t.indexOf('beach')>-1||t.indexOf('view')>-1)return 'nature';if(t.indexOf('shop')>-1)return 'shopping';if(t.indexOf('museum')>-1||t.indexOf('culture')>-1||t.indexOf('sight')>-1)return 'culture';return 'food';}
+  function timeAdd(start,mins){var m=String(start||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return start||'';var h=parseInt(m[1],10)%12,mi=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,mi+mins);var hh=d.getHours(),ap=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+ap;}
+  function walkText(a,b){var dist=km(a,b);if(!isFinite(dist))return 'Short walk to next stop';var min=Math.max(3,Math.round(dist*12));return min+' min walk';}
+  function savedNear(dest){return (window.S&&S.dests||[]).filter(function(x){if(x.type!=='local')return false;if(dest&&x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;if(dest&&x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;return km(x,dest)<35;});}
+  function makeSavedPlan(spots,opt){
+    opt=opt||{};var start=opt.start||'11:00am', hours=parseInt(opt.hours||6,10)||6, anchor=opt.anchor||null, dest=opt.dest||{};
+    var pool=(spots||[]).filter(function(s){return s&&s.name;});
+    if(anchor&&!pool.some(function(s){return String(s.id)===String(anchor.id);}))pool.unshift(anchor);
+    var centre=coords(anchor)||coords(dest)||coords(pool[0]);
+    pool=pool.slice().sort(function(a,b){if(anchor&&String(a.id)===String(anchor.id))return -1;if(anchor&&String(b.id)===String(anchor.id))return 1;return centre?km(a,centre)-km(b,centre):0;});
+    var count=Math.max(2,Math.min(6,hours,pool.length));
+    var stops=pool.slice(0,count).map(function(s,i){return {id:s.id,time:timeAdd(start,i*75),name:s.name,type:localType(s),description:(i===0&&anchor?'Start at the saved spot you selected. ':'Saved spot from your Wanderlist.')+(s.tags&&s.tags.length?' Tags: '+s.tags.join(', ')+'.':''),address:s.address||s.country||'',lat:s.lat,lng:s.lng,place_id:s.place_id||'',budget_note:'Use current menu pricing and your saved notes.',premium_note:'Upgrade with reservations, best seats or a signature order.'};});
+    for(var i=0;i<stops.length-1;i++)stops[i].walk_to_next=walkText(stops[i],stops[i+1]);
+    return {title:anchor?'Day near '+anchor.name:'Saved-spots day plan',city:dest.name||opt.city||'',neighbourhood:opt.area||'',start:start,hours:hours,vibe:opt.vibe||'Saved spots',stops:stops,_destId:opt.destId,_settings:{destId:opt.destId,start:start,hours:hours,vibe:opt.vibe||'Saved spots',area:opt.area||'',mode:'saved',spots:pool,anchorSpot:anchor}};
+  }
+  function selectedSavedMode(){return window._dpMode==='saved'||window._dpMode==='filtered'||(el('dp-use-saved')&&el('dp-use-saved').classList.contains('on'));}
+
+  var oldOpen=window.openPlaceDetail;
+  window.openPlaceDetail=function(id,autoPlanDay){
+    window.currentPlaceId=id;
+    var d=(window.S&&S.dests||[]).find(function(x){return x.id===id;});
+    if(d&&d.type==='local'&&!autoPlanDay){
+      var tags=d.tags&&d.tags.length?d.tags:(d.category&&d.category!=='local'?[d.category]:[]);
+      if(el('place-title'))el('place-title').textContent=d.name;
+      if(el('place-body'))el('place-body').innerHTML=
+        '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Saved local spot</div>'+ 
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+(tags.length?tags.map(function(t){return '<span style="font-size:12px;padding:4px 11px;border-radius:12px;background:var(--blue-lt);color:var(--blue);font-weight:700">'+esc(t)+'</span>';}).join(''):'<span style="font-size:12px;color:var(--text3)">No tags yet</span>')+'</div>'+ 
+        '<p style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">'+esc(d.address||d.country||'')+'</p>'+ 
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="flyTo(\''+esc(id)+'\');closePlaceDetail()" style="flex:1;min-width:130px;padding:11px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rsm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text)">🗺 View on map</button>'+ 
+        '<button onclick="planDayNearSpot(\''+esc(id)+'\')" style="flex:1;min-width:130px;padding:11px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">📅 Plan a day near here</button></div>'+ 
+        '<button onclick="editSpotTags(\''+esc(id)+'\')" style="margin-top:10px;width:100%;padding:10px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--gold)">✏️ Edit tags</button>';
+      if(el('place-bg'))el('place-bg').classList.add('on'); if(el('place-sheet'))el('place-sheet').classList.add('on');
+      return;
+    }
+    if(oldOpen)oldOpen(id,autoPlanDay);
+    if(!autoPlanDay){setTimeout(function(){var holder=el('place-recs');if(d&&d.type==='dest'&&holder&&!holder.querySelector('.rec-card')&&window.refreshExploreSuggestions)window.refreshExploreSuggestions();},700);}
+  };
+
+  var oldRun=window.runDayPlan;
+  window.runDayPlan=function(destId){
+    var dest=(window.S&&S.dests||[]).find(function(x){return x.id===destId;});if(!dest)return;
+    var hours=el('dp-hours')?el('dp-hours').value:'6', start=el('dp-start')?el('dp-start').value:'11:00am', area=el('dp-area')?clean(el('dp-area').value):'';
+    var vibe='';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});vibe=vibe||'Local';
+    var anchor=window._dpAnchor||window._planWithSpot||null;
+    var pool=(Array.isArray(window._planWithSpots)&&window._planWithSpots.length?window._planWithSpots:null)||(Array.isArray(window._wlFilteredSpots)&&window._wlFilteredSpots.length?window._wlFilteredSpots:null)||(Array.isArray(window._dpSaved)&&window._dpSaved.length?window._dpSaved:null)||savedNear(dest);
+    var holder=el('place-recs');
+    if(selectedSavedMode()||window._dpMode==='filtered'||window._planWithSpots){
+      if(holder)holder.innerHTML=loadingHTML('Building from saved spots','Using only the local spots you selected.');
+      if(!pool.length){if(holder)holder.innerHTML='<div class="empty-state"><p>No saved local spots match this city or filter.</p></div>';toastMsg('No saved spots available for this day');return;}
+      setTimeout(function(){var plan=makeSavedPlan(pool,{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:vibe,anchor:anchor});window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){} if(window.renderDayPlanHtml)renderDayPlanHtml(plan,vibe,destId);else if(holder)holder.innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';},120);
+      return;
+    }
+    if(holder)holder.innerHTML=loadingHTML('Building your day plan','Finding a compact route and checking the best available spots.');
+    if(oldRun)oldRun(destId);
+    setTimeout(function(){
+      var h=el('place-recs');
+      if(h&&/Could not build|Could not parse|Could not plan/i.test(h.textContent||'')){
+        var fallback=savedNear(dest);
+        if(fallback.length){var p=makeSavedPlan(fallback,{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:vibe,anchor:anchor});window.currentPlanData=p;try{currentPlanData=p;}catch(e){} if(window.renderDayPlanHtml)renderDayPlanHtml(p,vibe,destId);toastMsg('Built a day from your saved spots instead');}
+      }
+    },5200);
+  };
+
+  window.planDayNearSpot=function(spotId){
+    var spot=(window.S&&S.dests||[]).find(function(x){return x.id===spotId;});if(!spot){toastMsg('Saved spot not found');return;}
+    window._dpAnchor=spot;window._planWithSpot=spot;window._dpMode='saved';
+    var dest=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&((spot.city&&norm(x.name)===norm(spot.city))||(spot.country&&norm(x.country)===norm(spot.country))||km(x,spot)<35);});
+    if(!dest){dest={id:'_tmp_'+spotId,name:spot.city||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};S.dests.push(dest);try{save();}catch(e){}}
+    try{closePlaceDetail();}catch(e){}
+    setTimeout(function(){window.openPlaceDetail(dest.id,true);},40);
+  };
+
+  window.planDayFromFiltered=function(){
+    var spots=(window.S&&S.dests||[]).filter(function(d){
+      if(d.type!=='local')return false;
+      if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;
+      if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}
+      return true;
+    });
+    if(!spots.length){toastMsg('No spots match the current filters');return;}
+    window._planWithSpots=spots;window._wlFilteredSpots=spots;window._dpMode='filtered';
+    var first=spots[0];
+    var dest=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||(first.country&&norm(x.country)===norm(first.country))||km(x,first)<35);});
+    if(!dest){dest={id:'_tmp_filtered_'+Date.now(),name:first.city||first.country||'Filtered local spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};S.dests.push(dest);try{save();}catch(e){}}
+    window.openPlaceDetail(dest.id,true);
+  };
+
+  function attachSavedCoords(plan){
+    var pool=[];try{pool=(S.dests||[]).concat(window._dpSaved||[],window._planWithSpots||[],window._wlFilteredSpots||[],window._planWithSpot?[window._planWithSpot]:[]);}catch(e){}
+    (plan.stops||[]).forEach(function(s){
+      if(coords(s))return;
+      var m=null;if(s.id)m=pool.find(function(p){return p&&p.id&&String(p.id)===String(s.id)&&coords(p);});
+      if(!m&&s.name)m=pool.find(function(p){return p&&p.name&&norm(p.name)===norm(s.name)&&coords(p);});
+      if(m){s.lat=parseFloat(m.lat);s.lng=parseFloat(m.lng);s.address=s.address||m.address||m.country||'';}
+    });
+  }
+  function geocodeMissing(plan,cb){
+    attachSavedCoords(plan);var stops=plan.stops||[],i=0;
+    function next(){
+      while(i<stops.length&&coords(stops[i]))i++;
+      if(i>=stops.length){cb();return;}
+      var s=stops[i++], q=[s.name,s.address,plan.neighbourhood,plan.city].filter(Boolean).join(', ');
+      fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}}).then(function(r){return r.json();}).then(function(res){if(res&&res[0]){s.lat=parseFloat(res[0].lat);s.lng=parseFloat(res[0].lon);s.address=s.address||res[0].display_name||'';}setTimeout(next,120);}).catch(function(){next();});
+    }
+    next();
+  }
+  window.clearDayPlanMap=function(){
+    (window._dayPlanMarkers||[]).forEach(function(m){try{if(m.setMap)m.setMap(null);else if(window.map&&map.removeLayer)map.removeLayer(m);}catch(e){}});window._dayPlanMarkers=[];
+    if(window._dayPlanRoute){try{if(window._dayPlanRoute.setMap)window._dayPlanRoute.setMap(null);else if(window.map&&map.removeLayer)map.removeLayer(window._dayPlanRoute);}catch(e){}window._dayPlanRoute=null;}
+  };
+  window.viewDayPlanOnMap=function(){
+    var plan=window.currentPlanData||((typeof currentPlanData!=='undefined')?currentPlanData:null);if(!plan||!Array.isArray(plan.stops)){toastMsg('No day plan to show');return;}
+    toastMsg('Preparing route map...');
+    geocodeMissing(plan,function(){
+      var stops=(plan.stops||[]).filter(function(s){return coords(s);});
+      if(!stops.length){toastMsg('Map needs saved spots with coordinates to show this route');return;}
+      if(typeof window.clearDayPlanMap==='function')window.clearDayPlanMap();
+      try{if(window.swScreen)swScreen('s-map');}catch(e){}
+      setTimeout(function(){
+        if(!window.map){toastMsg('Map is still loading. Try again in a moment.');return;}
+        var latlngs=stops.map(function(s){var c=coords(s);return [c.lat,c.lng];});
+        if(window.mapMode==='google'&&window.google&&google.maps&&map instanceof google.maps.Map){
+          var bounds=new google.maps.LatLngBounds();
+          stops.forEach(function(s,i){var c=coords(s),pos={lat:c.lat,lng:c.lng};bounds.extend(pos);var marker=new google.maps.Marker({position:pos,map:map,label:{text:String(i+1),color:'#fff',fontWeight:'800'},title:s.name,icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:'#BA7517',fillOpacity:1,strokeColor:'#fff',strokeWeight:3}});window._dayPlanMarkers.push(marker);});
+          if(latlngs.length>1){var path=latlngs.map(function(x){return {lat:x[0],lng:x[1]};});window._dayPlanRoute=new google.maps.Polyline({path:path,geodesic:true,strokeColor:'#BA7517',strokeOpacity:.78,strokeWeight:4,map:map});}
+          map.fitBounds(bounds,60);return;
+        }
+        if(!window.L){toastMsg('Map library is not ready yet');return;}
+        var colors={food:'#BA7517',drinks:'#1a6eb5',culture:'#7A4A00',shopping:'#A32D2D',nature:'#3B6D11',default:'#BA7517'};
+        stops.forEach(function(s,i){var c=coords(s),col=colors[s.type]||colors.default;var icon=L.divIcon({html:'<div style="width:34px;height:34px;border-radius:50%;background:'+col+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35)">'+(i+1)+'</div>',iconSize:[34,34],iconAnchor:[17,17],className:''});var m=L.marker([c.lat,c.lng],{icon:icon}).addTo(map);if(m.bindPopup)m.bindPopup('<strong>'+esc(s.name)+'</strong><br><span style="font-size:11px;color:#888">'+esc(s.time||'')+'</span>');window._dayPlanMarkers.push(m);});
+        if(latlngs.length>1)window._dayPlanRoute=L.polyline(latlngs,{color:'#BA7517',weight:4,opacity:.72,dashArray:'10 6'}).addTo(map);
+        try{if(window._dayPlanRoute&&window._dayPlanRoute.getBounds)map.flyToBounds(window._dayPlanRoute.getBounds().pad(0.25),{duration:1.4});else map.flyTo(latlngs[0],14,{duration:1.2});}catch(e){}
+      },260);
+    });
+  };
+
+  function googleKey(){return localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_maps_key')||localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||'';}
+  function loadPlaces(cb){
+    if(window.google&&google.maps&&google.maps.places){cb(null);return;}
+    var k=googleKey();if(!k){cb('No Google key');return;}
+    if(window.__wlV5PlacesLoading){setTimeout(function(){loadPlaces(cb);},250);return;}
+    window.__wlV5PlacesLoading=true;window.__wlV5PlacesReady=function(){window.__wlV5PlacesLoading=false;cb(null);};
+    var s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&libraries=places&callback=__wlV5PlacesReady';s.async=true;s.defer=true;s.onerror=function(){window.__wlV5PlacesLoading=false;cb('Google Places failed');};document.head.appendChild(s);
+  }
+  function placeType(p){var t=(p.types||[]).join(' ');if(/bar|night_club|liquor|pub/.test(t))return 'bar';if(/cafe|bakery|restaurant|meal/.test(t))return 'restaurant';if(/park|natural_feature|beach/.test(t))return 'park';if(/store|shopping_mall/.test(t))return 'shopping';return 'activity';}
+  function searchPlaces(q,centre,cb){loadPlaces(function(err){if(err){cb(err,[]);return;}var svc=new google.maps.places.PlacesService(document.createElement('div'));var req={query:q,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total']};if(centre){req.location=new google.maps.LatLng(centre.lat,centre.lng);req.radius=9000;}svc.textSearch(req,function(res,status){if(status!==google.maps.places.PlacesServiceStatus.OK||!res){cb(status||'No results',[]);return;}cb(null,res.filter(function(r){return r.business_status!=='CLOSED_PERMANENTLY'&&coords(r);}).map(function(r){var c=coords(r);return {name:r.name,type:placeType(r),tags:[],description:(r.formatted_address||'')+(r.rating?' · Google '+r.rating:''),budget:false,emoji:placeType(r)==='bar'?'🍸':'📍',price_range:'',lat:c.lat,lng:c.lng,address:r.formatted_address||'',place_id:r.place_id,business_status:r.business_status,types:r.types||[]};}));});});}
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||((window.S&&S.dests||[]).find(function(d){return d.type==='dest'&&el('place-title')&&norm(d.name)===norm(el('place-title').textContent);})||{}).id;
+    var d=(window.S&&S.dests||[]).find(function(x){return x.id===id;});var holder=el('place-recs');if(!d){toastMsg('Open a destination first');return;}
+    if(window.__wlV5ExploreBusy){toastMsg('Refresh already in progress');return;}window.__wlV5ExploreBusy=true;
+    if(holder)holder.innerHTML=loadingHTML('Refreshing Explore','Pulling a fresh mix of operating places.');
+    var variants=['best new restaurants cafes bars parks attractions','hidden gems restaurants cocktail bars galleries shops','local favourites cafes wine bars boutiques viewpoints','trendy food drinks culture parks markets'];
+    var q=variants[Date.now()%variants.length]+' in '+d.name+' '+(d.country||'')+' '+Date.now();
+    searchPlaces(q,coords(d),function(err,res){
+      window.__wlV5ExploreBusy=false;
+      if(!err&&res&&res.length){
+        var seen={},fresh=res.filter(function(r){var k=norm(r.name);if(seen[k])return false;seen[k]=1;return true;});
+        placeRecs[id]=fresh.sort(function(){return Math.random()-.5;}).slice(0,12);
+        if(window.renderPlaceRecs)renderPlaceRecs(id);toastMsg('Explore refreshed');return;
+      }
+      var prompt='Give me 12 currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Vary the result from earlier suggestions. Avoid closed venues and invented places. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range,address when known.';
+      (window.ai||ai)([{role:'user',content:prompt}],function(e,text){
+        try{placeRecs[id]=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));if(window.renderPlaceRecs)renderPlaceRecs(id);toastMsg('Explore refreshed');}
+        catch(ex){if(holder)holder.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin:8px 0"><div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:5px">Explore could not refresh</div><div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:10px">Check the API key in Settings, then retry. You can retry as often as needed.</div><button class="action-btn" onclick="refreshExploreSuggestions()">Retry Explore</button></div>';}
+      },4000);
+    });
+  };
+})();
+
+</script>
+
+
+<script id="wl-v6-visited-rating-popup">
+(function(){
+  if(window.__wl_v6_visited_rating_popup)return;
+  window.__wl_v6_visited_rating_popup=true;
+
+  function byId(id){return document.getElementById(id);}
+  function clean(s){return String(s||'').trim();}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function notify(s){try{if(window.toast)window.toast(s);else if(window.toastMsg)window.toastMsg(s);}catch(e){}}
+  function refreshOpenSpot(id){
+    try{ if(window.syncList)window.syncList(); }catch(e){}
+    try{ if(window.syncMap)window.syncMap(); }catch(e){}
+    try{
+      var d=(window.S&&S.dests||[]).find(function(x){return x.id===id;});
+      if(d&&d.type==='local'&&window.openLocalSpotDetail&&byId('place-sheet')&&byId('place-sheet').classList.contains('on')){
+        window.openLocalSpotDetail(id);
+      }
+    }catch(e){}
+  }
+
+  window.openVisitedRatingPopup=function(id){
+    var d=(window.S&&S.dests||[]).find(function(x){return x.id===id;});
+    if(!d)return;
+    var old=byId('wl-visited-rating-bg'); if(old)old.remove();
+
+    var bg=document.createElement('div');
+    bg.id='wl-visited-rating-bg';
+    bg.className='wl-rate-bg';
+    bg.style.zIndex='15000';
+
+    var sh=document.createElement('div');
+    sh.className='wl-rate-sheet';
+    var buttons='';
+    for(var i=1;i<=10;i++){
+      buttons+='<button type="button" data-r="'+i+'" class="'+(Number(d.rating10)===i?'on':'')+'">'+i+'</button>';
+    }
+
+    sh.innerHTML=
+      '<div class="wl-rate-title">Rate '+esc(d.name)+'</div>'+ 
+      '<div style="font-size:14px;color:var(--text3);line-height:1.5">Mark this spot as visited and score it out of 10.</div>'+ 
+      '<div class="wl-rate-grid2">'+buttons+'</div>'+ 
+      '<textarea id="wl-visit-note-v6" class="wl-dp-input" style="min-height:88px;resize:none" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea>'+ 
+      '<button type="button" class="action-btn outline" style="margin-top:12px" id="wl-rate-cancel-v6">Cancel</button>';
+
+    bg.appendChild(sh);
+    document.body.appendChild(bg);
+
+    sh.querySelectorAll('[data-r]').forEach(function(b){
+      b.onclick=function(){
+        var r=parseInt(b.getAttribute('data-r'),10);
+        d.status='visited';
+        d.visited=true;
+        d.rating10=r;
+        d.rating=r+'/10';
+        d.visitNote=clean(byId('wl-visit-note-v6')&&byId('wl-visit-note-v6').value);
+        d.visitedAt=Date.now();
+        try{ if(window.save)window.save(); }catch(e){}
+        bg.remove();
+        refreshOpenSpot(id);
+        notify('Rated '+r+'/10');
+      };
+    });
+    byId('wl-rate-cancel-v6').onclick=function(){bg.remove();};
+    bg.onclick=function(e){if(e.target===bg)bg.remove();};
+  };
+
+  var previousToggleStatus=window.toggleStatus;
+  window.toggleStatus=function(id,e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    var d=(window.S&&S.dests||[]).find(function(x){return x.id===id;});
+    if(!d)return;
+
+    if(d.status==='visited'){
+      d.status='want';
+      d.visited=false;
+      try{ if(window.save)window.save(); }catch(err){}
+      refreshOpenSpot(id);
+      notify('🌍 Added to wish list');
+      return;
+    }
+
+    window.openVisitedRatingPopup(id);
+  };
+
+  window.markVisited=function(id){
+    window.openVisitedRatingPopup(id);
+  };
 })();
 </script>
 
