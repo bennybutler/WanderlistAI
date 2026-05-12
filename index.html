@@ -9973,5 +9973,477 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
 })();
 </script>
 
+
+<script id="wl-v7-dayplan-map-rating-fixes">
+(function(){
+  if(window.__wl_v7_dayplan_map_rating_fixes)return;
+  window.__wl_v7_dayplan_map_rating_fixes=true;
+
+  function el(id){return document.getElementById(id);} 
+  function clean(s){return String(s||'').trim();}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');}
+  function notify(s){try{if(window.toast)window.toast(s);else console.log(s);}catch(e){}}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function coord(o){if(!o)return null;var lat=parseFloat(o.lat),lng=parseFloat(o.lng!=null?o.lng:o.lon);return isFinite(lat)&&isFinite(lng)?{lat:lat,lng:lng}:null;}
+  function distKm(a,b){a=coord(a);b=coord(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function addTime(start,mins){var m=String(start||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return start||'';var h=parseInt(m[1],10)%12,mi=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,mi+mins);var hh=d.getHours(),ap=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+ap;}
+  function loading(title,sub){return '<div class="wl-loading-card" style="padding:26px 18px;margin:8px 0;border:1px solid var(--border);border-radius:18px;background:var(--bg2);text-align:center"><div style="font-size:36px;margin-bottom:8px;animation:pulse 1.4s ease-in-out infinite">🧭</div><div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:5px">'+esc(title)+'</div><div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:14px">'+esc(sub)+'</div><div style="height:7px;border-radius:999px;background:var(--bg3);overflow:hidden"><span style="display:block;height:100%;width:38%;border-radius:999px;background:var(--gold);animation:shimmer 1.15s linear infinite"></span></div></div>';}
+  function getRating(d){var n=parseFloat(d&&d.rating10);return isFinite(n)?n:'';}
+
+  window.openVisitedRatingPopup=function(id){
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});
+    if(!d)return;
+    var old=el('wl-visited-rating-bg');if(old)old.remove();
+    var bg=document.createElement('div');bg.id='wl-visited-rating-bg';bg.className='wl-rate-bg';bg.style.cssText='z-index:15000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);position:fixed;inset:0';
+    var sh=document.createElement('div');sh.className='wl-rate-sheet';sh.style.cssText='background:var(--bg4);border-radius:24px 24px 0 0;padding:20px 18px calc(20px + var(--sb));width:100%;max-width:520px;box-shadow:0 -8px 40px rgba(0,0,0,.25)';
+    var val=getRating(d);
+    sh.innerHTML='<div class="wl-rate-title" style="font-size:22px;font-weight:900;margin-bottom:6px">Rate '+esc(d.name)+'</div>'+ 
+      '<div style="font-size:14px;color:var(--text3);line-height:1.5;margin-bottom:14px">Enter any score from 0.0 to 10.0. Decimals like 9.8 are supported.</div>'+ 
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><input id="wl-rating-decimal" type="number" inputmode="decimal" min="0" max="10" step="0.1" value="'+esc(val)+'" placeholder="9.8" style="flex:1;padding:16px 18px;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;font-size:28px;font-weight:900;color:var(--text);outline:none;font-family:inherit;text-align:center"><div style="font-size:22px;font-weight:900;color:var(--text3)">/10</div></div>'+ 
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+[7,8,8.5,9,9.5,9.8,10].map(function(x){return '<button type="button" class="wl-rate-quick" data-r="'+x+'" style="padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer">'+x+'</button>';}).join('')+'</div>'+ 
+      '<textarea id="wl-visit-note-v7" class="wl-dp-input" style="min-height:78px;resize:none;margin-bottom:12px" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea>'+ 
+      '<button type="button" id="wl-save-rating-v7" class="action-btn" style="margin-bottom:8px">Save rating</button>'+ 
+      '<button type="button" id="wl-rate-cancel-v7" class="action-btn outline">Cancel</button>';
+    bg.appendChild(sh);document.body.appendChild(bg);
+    setTimeout(function(){var inp=el('wl-rating-decimal');if(inp){inp.focus();inp.select();}},80);
+    sh.querySelectorAll('.wl-rate-quick').forEach(function(b){b.onclick=function(){el('wl-rating-decimal').value=b.getAttribute('data-r');};});
+    el('wl-save-rating-v7').onclick=function(){
+      var r=parseFloat(el('wl-rating-decimal').value);
+      if(!isFinite(r)||r<0||r>10){notify('Enter a rating from 0.0 to 10.0');return;}
+      r=Math.round(r*10)/10;
+      d.status='visited';d.visited=true;d.rating10=r;d.rating=(Number.isInteger(r)?String(r):r.toFixed(1))+'/10';d.visitNote=clean(el('wl-visit-note-v7').value);d.visitedAt=Date.now();
+      try{if(window.save)save();}catch(e){}
+      try{if(window.syncList)syncList();}catch(e){}
+      try{if(window.syncMap)syncMap();}catch(e){}
+      bg.remove();
+      try{if(el('place-sheet')&&el('place-sheet').classList.contains('on')&&window.openPlaceDetail)openPlaceDetail(id,false);}catch(e){}
+      notify('Rated '+d.rating);
+    };
+    el('wl-rate-cancel-v7').onclick=function(){bg.remove();};
+    bg.onclick=function(e){if(e.target===bg)bg.remove();};
+  };
+
+  window.markVisited=function(id){window.openVisitedRatingPopup(id);};
+  window.toggleStatus=function(id,e){if(e){e.preventDefault();e.stopPropagation();}window.openVisitedRatingPopup(id);};
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('button');
+    if(!b)return;
+    var txt=(b.textContent||'').toLowerCase();
+    if(txt.indexOf('want to go')>-1||txt.indexOf('visited')>-1||txt.indexOf('rate out of 10')>-1){
+      var m=(b.getAttribute('onclick')||'').match(/(?:toggleStatus|markVisited)\('([^']+)'/);
+      if(m){e.preventDefault();e.stopPropagation();window.openVisitedRatingPopup(m[1]);}
+    }
+  },true);
+
+  function localType(s){var t=((s.tags||[]).join(' ')+' '+(s.category||'')).toLowerCase();if(/bar|beer|cocktail|night|pub/.test(t))return 'drinks';if(/park|beach|view|patio|outdoor/.test(t))return 'nature';if(/shop|market/.test(t))return 'shopping';if(/museum|culture|sight|gallery/.test(t))return 'culture';return 'food';}
+  function walkText(a,b){var d=distKm(a,b);if(!isFinite(d))return 'Short walk';var min=Math.max(3,Math.round(d*12));return min+' min walk';}
+  function makeSavedPlan(spots,opt){
+    opt=opt||{};var start=opt.start||'11:00am',hours=parseInt(opt.hours||6,10)||6;
+    var pool=(spots||[]).filter(function(s){return s&&s.name;});
+    var anchor=opt.anchor||null;if(anchor&&!pool.some(function(s){return String(s.id)===String(anchor.id);}))pool.unshift(anchor);
+    var centre=coord(anchor)||coord(pool[0])||coord(opt.dest);
+    pool=pool.slice().sort(function(a,b){if(anchor&&String(a.id)===String(anchor.id))return -1;if(anchor&&String(b.id)===String(anchor.id))return 1;return centre?distKm(a,centre)-distKm(b,centre):0;});
+    var count=Math.max(1,Math.min(6,hours,pool.length));
+    var stops=pool.slice(0,count).map(function(s,i){return {id:s.id,time:addTime(start,i*75),name:s.name,type:localType(s),description:'Saved spot from your Wanderlist'+(s.tags&&s.tags.length?' tagged '+s.tags.join(', '):'')+'.',address:s.address||s.country||'',lat:s.lat,lng:s.lng,place_id:s.place_id||'',budget_note:'Use your saved notes and current menu pricing.',premium_note:'Upgrade with reservations, best seats or a signature order.'};});
+    for(var i=0;i<stops.length-1;i++)stops[i].walk_to_next=walkText(stops[i],stops[i+1]);
+    return {title:opt.filtered?'Filtered saved-spots day plan':'Saved-spots day plan',city:(opt.dest&&opt.dest.name)||'',neighbourhood:opt.area||'',start:start,hours:hours,vibe:opt.vibe||'Saved spots',stops:stops,_destId:opt.destId,_source:opt.filtered?'filtered saved spots':'saved spots'};
+  }
+  function savedNear(dest){return (window.S&&S.dests||[]).filter(function(x){if(x.type!=='local')return false;if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;return distKm(x,dest)<35;});}
+  function filteredSpots(){return (window.S&&S.dests||[]).filter(function(d){if(d.type!=='local')return false;if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}return true;});}
+
+  window.setDPMode=function(btn,mode){document.querySelectorAll('.wl-dp-modebtn,#dp-use-ai,#dp-use-saved').forEach(function(x){x.classList.remove('on');});if(btn)btn.classList.add('on');window._dpMode=(mode===true?'saved':(mode||'ai'));};
+  window.togDPVibe=function(btn){document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(x){x.classList.remove('on');});if(btn)btn.classList.add('on');};
+
+  window.planDayFromFiltered=function(){
+    var spots=filteredSpots();
+    if(!spots.length){notify('No spots match the current filters');return;}
+    window._dpMode='filtered';window._dpSaved=spots;window._wlFilteredSpots=spots;window._planWithSpots=spots;window._dpAnchor=null;window._planWithSpot=null;
+    var first=spots[0];
+    var dest=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||(first.country&&norm(x.country)===norm(first.country))||distKm(x,first)<35);});
+    if(!dest){dest={id:'_tmp_filtered_'+Date.now(),name:first.city||first.country||'Filtered local spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};(S.dests||[]).push(dest);try{save();}catch(e){}}
+    window.openPlaceDetail(dest.id,true);
+  };
+
+  var prevPlanDay=window.planDay;
+  window.planDay=function(destId){
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!d)return;
+    var forced=(window._dpMode==='filtered'||(Array.isArray(window._wlFilteredSpots)&&window._wlFilteredSpots.length)||Array.isArray(window._planWithSpots)&&window._planWithSpots.length);
+    var saved=forced?(window._wlFilteredSpots||window._planWithSpots||window._dpSaved||[]):savedNear(d);
+    if(forced){window._dpMode='filtered';window._dpSaved=saved;window._wlFilteredSpots=saved;window._planWithSpots=null;}
+    else {window._dpMode='ai';window._dpSaved=saved;window._wlFilteredSpots=null;window._planWithSpots=null;}
+    var rec=el('place-recs');if(!rec){if(prevPlanDay)prevPlanDay(destId);return;}
+    if(forced){
+      rec.innerHTML='<div style="background:var(--bg2);border-radius:18px;padding:15px;border:1px solid var(--border);margin-bottom:12px">'+
+        '<div style="font-size:18px;font-weight:900;margin-bottom:5px">Plan from filtered saved spots</div>'+ 
+        '<div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:12px">This will use only the '+saved.length+' spots already selected by your filters. No AI recommendation filters will be added.</div>'+ 
+        '<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Start time</div><select id="dp-start" class="wl-dp-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option></select></div><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Hours out</div><select id="dp-hours" class="wl-dp-input"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option></select></div></div>'+ 
+        '<button style="width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+js(destId)+'\')">Build from these saved spots</button></div>';
+      return;
+    }
+    var savedBtn=saved.length?'<button id="dp-use-saved" class="wl-dp-modebtn" onclick="setDPMode(this,\'saved\')">📍 Saved spots ('+saved.length+')</button>':'';
+    rec.innerHTML='<div style="background:var(--bg2);border-radius:18px;padding:15px;border:1px solid var(--border);margin-bottom:12px">'+
+      '<div style="font-size:18px;font-weight:900;margin-bottom:5px">Plan a day in '+esc(d.name)+'</div>'+ 
+      '<div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:12px">AI recommendations will build from fresh nearby places. Saved spots are used only when you select the saved-spots source.</div>'+ 
+      '<div style="display:flex;gap:8px;margin-bottom:10px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Start time</div><select id="dp-start" class="wl-dp-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option></select></div><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Hours out</div><select id="dp-hours" class="wl-dp-input"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option></select></div></div>'+ 
+      '<div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Neighbourhood</div><input id="dp-area" class="wl-dp-input" placeholder="e.g. Ossington, West Queen West, Mile End">'+
+      '<div style="font-size:11px;color:var(--text3);font-weight:800;margin:10px 0 6px">Vibe</div><div id="dp-vibes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="filter-pill on" onclick="togDPVibe(this)">🏘 Local</button><button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button><button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button><button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button><button class="filter-pill" onclick="togDPVibe(this)">🗺 Sightseeing</button></div>'+ 
+      '<div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:6px">Source</div><div style="display:flex;gap:8px;margin-bottom:13px"><button id="dp-use-ai" class="wl-dp-modebtn on" onclick="setDPMode(this,\'ai\')">🤖 AI recommendations</button>'+savedBtn+'</div>'+ 
+      '<button style="width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+js(destId)+'\')">Build my day</button></div>';
+  };
+
+  window.runDayPlan=function(destId){
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!d)return;
+    var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'';
+    var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+    var mode=window._dpMode||'ai';var holder=el('place-recs');
+    if(mode==='filtered'||mode==='saved'){
+      var pool=mode==='filtered'?(window._wlFilteredSpots||window._dpSaved||[]):((window._dpSaved&&window._dpSaved.length)?window._dpSaved:savedNear(d));
+      if(holder)holder.innerHTML=loading('Building from saved spots','Using only the spots in your selected source.');
+      if(!pool.length){if(holder)holder.innerHTML='<div class="empty-state"><p>No saved local spots are available for this plan.</p></div>';return;}
+      setTimeout(function(){var plan=makeSavedPlan(pool,{dest:d,destId:destId,start:start,hours:hours,area:area,vibe:mode==='filtered'?'Filtered saved spots':vibe,filtered:mode==='filtered'});window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}if(window.renderDayPlanHtml)renderDayPlanHtml(plan,plan.vibe,destId);else holder.innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';},180);
+      return;
+    }
+    if(holder)holder.innerHTML=loading('Building with AI recommendations','Finding fresh nearby places. Saved spots are not used in this source.');
+    var prompt='Create a '+hours+' hour day itinerary in '+d.name+(d.country?', '+d.country:'')+'. '+(area?'Stay in '+area+'. ':'Choose one compact, walkable neighbourhood. ')+'Start at '+start+'. Vibe '+vibe+'. Use fresh AI recommendations only, not the user saved spots. Only real, operating places. Keep adjacent stops close together. Include lat, lng and address when known. Return ONLY valid JSON {"title":"","city":"'+d.name+'","neighbourhood":"","start":"'+start+'","hours":'+(parseInt(hours,10)||6)+',"vibe":"'+vibe+'","stops":[{"time":"","name":"","type":"food|drinks|culture|shopping|nature","description":"","address":"","lat":0,"lng":0,"walk_to_next":"","budget_note":"","premium_note":""}]}';
+    (window.ai||ai)([{role:'user',content:prompt}],function(err,text){
+      if(err){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not build the AI day plan. Check the API key and try again.</p></div>';return;}
+      try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));plan._destId=destId;plan._source='AI recommendations';window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}if(window.renderDayPlanHtml)renderDayPlanHtml(plan,vibe,destId);else holder.innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';}
+      catch(ex){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not parse the AI day plan. Try again.</p></div>';}
+    },5000);
+  };
+
+  var prevRefreshExplore=window.refreshExploreSuggestions;
+  window.refreshExploreSuggestions=function(){
+    var holder=el('place-recs');if(holder)holder.innerHTML=loading('Refreshing Explore','Pulling a new mix of places. You can refresh again after this finishes.');
+    if(prevRefreshExplore)prevRefreshExplore();
+  };
+  var prevRefreshDay=window.refreshDayPlan;
+  window.refreshDayPlan=function(tweak){var holder=el('place-recs');if(holder)holder.innerHTML=loading('Refreshing day plan','Rebuilding the route with your current source and timing.');if(prevRefreshDay)prevRefreshDay(tweak);};
+
+  function hashN(s){var h=0;String(s||'').split('').forEach(function(ch){h=((h<<5)-h)+ch.charCodeAt(0);h|=0;});return Math.abs(h);}
+  function ensureLocalPinCoords(){
+    var changed=false;
+    (window.S&&S.dests||[]).forEach(function(x){
+      if(x.type!=='local')return;
+      var c=coord(x),dest=(S.dests||[]).find(function(d){return d.type==='dest'&&((x.city&&norm(d.name)===norm(x.city))||(x.country&&d.country&&norm(d.country)===norm(x.country)))});
+      if(!c&&dest&&coord(dest)){x.lat=dest.lat;x.lng=dest.lng;c=coord(x);changed=true;}
+      if(c&&dest&&coord(dest)&&distKm(x,dest)<0.05&&!x.place_id){var n=hashN(x.id||x.name),ang=(n%360)*Math.PI/180,rad=0.004+((n%7)*0.0009);x.lat=parseFloat(dest.lat)+Math.sin(ang)*rad;x.lng=parseFloat(dest.lng)+Math.cos(ang)*rad;changed=true;}
+    });
+    if(changed){try{save();}catch(e){}}
+  }
+  var prevSyncMap=window.syncMap;
+  window.syncMap=function(){ensureLocalPinCoords();if(prevSyncMap)return prevSyncMap.apply(this,arguments);};
+  setTimeout(function(){try{ensureLocalPinCoords();if(window.syncMap)syncMap();}catch(e){}},700);
+})();
+</script>
+
+
+
+<script id="wl-v8-filtered-ai-loading-map-fixes">
+(function(){
+  if(window.__wl_v8_filtered_ai_loading_map_fixes)return;
+  window.__wl_v8_filtered_ai_loading_map_fixes=true;
+
+  function el(id){return document.getElementById(id);}
+  function clean(s){return String(s||'').trim();}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toast2(s){try{if(window.toast)window.toast(s);else if(window.toastMsg)window.toastMsg(s);else console.log(s);}catch(e){}}
+  function coords(o){if(!o)return null;var lat=parseFloat(o.lat),lng=parseFloat(o.lng!=null?o.lng:o.lon);return isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0)?{lat:lat,lng:lng}:null;}
+  function km(a,b){a=coords(a);b=coords(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function addMinutes(t,mn){var m=String(t||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return t||'';var h=parseInt(m[1],10)%12,mi=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,mi+mn);var hh=d.getHours(),ap=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+ap;}
+
+  if(!el('wl-v8-style')){
+    var st=document.createElement('style');
+    st.id='wl-v8-style';
+    st.textContent='@keyframes wlSweep{0%{transform:translateX(-120%)}100%{transform:translateX(260%)}}@keyframes wlBreathe{0%,100%{transform:scale(1);opacity:.78}50%{transform:scale(1.06);opacity:1}}.wl-v8-load{background:linear-gradient(180deg,var(--bg4),var(--bg2));border:1px solid var(--border);border-radius:20px;padding:22px 18px;margin:10px 0;box-shadow:var(--shadow-sm);overflow:hidden;position:relative}.wl-v8-load:before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--gold)}.wl-v8-compass{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--gold-lt);border:1px solid var(--gold-md);font-size:27px;margin:0 auto 12px;animation:wlBreathe 1.15s ease-in-out infinite}.wl-v8-title{font-size:18px;font-weight:900;text-align:center;color:var(--text);margin-bottom:5px}.wl-v8-sub{font-size:13px;color:var(--text3);text-align:center;line-height:1.45;margin-bottom:14px}.wl-v8-bars{display:grid;gap:8px}.wl-v8-bar{height:11px;border-radius:999px;background:var(--bg3);position:relative;overflow:hidden}.wl-v8-bar:after{content:"";position:absolute;inset:0;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:wlSweep 1.15s ease-in-out infinite}.wl-v8-bar:nth-child(2){width:82%;margin:auto}.wl-v8-bar:nth-child(3){width:62%;margin:auto}.wl-mode-locked{padding:10px 12px;background:var(--green-lt);border:1px solid var(--green-bd);border-radius:14px;color:var(--green);font-size:13px;font-weight:800;text-align:center;margin-bottom:12px}.wl-rate-bg{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:16000;display:flex;align-items:flex-end;justify-content:center}.wl-rate-sheet{background:var(--bg4);width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:20px 18px calc(20px + var(--sb));box-shadow:0 -8px 40px rgba(0,0,0,.25)}.wl-rating-input{flex:1;padding:16px 18px;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;font-size:30px;font-weight:900;color:var(--text);outline:none;font-family:inherit;text-align:center}.wl-quick-rating{padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer}';
+    document.head.appendChild(st);
+  }
+
+  function loadCard(title,sub){
+    return '<div class="wl-v8-load"><div class="wl-v8-compass">🧭</div><div class="wl-v8-title">'+esc(title)+'</div><div class="wl-v8-sub">'+esc(sub)+'</div><div class="wl-v8-bars"><div class="wl-v8-bar"></div><div class="wl-v8-bar"></div><div class="wl-v8-bar"></div></div></div>';
+  }
+
+  function showRatingPopup(id){
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});
+    if(!d)return;
+    var old=el('wl-v8-rate-bg');if(old)old.remove();
+    var bg=document.createElement('div');bg.id='wl-v8-rate-bg';bg.className='wl-rate-bg';
+    var val=parseFloat(d.rating10);val=isFinite(val)?val:'';
+    var sh=document.createElement('div');sh.className='wl-rate-sheet';
+    sh.innerHTML='<div style="font-size:22px;font-weight:900;margin-bottom:6px">Rate '+esc(d.name)+'</div>'+ 
+      '<div style="font-size:14px;color:var(--text3);line-height:1.5;margin-bottom:14px">Use any score from 0.0 to 10.0. Decimal ratings like 9.8/10 are supported.</div>'+ 
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><input id="wl-v8-rating" class="wl-rating-input" type="number" inputmode="decimal" min="0" max="10" step="0.1" value="'+esc(val)+'" placeholder="9.8"><div style="font-size:23px;font-weight:900;color:var(--text3)">/10</div></div>'+ 
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+[7,8,8.5,9,9.5,9.8,10].map(function(x){return '<button type="button" class="wl-quick-rating" data-r="'+x+'">'+x+'</button>';}).join('')+'</div>'+ 
+      '<textarea id="wl-v8-note" style="width:100%;min-height:76px;resize:none;padding:12px;background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:14px;outline:none" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea>'+ 
+      '<button type="button" id="wl-v8-save-rating" class="action-btn" style="margin-top:12px;margin-bottom:8px">Save rating</button>'+ 
+      '<button type="button" id="wl-v8-cancel-rating" class="action-btn outline">Cancel</button>';
+    bg.appendChild(sh);document.body.appendChild(bg);
+    sh.querySelectorAll('.wl-quick-rating').forEach(function(b){b.onclick=function(){el('wl-v8-rating').value=b.getAttribute('data-r');};});
+    el('wl-v8-save-rating').onclick=function(){
+      var r=parseFloat(el('wl-v8-rating').value);
+      if(!isFinite(r)||r<0||r>10){toast2('Enter a rating from 0.0 to 10.0');return;}
+      r=Math.round(r*10)/10;
+      d.status='visited';d.visited=true;d.rating10=r;d.rating=(Number.isInteger(r)?String(r):r.toFixed(1))+'/10';d.visitNote=clean(el('wl-v8-note').value);d.visitedAt=Date.now();
+      try{if(window.save)save();}catch(e){}
+      try{if(window.syncList)syncList();}catch(e){}
+      try{if(window.syncMap)syncMap();}catch(e){}
+      bg.remove();
+      try{if(el('place-sheet')&&el('place-sheet').classList.contains('on')&&window.openPlaceDetail)openPlaceDetail(id,false);}catch(e){}
+      toast2('Rated '+d.rating);
+    };
+    el('wl-v8-cancel-rating').onclick=function(){bg.remove();};
+    bg.onclick=function(e){if(e.target===bg)bg.remove();};
+    setTimeout(function(){var i=el('wl-v8-rating');if(i){i.focus();i.select();}},80);
+  }
+  window.openVisitedRatingPopup=showRatingPopup;
+  window.markVisited=function(id){showRatingPopup(id);};
+  window.toggleStatus=function(id,e){if(e){e.preventDefault();e.stopPropagation();}showRatingPopup(id);};
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('button');if(!b)return;
+    var txt=(b.textContent||'').toLowerCase();
+    if(txt.indexOf('want to go')>-1||txt.indexOf('visited')>-1||txt.indexOf('rate')>-1){
+      var oc=b.getAttribute('onclick')||'';
+      var m=oc.match(/(?:toggleStatus|markVisited|openVisitedRatingPopup)\('([^']+)'/);
+      if(m){e.preventDefault();e.stopPropagation();showRatingPopup(m[1]);}
+    }
+  },true);
+
+  function filteredSpots(){
+    return (window.S&&S.dests||[]).filter(function(d){
+      if(d.type!=='local')return false;
+      if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;
+      if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}
+      return true;
+    });
+  }
+  function savedNear(dest){
+    var dc=coords(dest);
+    return (window.S&&S.dests||[]).filter(function(x){
+      if(x.type!=='local')return false;
+      if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;
+      if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;
+      return dc&&coords(x)&&km(x,dest)<45;
+    });
+  }
+  function findDestForSpots(spots){
+    var first=spots[0]||{};
+    var dest=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&((first.city&&norm(x.name)===norm(first.city))||(first.country&&norm(x.country)===norm(first.country))||(coords(x)&&coords(first)&&km(x,first)<35));});
+    if(dest)return dest;
+    dest={id:'_tmp_filtered_'+Date.now(),name:first.city||clean(localStorage.getItem('wl_homecity')).split(',')[0]||first.country||'Filtered saved spots',country:first.country||'',lat:first.lat,lng:first.lng,type:'dest'};
+    (S.dests||[]).push(dest);try{if(window.save)save();}catch(e){}
+    return dest;
+  }
+  function renderFilteredPlanner(dest,spots){
+    window.currentPlaceId=dest.id;
+    try{currentPlaceId=dest.id;}catch(e){}
+    var title=el('place-title'),body=el('place-body');
+    if(title)title.textContent='Plan from filtered spots';
+    if(body)body.innerHTML='<div id="place-recs"><div style="background:var(--bg2);border-radius:18px;padding:15px;border:1px solid var(--border);margin-bottom:12px">'+
+      '<div class="wl-mode-locked">📍 Filtered saved spots source locked. AI recommendation filters are hidden.</div>'+ 
+      '<div style="font-size:18px;font-weight:900;margin-bottom:5px">Build a day using '+spots.length+' filtered spots</div>'+ 
+      '<div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:12px">This plan uses only the spots already selected by your filters. No AI recommendations are added.</div>'+ 
+      '<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Start time</div><select id="dp-start" class="wl-dp-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option></select></div><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Hours out</div><select id="dp-hours" class="wl-dp-input"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option></select></div></div>'+ 
+      '<button style="width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+js(dest.id)+'\')">Build from these saved spots</button></div></div>';
+    if(el('place-bg'))el('place-bg').classList.add('on');
+    if(el('place-sheet'))el('place-sheet').classList.add('on');
+  }
+  window.planDayFromFiltered=function(){
+    var spots=filteredSpots();
+    if(!spots.length){toast2('No spots match filters');return;}
+    window._dpMode='filtered';window._wlFilteredSpots=spots;window._planWithSpots=spots;window._dpSaved=spots;
+    renderFilteredPlanner(findDestForSpots(spots),spots);
+  };
+
+  function makeSavedPlan(pool,opt){
+    opt=opt||{};var start=opt.start||'11:00am',hours=parseInt(opt.hours||6,10)||6;
+    var take=Math.max(2,Math.min(pool.length,Math.ceil(hours*1.15)));
+    var base=coords(opt.dest)||coords(pool[0]);
+    pool=pool.slice().sort(function(a,b){return km(a,base)-km(b,base);}).slice(0,take);
+    return {title:(opt.filtered?'Filtered saved spots':'Saved spots')+' day',city:(opt.dest&&opt.dest.name)||'',neighbourhood:opt.area||'',start:start,hours:hours,vibe:opt.vibe||'Local',_destId:opt.destId,_source:opt.filtered?'Filtered saved spots':'Saved spots',stops:pool.map(function(s,i){return {time:addMinutes(start,i*70),name:s.name,type:s.category||'local',description:(s.visitNote?String(s.visitNote):'Saved spot from your Wanderlist.'),address:s.address||s.country||'',lat:s.lat,lng:s.lng,walk_to_next:i<pool.length-1?'Nearby next stop':'',budget_note:'Saved spot',premium_note:s.rating?('Your rating '+s.rating):''};})};
+  }
+  function renderPlan(plan,vibe,destId){
+    window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}
+    if(window.renderDayPlanHtml)window.renderDayPlanHtml(plan,vibe,destId);
+    else if(el('place-recs'))el('place-recs').innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';
+  }
+  function aiOnlyPrompt(dest,start,hours,area,vibe){
+    return 'Create a '+hours+' hour day itinerary in '+dest.name+(dest.country?', '+dest.country:'')+'. '+(area?'Stay in '+area+'. ':'Choose one compact walkable neighbourhood. ')+'Start at '+start+'. Vibe '+vibe+'. Use fresh AI recommendations only. Do not use saved spots. Only real currently operating places. Keep stops close together. Return ONLY valid JSON object with title, city, neighbourhood, start, hours, vibe and stops array. Each stop needs time, name, type, description, address, lat, lng, walk_to_next, budget_note and premium_note.';
+  }
+  window.setDPMode=function(btn,mode){
+    window._dpMode=mode;
+    try{btn.parentNode.querySelectorAll('.wl-dp-modebtn').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');}catch(e){}
+  };
+  window.runDayPlan=function(destId){
+    var dest=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!dest)return;
+    var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'';
+    var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+    var savedBtn=el('dp-use-saved'),aiBtn=el('dp-use-ai');
+    var filtered=window._dpMode==='filtered'||(Array.isArray(window._wlFilteredSpots)&&window._wlFilteredSpots.length&&(!aiBtn||!aiBtn.classList.contains('on')));
+    var useSaved=!filtered&&savedBtn&&savedBtn.classList.contains('on');
+    var holder=el('place-recs');
+    window._wlLastDPConfig={destId:destId,start:start,hours:hours,area:area,vibe:vibe,useSaved:useSaved,filtered:filtered};
+    if(filtered||useSaved){
+      var pool=filtered?(window._wlFilteredSpots||window._planWithSpots||[]):savedNear(dest);
+      if(holder)holder.innerHTML=loadCard(filtered?'Building from filtered spots':'Building from saved spots','Using only the source you selected. No AI recommendations are added.');
+      if(!pool.length){if(holder)holder.innerHTML='<div class="empty-state"><p>No saved local spots are available for this source.</p></div>';return;}
+      setTimeout(function(){renderPlan(makeSavedPlan(pool,{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:filtered?'Filtered saved spots':vibe,filtered:filtered}),vibe,destId);},220);
+      return;
+    }
+    window._dpMode='ai';window._wlFilteredSpots=null;window._planWithSpots=null;
+    if(holder)holder.innerHTML=loadCard('Building with AI recommendations','Finding fresh nearby places. Saved spots are intentionally ignored for this source.');
+    var c=coords(dest);
+    if(window.placesSearch&&c){
+      var q='best current restaurants bars cafes attractions '+(area?'in '+area+' ':'near ') + dest.name+' '+(dest.country||'')+' '+Date.now();
+      window.placesSearch(q,c,area?2600:6500,function(err,res){
+        if(!err&&res&&res.length){var plan=makeSavedPlan(res.slice(0,Math.min(res.length,7)),{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:vibe,filtered:false});plan.title='AI recommendations day';plan._source='AI recommendations';renderPlan(plan,vibe,destId);return;}
+        runAI();
+      });
+    } else runAI();
+    function runAI(){
+      (window.ai||ai)([{role:'user',content:aiOnlyPrompt(dest,start,hours,area,vibe)}],function(err,text){
+        if(err){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not build the AI day plan. Check the API key and try again.</p></div>';return;}
+        try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));plan._destId=destId;plan._source='AI recommendations';renderPlan(plan,vibe,destId);}
+        catch(e){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not parse the AI day plan. Try again.</p></div>';}
+      },5000);
+    }
+  };
+
+  var oldRefreshExplore=window.refreshExploreSuggestions;
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||((window.S&&S.dests||[]).find(function(d){return d.type==='dest'&&el('place-title')&&norm(d.name)===norm(el('place-title').textContent);})||{}).id;
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});
+    var holder=el('place-recs');
+    if(!d){toast2('Open a destination first');return;}
+    if(holder)holder.innerHTML=loadCard('Refreshing Explore','Pulling a new mix of places. You can refresh as often as you want.');
+    var nonce=Date.now()+' '+Math.random().toString(36).slice(2);
+    if(window.placesSearch&&coords(d)){
+      window.placesSearch('best new restaurants bars cafes attractions hidden gems in '+d.name+' '+(d.country||'')+' '+nonce,coords(d),8000,function(err,res){
+        if(!err&&res&&res.length){window.placeRecs=window.placeRecs||{};placeRecs[id]=res.slice(0,12).map(function(p){return {name:p.name,type:(p.type||p.category||'activity'),tags:p.tags||[],description:(p.description||p._addrStr||p.address||'')+(p.rating?' · Google '+p.rating:''),budget:false,emoji:p.emoji||'📍',price_range:p.price_range||'',lat:p.lat,lng:p.lng};});if(window.renderPlaceRecs)renderPlaceRecs(id);toast2('Explore refreshed');return;}
+        runExploreAI();
+      });
+    } else runExploreAI();
+    function runExploreAI(){
+      var prompt='Give me 12 currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Make this refresh different from prior results by mixing neighbourhoods and categories. Avoid invented or closed places. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range,lat,lng.';
+      (window.ai||ai)([{role:'user',content:prompt}],function(e,text){
+        try{placeRecs[id]=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));if(window.renderPlaceRecs)renderPlaceRecs(id);toast2('Explore refreshed');}
+        catch(ex){if(holder)holder.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;margin:8px 0"><div style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:5px">Explore could not refresh</div><div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:10px">Check your API key or map provider, then retry. Refresh is no longer one-time locked.</div><button class="action-btn" onclick="refreshExploreSuggestions()">Retry Explore</button></div>';}
+      },5000);
+    }
+  };
+
+  function jitterAround(base,item){var seed=0;String(item.id||item.name||Math.random()).split('').forEach(function(ch){seed=((seed<<5)-seed)+ch.charCodeAt(0);seed|=0;});seed=Math.abs(seed);var ang=(seed%360)*Math.PI/180,rad=0.0035+((seed%9)*0.00075);item.lat=parseFloat(base.lat)+Math.sin(ang)*rad;item.lng=parseFloat(base.lng)+Math.cos(ang)*rad;}
+  function repairLocalPinCoords(){
+    var changed=false;
+    (window.S&&S.dests||[]).forEach(function(x){
+      if(x.type!=='local')return;
+      if(coords(x))return;
+      var dest=(S.dests||[]).find(function(d){return d.type==='dest'&&((x.city&&norm(d.name)===norm(x.city))||(x.country&&d.country&&norm(d.country)===norm(x.country)))});
+      if(dest&&coords(dest)){jitterAround(coords(dest),x);changed=true;}
+    });
+    if(changed){try{if(window.save)save();}catch(e){}}
+  }
+  var oldSyncMap=window.syncMap;
+  window.syncMap=function(){repairLocalPinCoords();return oldSyncMap&&oldSyncMap.apply(this,arguments);};
+  setTimeout(function(){try{repairLocalPinCoords();if(window.syncMap)syncMap();}catch(e){}},600);
+
+  function geocodeMissingLocalPins(){
+    var miss=(window.S&&S.dests||[]).filter(function(x){return x.type==='local'&&!coords(x)&&(x.city||x.country||x.name);}).slice(0,20);
+    if(!miss.length)return;
+    var i=0;
+    function next(){
+      if(i>=miss.length){try{if(window.save)save();if(window.syncMap)syncMap();}catch(e){}return;}
+      var x=miss[i++];
+      var q=[x.name,x.city,x.country].filter(Boolean).join(', ');
+      fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=1',{headers:{'Accept-Language':'en'}})
+      .then(function(r){return r.json();}).then(function(res){if(res&&res[0]){x.lat=parseFloat(res[0].lat);x.lng=parseFloat(res[0].lon);}setTimeout(next,220);}).catch(function(){setTimeout(next,220);});
+    }
+    next();
+  }
+  setTimeout(geocodeMissingLocalPins,1100);
+})();
+</script>
+
+<script id="wl-v9-user-fixes">
+(function(){
+  if(window.__wl_v9_user_fixes)return;
+  window.__wl_v9_user_fixes=true;
+  function el(id){return document.getElementById(id);} 
+  function clean(s){return String(s||'').trim();}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function toast2(s){try{if(window.toast)window.toast(s);else console.log(s);}catch(e){}}
+  function coord(o){if(!o)return null;var lat=parseFloat(o.lat),lng=parseFloat(o.lng!=null?o.lng:o.lon);return isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0)?{lat:lat,lng:lng}:null;}
+  function dist(a,b){a=coord(a);b=coord(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function addMin(t,mn){var m=String(t||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return t||'';var h=parseInt(m[1],10)%12,mi=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,mi+mn);var hh=d.getHours(),ap=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+ap;}
+  function typeOfSpot(s){var t=((s.tags||[]).join(' ')+' '+(s.category||'')+' '+(s.type||'')).toLowerCase();if(/bar|beer|cocktail|night|pub|drinks/.test(t))return 'drinks';if(/park|beach|view|patio|outdoor|nature/.test(t))return 'nature';if(/shop|market|store/.test(t))return 'shopping';if(/museum|culture|sight|gallery|attraction/.test(t))return 'culture';return 'food';}
+  function walkText(a,b){var d=dist(a,b);if(!isFinite(d))return 'Nearby next stop';var min=Math.max(3,Math.round(d*12));return min+' min walk';}
+
+  if(!el('wl-v9-style')){
+    var st=document.createElement('style');st.id='wl-v9-style';
+    st.textContent='@keyframes wlV9Sweep{0%{transform:translateX(-120%)}100%{transform:translateX(260%)}}@keyframes wlV9Pulse{0%,100%{transform:scale(1);opacity:.78}50%{transform:scale(1.07);opacity:1}}.wl-v9-load{background:linear-gradient(180deg,var(--bg4),var(--bg2));border:1px solid var(--border);border-radius:20px;padding:24px 18px;margin:10px 0;box-shadow:var(--shadow-md);overflow:hidden;position:relative}.wl-v9-load:before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--gold)}.wl-v9-icon{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--gold-lt);border:1px solid var(--gold-md);font-size:28px;margin:0 auto 12px;animation:wlV9Pulse 1.15s ease-in-out infinite}.wl-v9-title{font-size:19px;font-weight:900;text-align:center;color:var(--text);margin-bottom:5px}.wl-v9-sub{font-size:13px;color:var(--text3);text-align:center;line-height:1.45;margin-bottom:14px}.wl-v9-bar{height:11px;border-radius:999px;background:var(--bg3);position:relative;overflow:hidden;margin:8px auto}.wl-v9-bar:after{content:"";position:absolute;inset:0;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.58),transparent);animation:wlV9Sweep 1.05s ease-in-out infinite}.wl-v9-rate-badge{position:absolute!important;right:12px!important;top:12px!important;background:var(--gold)!important;color:#fff!important;border-radius:18px!important;padding:5px 10px!important;font-size:13px!important;font-weight:900!important;z-index:5!important;box-shadow:var(--shadow-sm)!important}.itin-card{position:relative!important}.card-actions button:last-child,.itin-del,.dest-rm{min-width:38px!important;width:38px!important;height:38px!important;border-radius:50%!important;background:var(--red-lt)!important;border:1.5px solid var(--red-bd)!important;color:var(--red)!important;font-size:24px!important;font-weight:900!important;line-height:1!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important}.wl-v9-source-row{display:flex;gap:8px;margin:12px 0}.wl-v9-mode{flex:1;padding:12px 10px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);font-size:13px;font-weight:900;cursor:pointer;font-family:inherit}.wl-v9-mode.on{background:var(--gold);border-color:var(--gold);color:#fff}.wl-v9-input{width:100%;padding:12px 13px;background:var(--bg4);border:1.5px solid var(--border);border-radius:14px;color:var(--text);outline:none;font-family:inherit;font-size:14px}.wl-v9-locked{padding:10px 12px;background:var(--green-lt);border:1px solid var(--green-bd);border-radius:14px;color:var(--green);font-size:13px;font-weight:900;text-align:center;margin-bottom:12px}.wl-v9-rate-bg{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:17000;display:flex;align-items:flex-end;justify-content:center}.wl-v9-rate-sheet{background:var(--bg4);width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:20px 18px calc(20px + var(--sb));box-shadow:0 -8px 40px rgba(0,0,0,.25)}.wl-v9-rating-input{flex:1;padding:16px 18px;background:var(--bg2);border:1.5px solid var(--border);border-radius:16px;font-size:30px;font-weight:900;color:var(--text);outline:none;font-family:inherit;text-align:center}.wl-v9-quick{padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer}.wl-v9-local-title-wrap{position:relative;padding-right:74px}.wl-v9-local-rating{position:absolute;right:0;top:0;background:var(--gold);color:#fff;border-radius:16px;padding:5px 10px;font-size:13px;font-weight:900;box-shadow:var(--shadow-sm)}';
+    document.head.appendChild(st);
+  }
+  function loading(title,sub){return '<div class="wl-v9-load"><div class="wl-v9-icon">🧭</div><div class="wl-v9-title">'+esc(title)+'</div><div class="wl-v9-sub">'+esc(sub)+'</div><div class="wl-v9-bar" style="width:92%"></div><div class="wl-v9-bar" style="width:76%"></div><div class="wl-v9-bar" style="width:58%"></div></div>';}
+
+  function ratingText(d){var r=parseFloat(d&&d.rating10);if(!isFinite(r))return '';return (Math.round(r*10)/10).toFixed(1).replace(/\.0$/,'')+'/10';}
+  function decorateCards(){try{
+    document.querySelectorAll('#dlist .itin-card').forEach(function(card){
+      var title=card.querySelector('.itin-title');if(!title)return;var d=(S.dests||[]).find(function(x){return norm(x.name)===norm(title.textContent.replace(/\d+(\.\d+)?\/10/g,''));});if(!d)return;
+      var r=ratingText(d);var old=card.querySelector('.wl-v9-rate-badge');if(old)old.remove();if(r){var b=document.createElement('div');b.className='wl-v9-rate-badge';b.textContent=r;card.appendChild(b);} 
+      var x=[].slice.call(card.querySelectorAll('button')).find(function(bt){return (bt.textContent||'').trim()==='×';});if(x){x.innerHTML='×';x.setAttribute('aria-label','Delete');}
+    });
+  }catch(e){}}
+  var prevSyncList=window.syncList;
+  window.syncList=function(){if(prevSyncList)prevSyncList.apply(this,arguments);decorateCards();};
+  setTimeout(decorateCards,500);
+
+  window.openVisitedRatingPopup=function(id){
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});if(!d)return;
+    var old=el('wl-v9-rate-bg');if(old)old.remove();
+    var bg=document.createElement('div');bg.id='wl-v9-rate-bg';bg.className='wl-v9-rate-bg';
+    var val=parseFloat(d.rating10);val=isFinite(val)?val:'';
+    var sh=document.createElement('div');sh.className='wl-v9-rate-sheet';
+    sh.innerHTML='<div style="font-size:22px;font-weight:900;margin-bottom:6px">Rate '+esc(d.name)+'</div><div style="font-size:14px;color:var(--text3);line-height:1.5;margin-bottom:14px">Use any score from 0.0 to 10.0. Decimals like 9.8 are supported.</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><input id="wl-v9-rating" class="wl-v9-rating-input" type="number" inputmode="decimal" min="0" max="10" step="0.1" value="'+esc(val)+'" placeholder="9.8"><div style="font-size:23px;font-weight:900;color:var(--text3)">/10</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+[7,8,8.5,9,9.5,9.8,10].map(function(x){return '<button type="button" class="wl-v9-quick" data-r="'+x+'">'+x+'</button>';}).join('')+'</div><textarea id="wl-v9-note" style="width:100%;min-height:76px;resize:none;padding:12px;background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:14px;outline:none" placeholder="Optional note">'+esc(d.visitNote||'')+'</textarea><button type="button" id="wl-v9-save-rating" class="action-btn" style="margin-top:12px;margin-bottom:8px">Save rating</button><button type="button" id="wl-v9-cancel-rating" class="action-btn outline">Cancel</button>';
+    bg.appendChild(sh);document.body.appendChild(bg);
+    sh.querySelectorAll('.wl-v9-quick').forEach(function(b){b.onclick=function(){el('wl-v9-rating').value=b.getAttribute('data-r');};});
+    el('wl-v9-save-rating').onclick=function(){var r=parseFloat(el('wl-v9-rating').value);if(!isFinite(r)||r<0||r>10){toast2('Enter a rating from 0.0 to 10.0');return;}r=Math.round(r*10)/10;d.status='visited';d.visited=true;d.rating10=r;d.rating=(Number.isInteger(r)?String(r):r.toFixed(1))+'/10';d.visitNote=clean(el('wl-v9-note').value);d.visitedAt=Date.now();try{if(window.save)save();}catch(e){}try{if(window.syncList)syncList();}catch(e){}try{if(window.syncMap)syncMap();}catch(e){}bg.remove();try{if(el('place-sheet')&&el('place-sheet').classList.contains('on')&&window.openPlaceDetail)openPlaceDetail(id,false);}catch(e){}toast2('Rated '+d.rating);};
+    el('wl-v9-cancel-rating').onclick=function(){bg.remove();};bg.onclick=function(e){if(e.target===bg)bg.remove();};setTimeout(function(){var i=el('wl-v9-rating');if(i){i.focus();i.select();}},80);
+  };
+  window.markVisited=function(id){window.openVisitedRatingPopup(id);};
+  window.toggleStatus=function(id,e){if(e){e.preventDefault();e.stopPropagation();}window.openVisitedRatingPopup(id);};
+  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('button');if(!b)return;var txt=(b.textContent||'').toLowerCase();if(txt.indexOf('want to go')>-1||txt.indexOf('visited')>-1){var oc=b.getAttribute('onclick')||'';var m=oc.match(/(?:toggleStatus|markVisited|openVisitedRatingPopup)\('([^']+)'/);if(m){e.preventDefault();e.stopPropagation();window.openVisitedRatingPopup(m[1]);}}},true);
+
+  function getSavedNear(dest){return (S.dests||[]).filter(function(x){if(x.type!=='local')return false;if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;return coord(dest)&&coord(x)&&dist(x,dest)<45;});}
+  function makeSavedPlan(pool,opt){opt=opt||{};var start=opt.start||'11:00am',hours=parseInt(opt.hours||6,10)||6,anchor=opt.anchor||null;pool=(pool||[]).filter(function(s){return s&&s.name;});if(anchor&&!pool.some(function(s){return String(s.id)===String(anchor.id);}))pool.unshift(anchor);var base=coord(anchor)||coord(opt.dest)||coord(pool[0]);pool=pool.slice().sort(function(a,b){if(anchor&&String(a.id)===String(anchor.id))return -1;if(anchor&&String(b.id)===String(anchor.id))return 1;return base?dist(a,base)-dist(b,base):0;}).slice(0,Math.max(1,Math.min(pool.length,Math.ceil(hours*1.1))));var stops=pool.map(function(s,i){return {id:s.id,time:addMin(start,i*70),name:s.name,type:typeOfSpot(s),description:(anchor&&String(s.id)===String(anchor.id)?'Start at the selected spot. ':'Saved spot from your Wanderlist.')+(s.tags&&s.tags.length?' Tags: '+s.tags.join(', ')+'.':''),address:s.address||s.country||'',lat:s.lat,lng:s.lng,place_id:s.place_id||'',walk_to_next:i<pool.length-1?'Nearby next stop':'',budget_note:'Saved spot',premium_note:s.rating?('Your rating '+s.rating):''};});for(var i=0;i<stops.length-1;i++)stops[i].walk_to_next=walkText(stops[i],stops[i+1]);return {title:opt.title||((opt.filtered?'Filtered saved spots':'Saved spots')+' day'),city:(opt.dest&&opt.dest.name)||'',neighbourhood:opt.area||'',start:start,hours:hours,vibe:opt.vibe||'Local',_destId:opt.destId,_source:opt.filtered?'Filtered saved spots':'Saved spots',stops:stops};}
+  function renderPlan(plan,vibe,destId){window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}if(window.renderDayPlanHtml)window.renderDayPlanHtml(plan,vibe,destId);else if(el('place-recs'))el('place-recs').innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';setTimeout(function(){var tweaks=document.querySelectorAll('#place-recs .wl-dp2-tweak');if(tweaks.length>1){for(var i=0;i<tweaks.length-1;i++)tweaks[i].remove();}},30);}
+  function aiPrompt(dest,start,hours,area,vibe,anchor){return 'Create a '+hours+' hour day itinerary in '+dest.name+(dest.country?', '+dest.country:'')+'. '+(area?'Stay in '+area+'. ':'Choose one compact walkable neighbourhood. ')+'Start at '+start+'. Vibe '+vibe+'. Use fresh AI recommendations only and do not use the user saved spots.'+(anchor?' The first stop must be exactly "'+anchor.name+'". After that, add fresh nearby places that fit the route. ':'')+'Only real, operating places. Keep adjacent stops close together. Include lat, lng and address when known. Return ONLY valid JSON object with title, city, neighbourhood, start, hours, vibe and stops array. Each stop needs time, name, type, description, address, lat, lng, walk_to_next, budget_note and premium_note.';}
+  function currentVibe(){var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});return vibe;}
+  window.setDPMode=function(btn,mode){document.querySelectorAll('.wl-v9-mode,#dp-use-ai,#dp-use-saved,.wl-dp-modebtn').forEach(function(x){x.classList.remove('on');});if(btn)btn.classList.add('on');window._dpMode=mode||'ai';};
+  window.togDPVibe=function(btn){document.querySelectorAll('#dp-vibes .filter-pill').forEach(function(x){x.classList.remove('on');});if(btn)btn.classList.add('on');};
+  function renderPlanner(dest,opt){opt=opt||{};var saved=opt.saved||getSavedNear(dest),anchor=opt.anchor||null,filtered=opt.filtered||false;if(el('place-title'))el('place-title').textContent=filtered?'Plan from filtered spots':'Plan a day';var body=el('place-body');if(!body)return;var source=filtered?'<div class="wl-v9-locked">📍 Filtered saved spots source locked. No AI recommendation filters are shown.</div>':'<div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:6px">Source</div><div class="wl-v9-source-row"><button id="dp-use-ai" class="wl-v9-mode on" onclick="setDPMode(this,\'ai\')">🤖 AI recommendations</button>'+(saved.length?'<button id="dp-use-saved" class="wl-v9-mode" onclick="setDPMode(this,\'saved\')">📍 Saved spots ('+saved.length+')</button>':'')+'</div>';body.innerHTML='<div id="place-recs"><div style="background:var(--bg2);border-radius:18px;padding:15px;border:1px solid var(--border);margin-bottom:12px">'+(anchor?'<div class="wl-v9-locked">First stop locked to '+esc(anchor.name)+'. AI will only choose the remaining stops.</div>':'')+'<div style="font-size:18px;font-weight:900;margin-bottom:5px">'+(filtered?'Build a day using '+saved.length+' filtered spots':'Plan a day in '+esc(dest.name))+'</div><div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:12px">'+(filtered?'This plan uses only the spots selected by your filters.':'AI recommendations use fresh places. Saved spots are only used when you select saved spots.')+'</div><div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Start time</div><select id="dp-start" class="wl-v9-input"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>5:00pm</option><option>7:00pm</option></select></div><div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Hours out</div><select id="dp-hours" class="wl-v9-input"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option></select></div></div>'+(filtered?'':'<div style="font-size:11px;color:var(--text3);font-weight:800;margin-bottom:4px">Neighbourhood</div><input id="dp-area" class="wl-v9-input" placeholder="e.g. Ossington, West Queen West, Mile End"><div style="font-size:11px;color:var(--text3);font-weight:800;margin:10px 0 6px">Vibe</div><div id="dp-vibes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="filter-pill on" onclick="togDPVibe(this)">🏘 Local</button><button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button><button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button><button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button><button class="filter-pill" onclick="togDPVibe(this)">🗺 Sightseeing</button></div>')+source+'<button style="width:100%;padding:13px;background:var(--gold);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+js(dest.id)+'\')">Build my day</button></div></div>';if(el('place-bg'))el('place-bg').classList.add('on');if(el('place-sheet'))el('place-sheet').classList.add('on');}
+  window.planDayNearSpot=function(spotId){var spot=(S.dests||[]).find(function(x){return String(x.id)===String(spotId);});if(!spot){toast2('Saved spot not found');return;}window._dpAnchor=spot;window._planWithSpot=spot;window._dpMode='ai';window._wlFilteredSpots=null;window._planWithSpots=null;var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((spot.city&&norm(x.name)===norm(spot.city))||(spot.country&&norm(x.country)===norm(spot.country))||dist(x,spot)<35);});if(!dest){dest={id:'_tmp_anchor_'+Date.now(),name:spot.city||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};S.dests.push(dest);try{save();}catch(e){}}try{closePlaceDetail();}catch(e){}setTimeout(function(){renderPlanner(dest,{anchor:spot,saved:getSavedNear(dest)});},60);};
+  window.planDayFromFiltered=function(){var spots=(S.dests||[]).filter(function(d){if(d.type!=='local')return false;if(window._localCityFilter&&window._localCityFilter!=='all'&&(d.city||d.country)!==window._localCityFilter)return false;if(window._localTagFilters&&window._localTagFilters.length){var tags=d.tags&&d.tags.length?d.tags:[d.category||''];return tags.some(function(t){return window._localTagFilters.indexOf(t)>-1;});}return true;});if(!spots.length){toast2('No spots match filters');return;}window._dpMode='filtered';window._wlFilteredSpots=spots;window._dpSaved=spots;window._dpAnchor=null;window._planWithSpot=null;var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&((spots[0].city&&norm(x.name)===norm(spots[0].city))||(spots[0].country&&norm(x.country)===norm(spots[0].country))||dist(x,spots[0])<35);})||{id:'_tmp_filtered_'+Date.now(),name:spots[0].city||spots[0].country||'Filtered saved spots',country:spots[0].country||'',lat:spots[0].lat,lng:spots[0].lng,type:'dest'};if(!S.dests.some(function(x){return x.id===dest.id;})){S.dests.push(dest);try{save();}catch(e){}}renderPlanner(dest,{filtered:true,saved:spots});};
+  var prevPlanDay=window.planDay;window.planDay=function(destId){var d=(S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!d)return;var filtered=window._dpMode==='filtered'&&Array.isArray(window._wlFilteredSpots)&&window._wlFilteredSpots.length;if(filtered){renderPlanner(d,{filtered:true,saved:window._wlFilteredSpots});return;}if(window._dpAnchor||window._planWithSpot){renderPlanner(d,{anchor:window._dpAnchor||window._planWithSpot,saved:getSavedNear(d)});return;}window._dpMode='ai';window._wlFilteredSpots=null;window._planWithSpots=null;if(prevPlanDay)prevPlanDay(destId);setTimeout(function(){var b=el('dp-use-saved');if(!b){var saved=getSavedNear(d);var row=el('dp-source-row')||document.querySelector('.wl-v9-source-row')||document.querySelector('#place-recs [style*="display:flex"][style*="gap:8px"]');if(saved.length&&row&&el('dp-use-ai')){var btn=document.createElement('button');btn.id='dp-use-saved';btn.className='wl-v9-mode';btn.textContent='📍 Saved spots ('+saved.length+')';btn.onclick=function(){setDPMode(btn,'saved');};el('dp-use-ai').parentNode.appendChild(btn);}}},120);};
+  window.runDayPlan=function(destId){var dest=(S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!dest)return;var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'',vibe=currentVibe(),mode=window._dpMode||'ai',holder=el('place-recs'),anchor=window._dpAnchor||window._planWithSpot||null;if(mode==='filtered'||mode==='saved'){var pool=mode==='filtered'?(window._wlFilteredSpots||window._dpSaved||[]):getSavedNear(dest);if(holder)holder.innerHTML=loading(mode==='filtered'?'Building from filtered spots':'Building from saved spots','Using only the source you selected. No AI recommendations are added.');if(!pool.length){holder.innerHTML='<div class="empty-state"><p>No saved local spots are available for this source.</p></div>';return;}setTimeout(function(){renderPlan(makeSavedPlan(pool,{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:mode==='filtered'?'Filtered saved spots':vibe,filtered:mode==='filtered',anchor:anchor}),vibe,destId);},180);return;}if(holder)holder.innerHTML=loading('Building with AI recommendations',anchor?'Keeping '+anchor.name+' as the first stop, then finding fresh nearby places.':'Finding fresh nearby places. Saved spots are not used in this source.');var prompt=aiPrompt(dest,start,hours,area,vibe,anchor);(window.ai||ai)([{role:'user',content:prompt}],function(err,text){if(err){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not build the AI day plan. Check the API key and try again.</p></div>';return;}try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));if(anchor){plan.stops=Array.isArray(plan.stops)?plan.stops:[];var first={id:anchor.id,time:start,name:anchor.name,type:typeOfSpot(anchor),description:'Start at the saved spot you selected.',address:anchor.address||anchor.country||'',lat:anchor.lat,lng:anchor.lng,place_id:anchor.place_id||'',walk_to_next:plan.stops[0]?walkText(anchor,plan.stops[0]):'',budget_note:'Saved starting point',premium_note:''};plan.stops=plan.stops.filter(function(s){return norm(s.name)!==norm(anchor.name);});plan.stops.unshift(first);}plan._destId=destId;plan._source='AI recommendations';renderPlan(plan,vibe,destId);}catch(e){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not parse the AI day plan. Try again.</p></div>';}} ,5000);};
+
+  function continent(d){var s=(d.country||'')+' '+(d.name||'');s=s.toLowerCase();var north=['canada','united states','usa','mexico','costa rica','panama','jamaica','bahamas','dominican','puerto rico'];var europe=['france','italy','spain','portugal','germany','netherlands','belgium','switzerland','austria','greece','croatia','united kingdom','uk','ireland','iceland','norway','sweden','denmark','finland','czech','poland','turkey'];var asia=['japan','china','korea','thailand','vietnam','singapore','india','indonesia','malaysia','taiwan','hong kong','uae','israel'];var south=['brazil','argentina','chile','peru','colombia','ecuador','uruguay'];var africa=['morocco','egypt','south africa','kenya','tanzania','ghana'];var oce=['australia','new zealand','fiji'];function hit(a){return a.some(function(x){return s.indexOf(x)>-1;});}if(hit(europe))return 'Europe';if(hit(north))return 'North America';if(hit(south))return 'South America';if(hit(asia))return 'Asia';if(hit(africa))return 'Africa';if(hit(oce))return 'Oceania';return 'Other';}
+  var prevSyncList2=window.syncList;window.syncList=function(){if(prevSyncList2)prevSyncList2.apply(this,arguments);try{var hdrs=document.querySelectorAll('#dlist .continent-hdr');if(hdrs.length&&[].slice.call(hdrs).every(function(h){return clean(h.textContent)==='Other'||clean(h.textContent)==='📍 Local spots';})){var cards=[].slice.call(document.querySelectorAll('#dlist .itin-card'));var groups={};cards.forEach(function(c){var title=c.querySelector('.itin-title');if(!title)return;var d=(S.dests||[]).find(function(x){return norm(x.name)===norm(title.textContent.replace(/\d+(\.\d+)?\/10/g,''));});if(!d||d.type!=='dest')return;var ct=continent(d);if(!groups[ct])groups[ct]=[];groups[ct].push(c.outerHTML);});var order=['Europe','North America','South America','Asia','Africa','Oceania','Other'],html='';order.forEach(function(ct){if(groups[ct]&&groups[ct].length)html+='<div class="continent-hdr">'+ct+'</div>'+groups[ct].join('');});var locals=[].slice.call(document.querySelectorAll('#dlist .itin-card')).filter(function(c){var title=c.querySelector('.itin-title');var d=(S.dests||[]).find(function(x){return title&&norm(x.name)===norm(title.textContent.replace(/\d+(\.\d+)?\/10/g,''));});return d&&d.type==='local';}).map(function(c){return c.outerHTML;});if(locals.length)html+='<div class="continent-hdr">📍 Local spots</div>'+locals.join('');if(html)el('dlist').innerHTML=html;}}catch(e){}decorateCards();};
+
+  window.refreshExploreSuggestions=function(){window.__wlV5ExploreBusy=false;var id=window.currentPlaceId||((S.dests||[]).find(function(d){return d.type==='dest'&&el('place-title')&&norm(d.name)===norm(el('place-title').textContent);})||{}).id;var d=(S.dests||[]).find(function(x){return String(x.id)===String(id);});var holder=el('place-recs');if(!d){toast2('Open a destination first');return;}if(holder)holder.innerHTML=loading('Refreshing Explore','Pulling a new mix of places. You can refresh again after this finishes.');var nonce=Date.now()+' '+Math.random().toString(36).slice(2);function done(arr){placeRecs[id]=arr.slice(0,12);if(window.renderPlaceRecs)renderPlaceRecs(id);toast2('Explore refreshed');}if(window.placesSearch&&coord(d)){window.placesSearch('best new local restaurants bars cafes attractions hidden gems in '+d.name+' '+(d.country||'')+' '+nonce,coord(d),9000,function(err,res){if(!err&&res&&res.length){done(res.map(function(p){return {name:p.name,type:p.type||p.category||'activity',tags:p.tags||[],description:(p.description||p._addrStr||p.address||'')+(p.rating?' · Google '+p.rating:''),budget:false,emoji:p.emoji||'📍',price_range:p.price_range||'',lat:p.lat,lng:p.lng};}).sort(function(){return Math.random()-.5;}));return;}runAI();});}else runAI();function runAI(){var prompt='Give me 12 currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Refresh seed '+nonce+'. Make the set meaningfully different from prior results. Mix neighbourhoods and categories. Avoid invented or closed places. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range,lat,lng.';(window.ai||ai)([{role:'user',content:prompt}],function(e,text){try{done(window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,'')));}catch(ex){if(holder)holder.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;margin:8px 0"><div style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:5px">Explore could not refresh</div><div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:10px">Check your API key, then retry. Refresh can be clicked again.</div><button class="action-btn" onclick="refreshExploreSuggestions()">Retry Explore</button></div>';}} ,5000);}};
+
+  var prevRender=window.renderDayPlanHtml;window.renderDayPlanHtml=function(plan,vibe,destId){if(prevRender)prevRender(plan,vibe,destId);setTimeout(function(){var tweaks=document.querySelectorAll('#place-recs .wl-dp2-tweak');if(tweaks.length>1){for(var i=0;i<tweaks.length-1;i++)tweaks[i].remove();}var refs=document.querySelectorAll('#place-recs [data-dp-action="refresh"]');refs.forEach(function(r){r.onclick=function(e){e.preventDefault();if(window.refreshDayPlan)window.refreshDayPlan();};});},40);};
+  var prevRefreshDay=window.refreshDayPlan;window.refreshDayPlan=function(tweak){var holder=el('place-recs');if(holder)holder.innerHTML=loading('Refreshing day plan','Rebuilding the route with the same source selection.');if(prevRefreshDay)prevRefreshDay(tweak);};
+
+  function repairPins(){var changed=false;(S.dests||[]).forEach(function(x){if(x.type!=='local'||coord(x))return;var dest=(S.dests||[]).find(function(d){return d.type==='dest'&&((x.city&&norm(d.name)===norm(x.city))||(x.country&&norm(d.country)===norm(x.country)))});if(dest&&coord(dest)){var h=0;String(x.id||x.name).split('').forEach(function(ch){h=((h<<5)-h)+ch.charCodeAt(0);h|=0;});h=Math.abs(h);var a=(h%360)*Math.PI/180,r=0.004+((h%7)*0.0008);x.lat=parseFloat(dest.lat)+Math.sin(a)*r;x.lng=parseFloat(dest.lng)+Math.cos(a)*r;changed=true;}});if(changed){try{save();}catch(e){}}}
+  var prevSyncMap=window.syncMap;window.syncMap=function(){repairPins();var out=prevSyncMap&&prevSyncMap.apply(this,arguments);try{if(window.map&&map.invalidateSize)setTimeout(function(){map.invalidateSize();},80);}catch(e){}return out;};
+  var prevSw=window.swScreen;window.swScreen=function(id){if(prevSw)prevSw.apply(this,arguments);if(id==='s-map'){setTimeout(function(){try{if(window.map&&map.invalidateSize)map.invalidateSize();if(window.syncMap)syncMap();}catch(e){}},80);setTimeout(function(){try{if(window.map&&map.invalidateSize)map.invalidateSize();if(window.syncMap)syncMap();}catch(e){}},450);}};
+  setTimeout(function(){try{repairPins();if(window.syncMap)syncMap();if(window.syncList)syncList();}catch(e){}},900);
+})();
+</script>
+
 </body>
 </html>
