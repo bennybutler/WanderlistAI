@@ -61,6 +61,10 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',system-ui,sans-serif
 
 /* ── Map ── */
 #map{flex:1;z-index:0;}
+.leaflet-tile-pane{filter:saturate(1.18) contrast(1.06) brightness(1.02);}
+.leaflet-popup-content-wrapper{border-radius:14px!important;box-shadow:0 4px 20px rgba(0,0,0,.18)!important;border:1px solid rgba(0,0,0,.06)!important;}
+.leaflet-popup-tip-container{margin-top:-1px;}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.7)!important;backdrop-filter:blur(4px);}
 .map-filters{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:900;display:flex;gap:3px;background:var(--bg4);border:1px solid var(--border);border-radius:24px;padding:4px;box-shadow:var(--shadow-md);}
 .mf-btn{padding:8px 16px;border-radius:22px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text3);background:transparent;white-space:nowrap;transition:all .15s;letter-spacing:.01em;}
 .mf-btn.on{background:var(--gold);color:#fff;box-shadow:0 2px 6px rgba(184,115,10,.3);}
@@ -389,13 +393,7 @@ textarea::placeholder{color:var(--text3);}
       </div>
       <div class="autocomplete" id="ac"></div>
     </div>
-    <div style="padding:7px 13px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text3);cursor:pointer;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Import backup
-        <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
-      </label>
-    </div>
+
     <div id="local-tag-filters" style="display:none;flex-shrink:0;border-bottom:1px solid var(--border)"><div style="padding:5px 12px;overflow-x:auto"><div style="display:flex;gap:4px;min-width:max-content"><button class="mf-btn on ltf-btn" data-tag="all" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('all',this)">All</button><button class="mf-btn ltf-btn" data-tag="☕ Cafe" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('☕ Cafe',this)">☕ Cafe</button><button class="mf-btn ltf-btn" data-tag="🍺 Beer/pub" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍺 Beer/pub',this)">🍺 Beer/pub</button><button class="mf-btn ltf-btn" data-tag="🍸 Cocktails" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍸 Cocktails',this)">🍸 Cocktails</button><button class="mf-btn ltf-btn" data-tag="🌿 Patio" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌿 Patio',this)">🌿 Patio</button><button class="mf-btn ltf-btn" data-tag="🍽 Fine dining" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍽 Fine dining',this)">🍽 Fine dining</button><button class="mf-btn ltf-btn" data-tag="🥙 Cheap eats" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🥙 Cheap eats',this)">🥙 Cheap eats</button><button class="mf-btn ltf-btn" data-tag="🌳 Park" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌳 Park',this)">🌳 Park</button><button class="mf-btn ltf-btn" data-tag="🏛 Sightseeing" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏛 Sightseeing',this)">🏛 Sightseeing</button><button class="mf-btn ltf-btn" data-tag="🎭 Culture" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎭 Culture',this)">🎭 Culture</button><button class="mf-btn ltf-btn" data-tag="🛍 Shopping" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🛍 Shopping',this)">🛍 Shopping</button><button class="mf-btn ltf-btn" data-tag="🏖 Beach" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏖 Beach',this)">🏖 Beach</button><button class="mf-btn ltf-btn" data-tag="🌃 Nightlife" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🌃 Nightlife',this)">🌃 Nightlife</button><button class="mf-btn ltf-btn" data-tag="🏃 Activity" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🏃 Activity',this)">🏃 Activity</button><button class="mf-btn ltf-btn" data-tag="📸 Viewpoint" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('📸 Viewpoint',this)">📸 Viewpoint</button><button class="mf-btn ltf-btn" data-tag="🎵 Live music" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🎵 Live music',this)">🎵 Live music</button><button class="mf-btn ltf-btn" data-tag="🍹 Happy hour" style="font-size:11px;padding:4px 10px" onclick="setLocalTagFilter('🍹 Happy hour',this)">🍹 Happy hour</button></div></div><div style="padding:5px 12px 6px;display:flex;gap:8px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap">City:</span><select id="local-city-sel" style="flex:1;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);outline:none" onchange="setLocalCityFilter(this.value)"><option value="all">All cities</option></select></div><div style="padding:4px 12px 8px"><button id="local-plan-btn" onclick="planDayFromFiltered()" style="display:none;width:100%;padding:9px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📅 Plan a day using filtered spots</button></div></div>
     <div class="scroll-list" id="dlist"><div class="empty-state"><p>Search above to add a destination<br>or local spot.</p></div></div>
   </div>
@@ -911,9 +909,10 @@ function initMapSystem(done){
 }
 function initLeafletMap(done){
   mapMode='leaflet';
-  map=L.map('map',{zoomControl:false,minZoom:3,maxBounds:L.latLngBounds([[-72,-160],[78,160]]),maxBoundsViscosity:1.0,worldCopyJump:false}).setView([20,15],3);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {attribution:'© OpenStreetMap contributors',subdomains:'abc',maxZoom:19,noWrap:true}).addTo(map);
+  map=L.map('map',{zoomControl:false,minZoom:2,maxBounds:L.latLngBounds([[-85,-200],[85,200]]),maxBoundsViscosity:0.6,worldCopyJump:false}).setView([20,15],3);
+  map.getContainer().style.background='#6baed6';
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    {attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',subdomains:'abcd',maxZoom:20,minZoom:2,noWrap:false,keepBuffer:4}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
   if(done)done();
 }
@@ -963,6 +962,7 @@ function setMapLocalTag(tag,el){
 }
 
 function setFilter(f,el){
+  if(f!=='routes'&&typeof window.clearDayPlanMap==='function')window.clearDayPlanMap();
   S.mapFilter=f;
   clearRouteLines();
   document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
@@ -991,6 +991,10 @@ function showRoutePicker(){
   btn.textContent='Cancel';btn.addEventListener('click',function(){div.remove();setFilter('all',g('mf-all'));});
   div.appendChild(btn);
   document.getElementById('s-map').appendChild(div);
+  setTimeout(function(){
+    function outsideClick(e){if(!div.contains(e.target)){div.remove();document.removeEventListener('click',outsideClick,true);}}
+    document.addEventListener('click',outsideClick,true);
+  },10);
 }
 function drawRouteLines(itin){
   var dests=itin.destinations||[];
@@ -1035,7 +1039,7 @@ function pickRoute(id){
 }
 function micon(type){
   var c=type==='local'?'#1a6eb5':'#BA7517';
-  return L.divIcon({html:'<div style="width:13px;height:13px;background:'+c+';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,.25)"></div>',iconSize:[13,13],iconAnchor:[6,13],popupAnchor:[0,-17],className:''});
+  return L.divIcon({html:'<div style="width:14px;height:14px;background:'+c+';border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,.32),0 0 0 1.5px '+c+'55"></div>',iconSize:[14,14],iconAnchor:[7,14],popupAnchor:[0,-18],className:''});
 }
 function syncMap(){
   if(!map)return;
@@ -1061,7 +1065,7 @@ function syncMap(){
       marker.addListener('click',function(){googleInfoWindow.setContent(popupHtml);googleInfoWindow.open(map,marker);});
       return marker;
     }
-    var icon=L.divIcon({html:'<div style="width:26px;height:32px;position:relative;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><div style="position:absolute;left:4px;top:0;width:18px;height:18px;background:'+mc+';border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);"><span style="position:absolute;left:4px;top:4px;width:4px;height:4px;background:#fff;border-radius:50%;display:block"></span></div></div>',iconSize:[26,32],iconAnchor:[13,30],popupAnchor:[0,-30],className:''});
+    var icon=L.divIcon({html:'<div style="width:28px;height:36px;position:relative;filter:drop-shadow(0 3px 5px rgba(0,0,0,.38))"><div style="position:absolute;left:4px;top:0;width:20px;height:20px;background:'+mc+';border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);"><span style="position:absolute;left:5px;top:5px;width:5px;height:5px;background:#fff;border-radius:50%;display:block"></span></div></div>',iconSize:[26,32],iconAnchor:[13,30],popupAnchor:[0,-30],className:''});
     var m=L.marker([lat,lng],{icon:icon}).addTo(map);
     var popupEl=document.createElement('div');
     popupEl.style.minWidth='150px';
@@ -1822,16 +1826,53 @@ function saveDayPlan(){
   if(!plan){toast('No day plan to save');return;}
   var itin={_id:uid(),_type:'dayplan',title:plan.title||'Day plan',city:plan.city||currentPlanCity||'',hours:plan.hours||6,vibe:plan.vibe||'',start:plan.start||'',stops:plan.stops||[],highlights:(plan.vibe||'')+' · '+(plan.hours||6)+' hours starting '+(plan.start||''),duration_days:1};
   S.itins.unshift(itin);
-  save();
-  renderItins();
-  toast('Day plan saved!');
-  // Switch to trips tab on day plans filter
+  try{save();}catch(e){}
+  try{if(typeof renderItins==='function')renderItins();}catch(e){}
+  toast('Day plan saved! ✓');
+  // Offer "Add to trip" after a moment
+  setTimeout(function(){
+    var trips=S.itins.filter(function(t){return(t._type||'trip')==='trip';});
+    if(!trips.length)return;
+    var msg=document.createElement('div');
+    msg.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.18);z-index:2000;font-size:13px;font-family:inherit;white-space:nowrap';
+    msg.innerHTML='Add to a trip? <button style="padding:4px 10px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" id="add-to-trip-btn">Choose trip →</button>';
+    document.body.appendChild(msg);
+    document.getElementById('add-to-trip-btn').onclick=function(){
+      msg.remove();
+      if(window.showAddToTripPicker)window.showAddToTripPicker(itin._id);
+    };
+    setTimeout(function(){if(msg.parentNode)msg.remove();},5000);
+  },600);
   swScreen('s-plans');
   setTimeout(function(){
     var pills=document.querySelectorAll('#trip-filter-row .pill');
     if(pills[2])setTripFilter('dayplan',pills[2]);
   },120);
 }
+window.showAddToTripPicker=function(planId){
+  var trips=S.itins.filter(function(t){return(t._type||'trip')==='trip';});
+  if(!trips.length){toast('No trips yet. Create a trip first.');return;}
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;display:flex;align-items:flex-end;justify-content:center';
+  var sheet=document.createElement('div');
+  sheet.style.cssText='background:var(--bg);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:480px;max-height:60vh;overflow-y:auto;font-family:inherit';
+  sheet.innerHTML='<div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Add plan to a trip</div>'+
+    trips.map(function(t){return'<div onclick="window._addPlanToTrip(\''+t._id+'\',\''+planId+'\',this.parentNode.parentNode)" style="padding:11px 13px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">'+esc(t.title||'Trip')+'<span style="float:right;color:var(--text3);font-weight:400">'+(t.destinations||[]).join(', ').slice(0,40)+'</span></div>';}).join('')+
+    '<button onclick="this.closest(\'div[style*=inset]\').remove()" style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text3);margin-top:4px">Cancel</button>';
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+};
+window._addPlanToTrip=function(tripId,planId,overlay){
+  var trip=S.itins.find(function(t){return t._id===tripId;});
+  var plan=S.itins.find(function(p){return p._id===planId;});
+  if(!trip||!plan){toast('Could not find trip or plan');return;}
+  if(!trip.dayPlans)trip.dayPlans=[];
+  trip.dayPlans.push(planId);
+  save();
+  if(overlay&&overlay.parentNode)overlay.remove();
+  toast('✓ Added to '+esc(trip.title||'trip'));
+};
 function shareDayPlan(encoded){
   var plan=JSON.parse(decodeURIComponent(encoded));
   var text=plan.title+' ('+plan.start+', '+plan.hours+' hours)\n\n'+
@@ -3489,6 +3530,9 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 
   window.planDay = function(destId){
     var d=S.dests.find(function(x){return x.id===destId;});if(!d)return;
+    // Always reset anchor globals so a previous spot-plan doesn't bleed in
+    window._wlAnchorSpot=null;window._wlDayPlanMode='';window._mustIncludeSpot=null;
+    window._planStartingSpot='';window._planWithSpot=null;window._wlFilteredSpots=null;
     var dco=placeLatLng(d);
     var savedSpots=(S.dests||[]).filter(function(x){
       if(x.type!=='local')return false;
@@ -3660,7 +3704,8 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     if(!currentPlanData&&!window._lastDayPlanConfig){toast('No day plan to refresh');return;}
     var cfg=(currentPlanData&&currentPlanData._settings)||window._lastDayPlanConfig||{};
     var destId=cfg.destId||(currentPlanData&&currentPlanData._destId)||'';
-    var d=S.dests.find(function(x){return x.id===destId||x.name===currentPlanCity;});
+    var cityName=cfg.cityName||(currentPlanData&&currentPlanData.city)||currentPlanCity||'';
+    var d=S.dests.find(function(x){return x.id===destId||(cityName&&(x.name===cityName||x.name.toLowerCase()===cityName.toLowerCase()));});
     if(!d){toast('Could not refresh. Open Plan a day again.');return;}
     window._lastDayPlanConfig={destId:d.id,hours:String(cfg.hours||(currentPlanData&&currentPlanData.hours)||6),start:cfg.start||(currentPlanData&&currentPlanData.start)||'11:00am',vibe:cfg.vibe||(currentPlanData&&currentPlanData.vibe)||'🗺 Sightseeing',useSaved:!!cfg.useSaved,spots:cfg.spots||window._dpSaved||[],anchor:cfg.anchor||'',anchorCoords:cfg.anchorCoords||null};
     window._dpSaved=window._lastDayPlanConfig.spots;
@@ -4427,6 +4472,10 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
     if(e)e.stopPropagation();
     var d=(S.dests||[]).find(function(x){return x.id===id;}); if(!d||!d.lat)return;
     swScreen('s-map');
+    // If spot is local, ensure map is on the local filter so the pin is visible
+    if(d.type==='local'&&typeof setFilter==='function'){
+      setFilter('local',document.getElementById('mf-local'));
+    }
     setTimeout(function(){map.flyTo([parseFloat(d.lat),parseFloat(d.lng)],16,{duration:1.8});},200);
   };
   window.planDayForSpot=function(id,e){
@@ -4515,7 +4564,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
       (stars||price?'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">'+esc(stars)+(stars&&price?' · ':'')+esc(price)+'</div>':'')+
       (hoursHtml?'<div style="background:var(--bg2);border-radius:var(--rsm);padding:9px 11px;margin-bottom:10px;border:1px solid var(--border)">'+hoursHtml+'</div>':'')+
       (p.formatted_phone_number?'<div style="font-size:12px;color:var(--text3);margin-bottom:8px">📞 <a href="tel:'+esc(p.formatted_phone_number)+'" style="color:var(--gold)">'+esc(p.formatted_phone_number)+'</a></div>':'')+
-      (p.website?'<a href="'+esc(p.website)+'" target="_blank" style="display:block;padding:10px 14px;background:var(--gold);color:#fff;border-radius:var(--rsm);text-align:center;font-size:13px;font-weight:600;text-decoration:none;margin-bottom:8px">🔗 Visit website / Book</a>':'')+
+      (function(){var ws=p.website;var gmUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p.name||d.name)+(p.formatted_address?'+'+encodeURIComponent(p.formatted_address):'')+(p.place_id?'&query_place_id='+encodeURIComponent(p.place_id):'');return'<a href="'+(ws?esc(ws):gmUrl)+'" target="_blank" style="display:block;padding:10px 14px;background:var(--gold);color:#fff;border-radius:var(--rsm);text-align:center;font-size:13px;font-weight:600;text-decoration:none;margin-bottom:8px">'+(ws?'🔗 Visit website / Book':'📍 Find on Google Maps')+'</a>';})()+
       (p.formatted_address?'<div style="font-size:11px;color:var(--text3)">📍 '+esc(p.formatted_address)+'</div>':'');
   }
 
@@ -4535,7 +4584,7 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
             (info.price?'<span>'+esc(info.price)+'</span>':'')+
           '</div>'+
           (info.tips?'<div style="font-size:12px;background:var(--bg2);padding:8px 11px;border-radius:var(--rsm);margin-bottom:10px;border:1px solid var(--border)">💡 '+esc(info.tips)+'</div>':'')+
-          (info.website&&info.website!=='null'?'<a href="'+esc(info.website)+'" target="_blank" style="display:block;padding:10px 14px;background:var(--gold);color:#fff;border-radius:var(--rsm);text-align:center;font-size:13px;font-weight:600;text-decoration:none">🔗 Visit website / Book</a>':'');
+          (function(){var ws=(info.website&&info.website!=='null')?info.website:null;var gmUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.name+(d.city?', '+d.city:''));return'<a href="'+(ws?esc(ws):gmUrl)+'" target="_blank" style="display:block;padding:10px 14px;background:var(--gold);color:#fff;border-radius:var(--rsm);text-align:center;font-size:13px;font-weight:600;text-decoration:none">'+(ws?'🔗 Visit website / Book':'📍 Find on Google Maps')+'</a>';})();
       }catch(e){el.innerHTML='<div style="font-size:12px;color:var(--text3)">No details available.</div>';}
     },1500);
   }
@@ -4940,7 +4989,10 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
   // ── sendExploreTweak: AI chat on explore page ───────────────────────────
   window.sendExploreTweak = function(){
     var inp = safeG('explore-chat-inp'); if(!inp) return;
-    var msg = inp.value.trim(); if(!msg) return;
+    var msg = inp.value.trim();
+    if(!msg){// Refresh without tweak: re-run with diversity seed
+      var seed=Date.now().toString(36);var id0=window.currentPlaceId||currentPlaceId;var d0=(S.dests||[]).find(function(x){return x.id===id0;});if(!d0)return;
+      inp.value='diversify and vary the recommendations, seed='+seed;msg=inp.value.trim();}
     inp.value = '';
     var id = window.currentPlaceId || currentPlaceId;
     var d = (S.dests||[]).find(function(x){return x.id===id;}); if(!d) return;
@@ -5738,7 +5790,10 @@ setTimeout(window.renderCollections, 1200);
 
   var prevPlanDay7=window.planDay;
   window.planDay=function(destId){
-    var anchor=window._mustIncludeSpot||window._planWithSpot||null;
+    // Clear anchor globals FIRST so they don't bleed from a spot-plan into a dest plan
+    window._wlAnchorSpot=null;window._wlDayPlanMode='';window._mustIncludeSpot=null;
+    window._planWithSpot=null;window._planStartingSpot='';window._wlFilteredSpots=null;
+    var anchor=null; // anchor note intentionally disabled for destination planDay
     prevPlanDay7(destId);
     if(anchor&&safeG2('dp-use-saved')){
       window.setDPMode(safeG2('dp-use-saved'),true);
@@ -5816,7 +5871,7 @@ setTimeout(window.renderCollections, 1200);
 
   var prevSaveDayPlan7=window.saveDayPlan;
   window.saveDayPlan=function(){
-    if(currentPlanData&&currentPlanData.city)rememberPlanStops2(currentPlanData.city,currentPlanData,(currentPlanData._settings&&currentPlanData._settings.anchor)||'');
+    try{if(currentPlanData&&currentPlanData.city)rememberPlanStops2(currentPlanData.city,currentPlanData,(currentPlanData._settings&&currentPlanData._settings.anchor)||'');}catch(e){}
     return prevSaveDayPlan7.apply(this,arguments);
   };
 })();
@@ -5878,10 +5933,19 @@ setTimeout(window.renderCollections, 1200);
     var count=(opts.spots||[]).length;
     var subtitle=opts.mode==='filtered'?(count+' filtered saved spots only'):(opts.anchor?('Starts at '+opts.anchor.name):'AI suggestions');
     var rec=g('place-recs'); if(!rec)return;
+    var aiToggleHtml='';
+    if(opts.mode==='anchor'){
+      aiToggleHtml='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--text3);margin-bottom:5px">Other stops</div>'+
+        '<div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--rsm);overflow:hidden">'+
+        '<button id="dp-mode-ai" onclick="document.getElementById(\'dp-mode-ai\').style.background=\'var(--gold)\';document.getElementById(\'dp-mode-ai\').style.color=\'#fff\';document.getElementById(\'dp-mode-saved\').style.background=\'\';document.getElementById(\'dp-mode-saved\').style.color=\'\';window._wlDayPlanMode=\'anchor\';" style="flex:1;padding:8px;border:none;background:var(--gold);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">🤖 AI recommendations</button>'+
+        '<button id="dp-mode-saved" onclick="document.getElementById(\'dp-mode-saved\').style.background=\'var(--gold)\';document.getElementById(\'dp-mode-saved\').style.color=\'#fff\';document.getElementById(\'dp-mode-ai\').style.background=\'\';document.getElementById(\'dp-mode-ai\').style.color=\'\';window._wlDayPlanMode=\'anchor-saved\';" style="flex:1;padding:8px;border:none;background:;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">💾 My saved spots</button>'+
+        '</div></div>';
+    }
     rec.innerHTML='<div style="background:var(--bg2);border-radius:var(--rsm);padding:14px;margin-bottom:10px;border:1px solid var(--border);">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--border)"><span style="font-size:24px">📍</span><div><div style="font-size:15px;font-weight:800;color:var(--text)">'+esc(opts.heading||'Plan a day')+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(subtitle)+'</div></div></div>'+
       '<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Start time</div><select id="dp-start" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit"><option>9:00am</option><option>10:00am</option><option selected>11:00am</option><option>12:00pm</option><option>2:00pm</option><option>4:00pm</option><option>5:00pm</option><option>6:00pm</option><option>7:00pm</option><option>8:00pm</option><option>9:00pm</option></select></div>'+
       '<div style="flex:1"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Hours out</div><select id="dp-hours" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:13px;outline:none;font-family:inherit"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option><option>10</option></select></div></div>'+
+      aiToggleHtml+
       (opts.mode==='filtered'?'':'<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Vibe</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px" id="dp-vibes"><button class="filter-pill on" onclick="togDPVibe(this)">🗺 Sightseeing</button><button class="filter-pill" onclick="togDPVibe(this)">🏘 Local</button><button class="filter-pill" onclick="togDPVibe(this)">🍽 Food tour</button><button class="filter-pill" onclick="togDPVibe(this)">🌳 Outdoors</button><button class="filter-pill" onclick="togDPVibe(this)">🍸 Nightlife</button><button class="filter-pill" onclick="togDPVibe(this)">💑 Date night</button></div>')+
       '<button style="width:100%;padding:12px;background:var(--gold);color:#fff;border:none;border-radius:var(--rsm);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit" onclick="runDayPlan(\''+opts.destId+'\')">Build my day →</button>'+ 
       (opts.mode==='filtered'?'<div style="font-size:11px;line-height:1.5;color:var(--text3);margin-top:9px">This plan will only use the filtered saved spots currently visible in Saved.</div>':'')+
@@ -5958,7 +6022,7 @@ setTimeout(window.renderCollections, 1200);
       prompt='Create a '+hours+'-hour day itinerary for '+(d.name||'this area')+'. Use ONLY the saved spots listed below. Do not add, invent, substitute, or recommend any place that is not in this list. Choose the best subset and order them logically. Every stop must copy the exact id and exact name from the saved spot list. Return ONLY valid JSON with no markdown.\nStart time: '+start+'.\nFiltered saved spots:\n'+filtered.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"Filtered saved spots only","stops":[{"id":"exact saved id","time":"'+start+'","name":"exact saved name","type":"food|drinks|culture|shopping|nature","description":"Why this stop fits the route.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
     } else {
       var nearby=(window._dpSaved||[]).filter(function(s){return s&&s.type==='local';}); if(anchor&&nearby.filter(function(s){return s.id===anchor.id;}).length===0)nearby.unshift(anchor);
-      prompt='Create a '+hours+'-hour day itinerary in '+(d.name||'this area')+(d.country?', '+d.country:'')+'. The first stop is non-negotiable. Stop 1 must be this exact saved spot: id='+anchor.id+' name='+anchor.name+'. Start at '+start+'. After that, use AI to select nearby real spots that fit the vibe '+vibe+'. Keep stops clustered near the anchor and avoid repeating the same generic tourist route. Prefer these nearby saved spots when useful, but you may add real AI-selected spots after stop 1. Return ONLY valid JSON with no markdown.\nNearby saved spots:\n'+nearby.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"id":"'+anchor.id+'","time":"'+start+'","name":"'+anchor.name+'","type":"food|drinks|culture|shopping|nature","description":"Start here.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
+      prompt='Create a '+hours+'-hour day itinerary in '+(d.name||'this area')+(d.country?', '+d.country:'')+'. The first stop is non-negotiable. Stop 1 must be this exact saved spot: id='+anchor.id+' name='+anchor.name+'. Start at '+start+'. After that, use AI to select nearby real spots that fit the vibe '+vibe+'. Keep stops clustered near the anchor and avoid repeating the same generic tourist route. Prefer these nearby saved spots when useful, but you may add real AI-selected spots after stop 1. Return ONLY valid JSON with no markdown.\nNearby saved spots:\n'+nearby.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"id":"'+anchor.id+'","time":"'+start+'","name":"'+anchor.name+'","type":"food|drinks|culture|shopping|nature","description":"Starting anchor.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""},{"id":"","time":"","name":"Real nearby venue 2 (AI picks)","lat":0.0,"lng":0.0,"address":"Full street address","type":"food|drinks|culture|shopping|nature","description":"Specific reason to visit.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""},{"id":"","time":"","name":"Real nearby venue 3 (AI picks)","lat":0.0,"lng":0.0,"address":"Full street address","type":"culture","description":"Specific reason to visit.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
     }
     (window.ai||ai)([{role:'user',content:prompt}],function(err,text){
       if(err){if(g('place-recs'))g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
@@ -6282,7 +6346,11 @@ setTimeout(window.renderCollections, 1200);
 
 
 <style id="wl-v9-ui-style">
-#map,.leaflet-container{background:#dbe7ef;}
+#map{background:#6baed6!important;}
+.leaflet-container{background:#6baed6!important;}
+.leaflet-tile-pane{background:transparent;}
+.leaflet-tile{background:#6baed6;}
+
 .continent-hdr{background:linear-gradient(90deg,#3f5968 0%,#587988 100%)!important;border:1px solid #4f6f7d!important;border-left:6px solid #e8a63a!important;border-radius:12px!important;margin:16px 2px 10px!important;padding:11px 13px!important;color:#fff!important;font-size:13px!important;font-weight:900!important;letter-spacing:.14em!important;text-transform:uppercase!important;box-shadow:0 6px 14px rgba(63,89,104,.20)!important;text-shadow:0 1px 0 rgba(0,0,0,.18)!important;}
 .wl-map-label{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;}
 .wl-map-icon{width:14px;height:14px;display:inline-block;flex-shrink:0;color:currentColor;}
@@ -8421,7 +8489,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   function cityName(p){return clean(p&&p.city)||clean(p&&p.locality)||clean(p&&p.name)||'';}
 
   var style=document.createElement('style');
-  style.textContent='\n.wl-dp2-stage{position:relative}.wl-dp2-nav{position:relative;z-index:30;pointer-events:auto!important;touch-action:manipulation!important}.wl-dp2-viewport{position:relative;z-index:1}.wl-dp2-progress{height:6px;background:rgba(186,117,23,.16);border-radius:999px;overflow:hidden;margin-top:12px}.wl-dp2-progressbar{height:100%;width:0;background:var(--gold);border-radius:999px;transition:width .35s ease}.wl-dp2-hero{height:185px;border-radius:22px;background:linear-gradient(135deg,#f7e7cd,#fff8ed);overflow:hidden;margin-bottom:14px;position:relative;border:1px solid rgba(186,117,23,.18)}.wl-dp2-hero img{width:100%;height:100%;object-fit:cover;display:block}.wl-dp2-hero-fallback{height:100%;display:flex;align-items:center;justify-content:center;font-size:68px;background:radial-gradient(circle at 30% 20%,#fff,transparent 35%),linear-gradient(135deg,#f7e7cd,#fff8ed)}.wl-dp2-verify{margin-top:8px;font-size:11px;color:var(--text3);line-height:1.45}.wl-dp2-mover{transform-origin:center center}.wl-dp2-wrap[data-wl-dir="next"] .wl-dp2-mover[data-mode="walk"]{scale:-1 1}.wl-dp2-wrap[data-wl-dir="prev"] .wl-dp2-mover[data-mode="walk"]{scale:1 1}\n';
+  style.textContent='\n.wl-dp2-stage{position:relative}.wl-dp2-nav{position:relative;z-index:30;pointer-events:auto!important;touch-action:manipulation!important}.wl-dp2-viewport{position:relative;z-index:1}.wl-dp2-progress{height:6px;background:rgba(186,117,23,.16);border-radius:999px;overflow:hidden;margin-top:12px}.wl-dp2-progressbar{height:100%;width:0;background:var(--gold);border-radius:999px;transition:width .35s ease}.wl-dp2-hero{height:185px;border-radius:22px;background:linear-gradient(135deg,#f7e7cd,#fff8ed);overflow:hidden;margin-bottom:14px;position:relative;border:1px solid rgba(186,117,23,.18)}.wl-dp2-hero img{width:100%;height:100%;object-fit:cover;display:block}.wl-dp2-hero-fallback{height:100%;display:flex;align-items:center;justify-content:center;font-size:68px;background:radial-gradient(circle at 30% 20%,#fff,transparent 35%),linear-gradient(135deg,#f7e7cd,#fff8ed)}.wl-dp2-verify{margin-top:8px;font-size:11px;color:var(--text3);line-height:1.45}.wl-dp2-mover{transform-origin:center center}.wl-dp2-wrap[data-wl-dir="next"] .wl-dp2-mover[data-mode="walk"]{scale:1 1}.wl-dp2-wrap[data-wl-dir="prev"] .wl-dp2-mover[data-mode="walk"]{scale:-1 1}\n';
   document.head.appendChild(style);
 
   window.togDPVibe=function(el){
@@ -8598,8 +8666,8 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     /* mover: NO !important on transition so JS can override with inline style */
     '.wl-dp2-mover{position:absolute;left:12px;bottom:12px;font-size:32px;line-height:1;will-change:transform;}'+
     /* direction: emoji 🚶 faces right on most platforms → flip for "prev" (going backward) */
-    '.wl-dp2-wrap[data-wl-dir="prev"] .wl-dp2-mover[data-mode="walk"],.wl-dp2-wrap[data-wl-dir="prev"] .wl-dp2-mover[data-mode="drive"]{scale:-1 1}'+
-    '.wl-dp2-wrap[data-wl-dir="next"] .wl-dp2-mover[data-mode="walk"],.wl-dp2-wrap[data-wl-dir="next"] .wl-dp2-mover[data-mode="drive"]{scale:1 1}'+
+    '.wl-dp2-mover-icon{display:inline-block;transform-origin:center center;transition:transform 0.15s ease}'+
+    ''+  /* direction handled in JS animateMover via scaleX on .wl-dp2-mover-icon */
     /* override the conflicting scale rules from earlier blocks */
     '.wl-dp2-travel-section{margin-top:18px;background:linear-gradient(180deg,#fff,#faf7f2);border:1px solid var(--border);border-radius:22px;padding:15px 15px 12px}'+
     /* renamed nav classes to avoid collision with .wl-dp2-next info sections */
@@ -8665,7 +8733,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       var d2=(S.dests||[]).find(function(x){return x.id===destId;})||{name:currentPlanCity||'this area',country:''};
       var start2=g('dp-start')?g('dp-start').value:'11:00am';
       var hours2=g('dp-hours')?g('dp-hours').value:'6';
-      var vibe2='\ud83d\uddfa Sightseeing';if(g('dp-vibes')){document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe2=b.textContent.trim();});}
+      var vibe2=window._wlLastVibe||(currentPlanData&&currentPlanData.vibe)||'\ud83d\uddfa Sightseeing';if(g('dp-vibes')){document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe2=b.textContent.trim();});}
       var tweak2=window._tweakMsg||'';window._tweakMsg='';
       var load2=g('dest-photo-loading');
       if(load2)load2.innerHTML='<div style="background:linear-gradient(135deg,var(--gold-lt),#fff8ed);border:2px solid var(--gold-md);border-radius:14px;padding:16px;margin-bottom:10px;text-align:center"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px"></div><div style="font-size:16px;font-weight:800;color:var(--text)">Building your day plan\u2026</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Picking real spots that fit your vibe</div></div>';
@@ -8679,8 +8747,8 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
         if(err){if(g('place-recs'))g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
         parseAIObj(text,function(e2,plan){
           if(e2||!plan){if(g('place-recs'))g('place-recs').innerHTML='<p style="font-size:13px;color:var(--text3);padding:6px 0">Could not build the plan. Try again.</p>';return;}
-          plan.city=plan.city||d2.name;plan._destId=destId;plan._settings={destId:destId,hours:String(hours2),start:start2,vibe:vibe2,useSaved:false,spots:[]};
-          currentPlanData=plan;
+          plan.city=plan.city||d2.name;plan._destId=destId;plan._settings={destId:destId,cityName:d2.name,hours:String(hours2),start:start2,vibe:vibe2,useSaved:false,spots:[]};
+          currentPlanData=plan;window._wlLastVibe=vibe2;
           try{var pr=JSON.parse(localStorage.getItem('wl_recent_day_plan_spots')||'[]');var ns=(plan.stops||[]).map(function(s){return s.name;}).filter(Boolean);localStorage.setItem('wl_recent_day_plan_spots',JSON.stringify(ns.concat(pr).filter(function(x,i,a){return x&&a.indexOf(x)===i;}).slice(0,60)));}catch(ex){}
           if(window.enrichPlanWithRealTimes)enrichPlanWithRealTimes(plan,d2,function(){currentPlanData=plan;window.renderDayPlanHtml(plan,vibe2,destId);});
           window.renderDayPlanHtml(plan,vibe2,destId);
@@ -8701,7 +8769,12 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     }else{
       if(!anchor){if(g('place-recs'))g('place-recs').innerHTML='<div style="padding:16px;color:var(--text3);font-size:14px">Please select a saved spot to use as your starting anchor.</div>';if(load)load.innerHTML='';return;}
       var nearby=(window._dpSaved||[]).filter(function(s){return s&&s.type==='local';});if(anchor&&nearby.filter(function(s){return s.id===anchor.id;}).length===0)nearby.unshift(anchor);
-      prompt='Create a '+hours+'-hour day itinerary in '+(d.name||'this area')+(d.country?', '+d.country:'')+'. The first stop is non-negotiable. Stop 1 must be this exact saved spot: id='+anchor.id+' name='+anchor.name+'. Start at '+start+'. After that, use AI to select nearby real spots that fit the vibe '+vibe+'. Keep stops clustered near the anchor and avoid repeating the same generic tourist route. Prefer these nearby saved spots when useful, but you may add real AI-selected spots after stop 1. Return ONLY valid JSON with no markdown.\nNearby saved spots:\n'+nearby.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"id":"'+anchor.id+'","time":"'+start+'","name":"'+anchor.name+'","type":"food|drinks|culture|shopping|nature","description":"Start here.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
+      if(mode==='anchor-saved'){
+        // Saved-spots-only anchor mode: anchor is first, rest from saved spots nearby
+        prompt='Create a '+hours+'-hour day itinerary in '+(d.name||'this area')+'. The FIRST stop is NON-NEGOTIABLE and must be id='+anchor.id+' name='+anchor.name+'. After that, choose from the saved spots list only. You MUST include at least '+Math.min(Math.max(3,parseInt(hours,10)-1),6)+' stops total. Return ONLY valid JSON.\nStart time: '+start+'\nAvailable saved spots:\n'+nearby.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"id":"exact id","time":"","name":"exact name","type":"food|drinks|culture|shopping|nature","description":"","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
+      }else{
+        prompt='Create a '+hours+'-hour day itinerary in '+(d.name||'this area')+(d.country?', '+d.country:'')+'. The FIRST stop is NON-NEGOTIABLE: id='+anchor.id+' name='+anchor.name+'. Start at '+start+'. You MUST generate a FULL '+hours+'-hour day with at least '+Math.min(Math.max(4,parseInt(hours,10)),6)+' stops total — use AI to select the remaining stops that fit the vibe '+vibe+', clustered near the anchor. Prefer these nearby saved spots when relevant, but freely add real AI-selected spots to reach the required count. Return ONLY valid JSON with no markdown.\nNearby saved spots:\n'+nearby.map(spotLine).join('\n')+'\n{"title":"...","city":"'+(d.name||'')+'","start":"'+start+'","hours":'+parseInt(hours,10)+',"vibe":"'+vibe+'","stops":[{"id":"'+anchor.id+'","time":"'+start+'","name":"'+anchor.name+'","type":"food|drinks|culture|shopping|nature","description":"Start here.","walk_to_next":"","transit_to_next":"","budget_note":"","premium_note":""}]}';
+      }
     }
     (window.ai||ai)([{role:'user',content:prompt}],function(err,text){
       if(err){if(g('place-recs'))g('place-recs').innerHTML='<p style="font-size:13px;color:red;padding:6px 0">'+esc(err)+'</p>';return;}
@@ -8723,7 +8796,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     if(!nextStop)return'<div class="wl-dp2-end"><div class="wl-dp2-endttl">Final stop</div><div class="wl-dp2-endsub">Save the plan, open the route on the map, or refresh for another route.</div></div>';
     var walk=stop.walk_to_next||'',drive=stop.transit_to_next||'',txt=walk||drive||'Calculating walking route...',tmode=(drive&&!walk)?'drive':'walk',mover=tmode==='drive'?'\ud83d\ude97':'\ud83d\udeb6';
     var progress=total<=1?0:Math.round((idx/(total-1))*100);
-    return'<div class="wl-dp2-travel-section"><div class="wl-dp2-nexttop"><div><div class="wl-dp2-nextlbl">Next stop</div><div class="wl-dp2-nextname">'+esc(nextStop.name||'Next stop')+'</div></div><div class="wl-dp2-nexttime">'+esc(txt)+'</div></div><div class="wl-dp2-lane"><div class="wl-dp2-arrowbig"></div><div class="wl-dp2-mover" data-mode="'+tmode+'" data-progress="'+progress+'">'+mover+'</div></div><div class="wl-dp2-hint"><span>Swipe left or tap</span><span class="r">\u279c</span></div></div>';
+    return'<div class="wl-dp2-travel-section"><div class="wl-dp2-nexttop"><div><div class="wl-dp2-nextlbl">Next stop</div><div class="wl-dp2-nextname">'+esc(nextStop.name||'Next stop')+'</div></div><div class="wl-dp2-nexttime">'+esc(txt)+'</div></div><div class="wl-dp2-lane"><div class="wl-dp2-arrowbig"></div><div class="wl-dp2-mover" data-mode="'+tmode+'" data-progress="'+progress+'"><span class="wl-dp2-mover-icon">'+mover+'</span></div></div><div class="wl-dp2-hint"><span>Swipe left or tap</span><span class="r">\u279c</span></div></div>';
   }
 
   window.renderDayPlanHtml=function(plan,vibe,destId){
@@ -8757,21 +8830,30 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     root.__wlIdx=0;
 
     function animateMover(activeIdx){
+      var dir=root.dataset.wlDir||'next';
+      // On iOS 🚶 faces LEFT; flip to face RIGHT for "next" (forward) direction
+      var iconScale=dir==='next'?-1:1;
       var movers=[].slice.call(root.querySelectorAll('.wl-dp2-mover'));
       movers.forEach(function(m,mi){
+        // Direction: set on inner icon span — completely independent of outer position
+        var icon=m.querySelector('.wl-dp2-mover-icon');
+        if(icon)icon.style.transform='scaleX('+iconScale+')';
+
         var pct=parseFloat(m.getAttribute('data-progress')||'0');
         var lane=m.parentElement;if(!lane)return;
-        var usable=Math.max(0,lane.clientWidth-56);
+        var w=lane.clientWidth||lane.offsetWidth||(lane.parentElement&&lane.parentElement.clientWidth)||0;
+        var usable=Math.max(0,w-56);
         var target=Math.round(usable*pct/100);
+
         if(mi===activeIdx){
-          // Inline style overrides any CSS — snap to 0 then walk to target
+          // Start from where the PREVIOUS mover ended — smooth continuous walk
+          var prevPct=mi>0&&movers[mi-1]?parseFloat(movers[mi-1].getAttribute('data-progress')||'0'):0;
+          var startPos=Math.round(usable*prevPct/100);
           m.style.transition='none';
-          m.style.transform='translateX(0px)';
-          // Double rAF flushes the style so the next set triggers a real transition
-          requestAnimationFrame(function(){requestAnimationFrame(function(){
-            m.style.transition='transform 0.65s cubic-bezier(0.22,0.9,0.24,1)';
-            m.style.transform='translateX('+target+'px)';
-          });});
+          m.style.transform='translateX('+startPos+'px)';
+          void m.offsetWidth; // force synchronous reflow
+          m.style.transition='transform 0.6s cubic-bezier(0.25,0.8,0.25,1)';
+          m.style.transform='translateX('+target+'px)';
         }else{
           m.style.transition='none';
           m.style.transform='translateX('+target+'px)';
@@ -8789,7 +8871,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       if(bar)bar.style.width=(count<=1?100:Math.round((idx/(count-1))*100))+'%';
       dots.forEach(function(d,i){d.classList.toggle('on',i===idx);});
       root.__wlLastNav=Date.now();
-      setTimeout(function(){animateMover(idx);},animate===false?80:460);
+      setTimeout(function(){animateMover(idx);},animate===false?80:520);
     }
 
     function go(n,dir){
@@ -8827,9 +8909,11 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     var save=root.querySelector('[data-dp-action="save"]');
     var ref=root.querySelector('[data-dp-action="refresh"]');
     var mapBtn=root.querySelector('[data-dp-action="map"]');
+    var addTrip=root.querySelector('[data-dp-action="addtrip"]');
     if(save)save.onclick=function(e){e.preventDefault();if(window.saveDayPlan)window.saveDayPlan();};
     if(ref)ref.onclick=function(e){e.preventDefault();if(window.refreshDayPlan)window.refreshDayPlan();};
     if(mapBtn)mapBtn.onclick=function(e){e.preventDefault();if(window.viewDayPlanOnMap)window.viewDayPlanOnMap();};
+    if(addTrip)addTrip.onclick=function(e){e.preventDefault();var pid=currentPlanData&&currentPlanData._id;if(!pid){if(window.saveDayPlan)window.saveDayPlan();setTimeout(function(){var pid2=currentPlanData&&currentPlanData._id;if(pid2&&window.showAddToTripPicker)window.showAddToTripPicker(pid2);},700);}else if(window.showAddToTripPicker)window.showAddToTripPicker(pid);};
 
     update(false,'next');
   }
