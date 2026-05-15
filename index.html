@@ -11031,5 +11031,545 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
 })();
 </script>
 
+
+
+<!-- ===== Wanderlist v14 cleanup and stability pass ===== -->
+<style id="wl-v14-cleanup-style">
+  .wl-v14-first-load{display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,var(--gold-lt),var(--bg4));border:1.5px solid var(--gold-md);border-radius:18px;padding:18px;margin:10px 0 14px;box-shadow:0 2px 12px rgba(184,115,10,.12)}
+  .wl-v14-first-pin{width:50px;height:50px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;animation:wlV14Pulse 1.1s ease-in-out infinite}
+  .wl-v14-first-title{font-size:17px;font-weight:900;color:var(--text);line-height:1.25}
+  .wl-v14-first-sub{font-size:13px;color:var(--text3);line-height:1.45;margin-top:4px}
+  .wl-v14-refresh-load{background:linear-gradient(180deg,var(--bg4),var(--bg2));border:1px solid var(--border);border-radius:22px;padding:26px 18px;margin:10px 0 14px;box-shadow:var(--shadow-md);overflow:hidden;position:relative;text-align:center}
+  .wl-v14-refresh-load:before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--gold)}
+  .wl-v14-refresh-icon{width:58px;height:58px;border-radius:50%;margin:0 auto 14px;background:var(--gold-lt);border:1px solid var(--gold-md);display:flex;align-items:center;justify-content:center;font-size:30px;animation:wlV14Pulse 1.05s ease-in-out infinite}
+  .wl-v14-refresh-title{font-size:21px;font-weight:900;color:var(--text);margin-bottom:6px}
+  .wl-v14-refresh-sub{font-size:14px;color:var(--text3);line-height:1.45;margin-bottom:16px}
+  .wl-v14-bar{height:12px;border-radius:999px;background:var(--bg3);position:relative;overflow:hidden;margin:9px auto}.wl-v14-bar:after{content:"";position:absolute;inset:0;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:wlV14Sweep 1.05s ease-in-out infinite}
+  @keyframes wlV14Pulse{0%,100%{transform:scale(1);opacity:.82}50%{transform:scale(1.07);opacity:1}}@keyframes wlV14Sweep{0%{transform:translateX(-130%)}100%{transform:translateX(260%)}}
+  #place-body{padding-left:18px!important;padding-right:18px!important}.wl-dp2-wrap,.wl-dp2-stage,.wl-dp2-viewport,.wl-dp2-card,.wl-dp2-slide{width:100%!important;max-width:none!important}.wl-dp2-card{box-sizing:border-box!important;margin-left:0!important;margin-right:0!important}.wl-dp2-slide{min-width:100%!important;padding-left:0!important;padding-right:0!important}.wl-dp2-box[data-v14-dupe="1"]{display:none!important}
+  .wl-v14-home-pin{font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(0,0,0,.34))}.wl-v14-home-header{font-size:10px;font-weight:900;color:var(--gold);text-transform:uppercase;letter-spacing:.09em;padding:11px 4px 5px;margin-top:2px;border-top:1px solid var(--border)}
+</style>
+<script id="wl-v14-cleanup-stability">
+(function(){
+  if(window.__wl_v14_cleanup_stability)return;window.__wl_v14_cleanup_stability=true;
+  function el(id){return document.getElementById(id);}function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+  function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');}
+  function coord(o){if(!o)return null;var lat=parseFloat(o.lat),lng=parseFloat(o.lng!=null?o.lng:o.lon);return isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat:lat,lng:lng}:null;}
+  function km(a,b){a=coord(a);b=coord(b);if(!a||!b)return Infinity;var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);return 2*R*Math.asin(Math.sqrt(h));}
+  function toast2(s){try{window.toast?toast(s):console.log(s);}catch(e){}}
+  function firstExploreLoading(city){return '<div class="wl-v14-first-load"><div class="wl-v14-first-pin">📍</div><div><div class="wl-v14-first-title">Finding current spots in '+esc(city||'this city')+'</div><div class="wl-v14-first-sub">Checking restaurants, bars, parks and local favourites.</div></div></div><div class="wl-v13-skel"><i></i><i></i><i></i></div>';}
+  function refreshLoading(){return '<div class="wl-v14-refresh-load"><div class="wl-v14-refresh-icon">🧭</div><div class="wl-v14-refresh-title">Refreshing Explore</div><div class="wl-v14-refresh-sub">Pulling a new mix of places. You can refresh again after this finishes.</div><div class="wl-v14-bar" style="width:92%"></div><div class="wl-v14-bar" style="width:76%"></div><div class="wl-v14-bar" style="width:58%"></div></div>';}
+  function cityOf(id){var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});return d&&d.name||'this city';}
+  function addMin(t,mn){var m=String(t||'11:00am').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return t||'';var h=parseInt(m[1],10)%12,mi=parseInt(m[2]||'0',10);if(m[3].toLowerCase()==='pm')h+=12;var d=new Date(2000,0,1,h,mi+mn);var hh=d.getHours(),ap=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+ap;}
+  function typeOfSpot(s){var t=((s&&s.type)||'')+' '+((s&&s.category)||'')+' '+(((s&&s.tags)||[]).join(' '));t=t.toLowerCase();if(/bar|beer|cocktail|pub|drink|night/.test(t))return 'drinks';if(/park|garden|nature|beach|view/.test(t))return 'nature';if(/museum|gallery|culture|sight|landmark/.test(t))return 'culture';if(/shop|market/.test(t))return 'shopping';return 'food';}
+  function selectedSavedMode(){var b=el('dp-use-saved');return !!(b&&b.classList.contains('on'));}
+  function selectedAIMode(){var b=el('dp-use-ai');return !b||b.classList.contains('on');}
+  function savedNear(dest){return (window.S&&S.dests||[]).filter(function(x){if(x.type!=='local')return false;if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;return km(x,dest)<35;});}
+  function routeText(a,b){var d=km(a,b);if(!isFinite(d))return 'Nearby next stop';var walk=Math.max(3,Math.round(d*12));if(walk>25)return 'Uber/taxi recommended · about '+Math.max(5,Math.round(d*4+5))+' min drive';return walk+' min walk';}
+  function postProcessPlan(plan,anchor,start){plan=plan||{};plan.stops=Array.isArray(plan.stops)?plan.stops:[];if(anchor){var first={id:anchor.id,time:start||'11:00am',name:anchor.name,type:typeOfSpot(anchor),description:'Start at the saved spot you selected.',address:anchor.address||'',lat:anchor.lat,lng:anchor.lng,place_id:anchor.place_id||'',budget_note:'Saved starting point',premium_note:''};plan.stops=plan.stops.filter(function(s){return norm(s.name)!==norm(anchor.name);});plan.stops.unshift(first);}for(var i=0;i<plan.stops.length;i++){if(i<plan.stops.length-1)plan.stops[i].walk_to_next=routeText(plan.stops[i],plan.stops[i+1]);}return plan;}
+
+  // Map opening view. Keep the broad North Atlantic view without allowing grey-bar over-zoom.
+  var homeMarker=null;
+  function homeCityName(){return clean(localStorage.getItem('wl_homecity')||'').split(',')[0];}
+  function homeCoords(){try{return JSON.parse(localStorage.getItem('wl_homecoords')||'null');}catch(e){return null;}}
+  function setMapOpeningView(){try{if(!window.map)return;var pts=(window.S&&S.dests||[]).filter(function(d){return d.type==='dest'&&coord(d);}).map(coord);var hc=homeCoords();if(hc&&isFinite(parseFloat(hc.lat))&&isFinite(parseFloat(hc.lng)))pts.push({lat:parseFloat(hc.lat),lng:parseFloat(hc.lng)});if(window.mapMode==='google'||(window.google&&map.fitBounds&&map.setZoom)){map.setOptions({minZoom:2,restriction:null,clickableIcons:true});if(pts.length>1){var b=new google.maps.LatLngBounds();pts.forEach(function(p){b.extend({lat:p.lat,lng:p.lng});});map.fitBounds(b,70);setTimeout(function(){if(map.getZoom&&map.getZoom()>3)map.setZoom(3);},80);}else{map.setCenter({lat:35,lng:-25});map.setZoom(3);}return;}if(window.L&&map.setMinZoom){map.setMinZoom(2);map.setMaxBounds([[-75,-170],[82,170]]);if(pts.length>1){map.fitBounds(L.latLngBounds(pts.map(function(p){return [p.lat,p.lng];})).pad(0.25));if(map.getZoom()>3)map.setZoom(3);}else{map.setView([35,-25],3);}}}catch(e){}}
+  function drawHomePin(){try{var hc=homeCoords(),name=homeCityName();if(!window.map||!hc||!name)return;if(homeMarker){try{homeMarker.setMap?homeMarker.setMap(null):map.removeLayer(homeMarker);}catch(e){}homeMarker=null;}var lat=parseFloat(hc.lat),lng=parseFloat(hc.lng);if(!isFinite(lat)||!isFinite(lng))return;if(window.mapMode==='google'||(window.google&&map.setOptions)){homeMarker=new google.maps.Marker({position:{lat:lat,lng:lng},map:map,title:'Home · '+name,label:{text:'🏠',fontSize:'24px'},icon:{path:google.maps.SymbolPath.CIRCLE,scale:0}});homeMarker.addListener('click',function(){var iw=window.googleInfoWindow||new google.maps.InfoWindow();window.googleInfoWindow=iw;iw.setContent('<div style="font-family:DM Sans,system-ui,sans-serif;min-width:140px"><b>🏠 Home</b><br><small>'+esc(name)+'</small></div>');iw.open(map,homeMarker);});}else if(window.L){homeMarker=L.marker([lat,lng],{icon:L.divIcon({html:'<div class="wl-v14-home-pin">🏠</div>',iconSize:[34,34],iconAnchor:[17,30],popupAnchor:[0,-28],className:''})}).addTo(map).bindPopup('<b>🏠 Home</b><br><small>'+esc(name)+'</small>');}}catch(e){}}
+  var oldSw=window.swScreen;window.swScreen=function(id){if(oldSw)oldSw.apply(this,arguments);if(id==='s-map'){setTimeout(function(){try{if(map&&map.invalidateSize)map.invalidateSize();if(window.syncMap)syncMap();setMapOpeningView();drawHomePin();}catch(e){}},120);setTimeout(function(){setMapOpeningView();drawHomePin();},700);}};
+  window.addEventListener('load',function(){setTimeout(function(){setMapOpeningView();drawHomePin();},900);});
+
+  // Prevent stale Explore callbacks from a prior city from overwriting the currently open city.
+  var activeToken=0;var activeId='';
+  var oldRenderRecs=window.renderPlaceRecs;window.renderPlaceRecs=function(id){if(activeId&&String(id)!==String(activeId))return;return oldRenderRecs&&oldRenderRecs.apply(this,arguments);};
+  var oldOpen=window.openPlaceDetail;window.openPlaceDetail=function(id,autoPlanDay){activeId=String(id||'');activeToken++;window.__wlV14ActiveToken=activeToken;window.currentPlaceId=id;try{currentPlaceId=id;}catch(e){}var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});if(!autoPlanDay&&d&&d.type==='dest'){delete (window.placeRecs||{})[id];if(el('place-recs'))el('place-recs').innerHTML=firstExploreLoading(d.name);}var out=oldOpen&&oldOpen.apply(this,arguments);if(!autoPlanDay&&d&&d.type==='dest'){var my=activeToken;setTimeout(function(){if(my!==activeToken)return;var pr=el('place-recs');if(pr&&!pr.querySelector('.rec-card'))pr.innerHTML=firstExploreLoading(d.name);var btn=document.querySelector('#place-plan-btn-wrap button');if(btn){btn.onclick=function(ev){ev.preventDefault();ev.stopPropagation();window._dpMode='ai';window._dpAnchor=null;window._planWithSpot=null;window.planDay&&window.planDay(id);};}} ,0);setTimeout(function(){if(my!==activeToken)return;var pr=el('place-recs');if(pr&&/Finding the best spots|Finding current spots|Loading/.test(pr.textContent||'')&&!pr.querySelector('.rec-card'))pr.innerHTML=firstExploreLoading(d.name);},180);}return out;};
+  var oldRefresh=window.refreshExploreSuggestions;window.refreshExploreSuggestions=function(){var id=window.currentPlaceId||activeId;var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});if(!d){toast2('Open a destination first');return;}activeId=String(id);activeToken++;var my=activeToken;var holder=el('place-recs');if(holder)holder.innerHTML=refreshLoading();var nonce=Date.now()+' '+Math.random().toString(36).slice(2);function done(arr){if(my!==activeToken)return;window.placeRecs=window.placeRecs||{};placeRecs[id]=(arr||[]).slice(0,12);if(window.renderPlaceRecs)renderPlaceRecs(id);toast2('Explore refreshed');}function fail(){if(my!==activeToken)return;if(holder)holder.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;margin:8px 0"><div style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:5px">Explore could not refresh</div><div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:10px">Check your API key, then retry.</div><button class="action-btn" onclick="refreshExploreSuggestions()">Retry Explore</button></div>';}
+    function runAI(){var prompt='Give me 12 currently open real recommendations for '+d.name+(d.country?', '+d.country:'')+'. Refresh seed '+nonce+'. Make the set meaningfully different from prior results. Mix neighbourhoods and categories. Avoid invented or closed places. Return ONLY valid JSON array with name,type,tags,description,budget,emoji,price_range,lat,lng.';(window.ai||ai)([{role:'user',content:prompt}],function(e,text){if(e){fail();return;}try{done(window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,'')));}catch(ex){fail();}},5000);}
+    if(window.placesSearch&&coord(d)){window.placesSearch('best restaurants bars cafes parks attractions in '+d.name+' '+(d.country||'')+' '+nonce,coord(d),9000,function(err,res){if(my!==activeToken)return;if(!err&&res&&res.length){done(res.map(function(p){return {name:p.name,type:p.type||p.category||'activity',tags:p.tags||[],description:(p.description||p._addrStr||p.address||'')+(p.rating?' · Google '+p.rating:''),budget:false,emoji:p.emoji||'📍',price_range:p.price_range||'',lat:p.lat,lng:p.lng,address:p.address||p._addrStr||''};}).sort(function(){return Math.random()-.5;}));return;}runAI();});}else runAI();};
+
+  // Make the Explore Plan button open the planner rather than triggering Explore refresh.
+  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('button');if(!b)return;var txt=clean(b.textContent);if(/^Plan a day in |^Plan your day$|^Build your day$/.test(txt)&&window.currentPlaceId){e.preventDefault();e.stopPropagation();window._dpMode='ai';if(!window._lockedSpotPlanning){window._dpAnchor=null;window._planWithSpot=null;}window.planDay&&window.planDay(window.currentPlaceId);}},true);
+
+  // Fresh saved-spot planning state each time. Anchor is first stop. AI mode searches near the anchor.
+  window.planDayNearSpot=function(spotId){var spot=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(spotId);});if(!spot){toast2('Saved spot not found');return;}window._lockedSpotPlanning=true;window._dpAnchor=spot;window._planWithSpot=spot;window._planWithSpots=null;window._wlFilteredSpots=null;window._dpSaved=null;window._dpMode='ai';var dest=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&((spot.city&&norm(x.name)===norm(spot.city))||(spot.country&&norm(x.country)===norm(spot.country))||km(x,spot)<30);});if(!dest){dest={id:'_tmp_anchor_'+spot.id,name:spot.city||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};S.dests.push(dest);try{save();}catch(e){}}try{closePlaceDetail();}catch(e){}setTimeout(function(){window.openPlaceDetail(dest.id,true);},60);};
+  var oldPlanDay=window.planDay;window.planDay=function(destId){var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!d)return;if(!window._lockedSpotPlanning){window._dpAnchor=null;window._planWithSpot=null;}return oldPlanDay&&oldPlanDay.apply(this,arguments);};
+  var oldRun=window.runDayPlan;window.runDayPlan=function(destId){var dest=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!dest)return;var anchor=window._dpAnchor||window._planWithSpot||null;var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'';var vibe='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=clean(b.textContent)||vibe;});var holder=el('place-recs');if(anchor&&selectedAIMode()&&!selectedSavedMode()&&window._dpMode!=='filtered'){if(holder)holder.innerHTML='<div class="wl-v14-refresh-load"><div class="wl-v14-refresh-icon">🧭</div><div class="wl-v14-refresh-title">Building near '+esc(anchor.name)+'</div><div class="wl-v14-refresh-sub">Keeping your saved spot first, then finding nearby AI recommendations.</div><div class="wl-v14-bar" style="width:92%"></div><div class="wl-v14-bar" style="width:72%"></div></div>';var c=coord(anchor)||coord(dest);var prompt='Create a '+hours+' hour day itinerary in '+(dest.name||anchor.city||'this city')+'. Start at '+start+' with this exact first stop: '+anchor.name+'. All later stops must be near that first stop, ideally within a 25 minute walk, or state Uber/taxi if farther. '+(area?'Neighbourhood focus: '+area+'. ':'')+'Vibe: '+vibe+'. Use AI recommendations only after the first saved spot. Do not use other saved spots. Return ONLY valid JSON object with title, city, neighbourhood, start, hours, vibe and stops array. Each stop needs time, name, type, description, address, lat, lng, walk_to_next, budget_note and premium_note. First returned stop may be the saved spot but it is okay if omitted because the app will insert it.';if(c)prompt+=' Anchor coordinates: '+c.lat+', '+c.lng+'.';(window.ai||ai)([{role:'user',content:prompt}],function(err,text){if(err){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not build the AI day plan. Check the API key and try again.</p></div>';return;}try{var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));plan._destId=destId;plan._source='AI recommendations near saved spot';plan=postProcessPlan(plan,anchor,start);window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}if(window.renderDayPlanHtml)renderDayPlanHtml(plan,vibe,destId);else if(holder)holder.innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';}catch(ex){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not parse the AI day plan. Try again.</p></div>';}} ,5000);return;}return oldRun&&oldRun.apply(this,arguments);};
+
+  // Remove duplicate address display, widen cards and normalize walk/taxi text after every day plan render.
+  var oldRenderDay=window.renderDayPlanHtml;window.renderDayPlanHtml=function(plan,vibe,destId){if(plan&&plan.stops){postProcessPlan(plan,null,plan.start||'11:00am');}var out=oldRenderDay&&oldRenderDay.apply(this,arguments);setTimeout(function(){cleanupDayPlan(plan);},80);setTimeout(function(){cleanupDayPlan(plan);},450);return out;};
+  function cleanupDayPlan(plan){var root=el('place-recs');if(!root)return;root.querySelectorAll('.wl-dp2-box').forEach(function(box){var lab=box.querySelector('.wl-dp2-label');if(lab&&/address/i.test(lab.textContent||''))box.setAttribute('data-v14-dupe','1');});root.querySelectorAll('.wl-dp2-card').forEach(function(card){card.style.width='100%';card.style.maxWidth='none';});}
+  var mo=new MutationObserver(function(){cleanupDayPlan(window.currentPlanData);var pr=el('place-recs');if(pr&&/Finding the best spots/.test(pr.textContent||'')&&!pr.querySelector('.wl-v14-first-load')){pr.innerHTML=firstExploreLoading(cityOf(window.currentPlaceId||activeId));}});window.addEventListener('load',function(){setTimeout(function(){var pb=el('place-body');if(pb)mo.observe(pb,{childList:true,subtree:true});},700);});
+
+  // Keep saved pins permanent, but remove the purple unsaved plan-stop pin feature by hiding currentPlanData during the old syncMap delayed marker pass.
+  var oldSync=window.syncMap;window.syncMap=function(){var savedPlan=window.currentPlanData;window.currentPlanData=null;var r=oldSync&&oldSync.apply(this,arguments);setTimeout(function(){window.currentPlanData=savedPlan;drawHomePin();},950);return r;};
+
+  // Home city should not be grouped as a normal destination in Saved. Move matching card to a Home section.
+  function postProcessHomeInSaved(){try{var list=el('dlist'),home=homeCityName();if(!list||!home)return;var cards=[].slice.call(list.querySelectorAll('.itin-card,.dest-item'));var homeCard=null;cards.some(function(c){var txt=clean(c.textContent);if(norm(txt).indexOf(norm(home))===0||txt.indexOf(home)>-1){var d=(window.S&&S.dests||[]).find(function(x){return x.type==='dest'&&norm(x.name)===norm(home);});if(d){homeCard=c;return true;}}return false;});if(homeCard&&!list.querySelector('.wl-v14-home-header')){var h=document.createElement('div');h.className='wl-v14-home-header';h.textContent='🏠 Home';list.insertBefore(h,list.firstChild);list.insertBefore(homeCard,h.nextSibling);}}catch(e){}}
+  var oldSyncList=window.syncList;window.syncList=function(){var r=oldSyncList&&oldSyncList.apply(this,arguments);setTimeout(postProcessHomeInSaved,60);return r;};window.addEventListener('load',function(){setTimeout(postProcessHomeInSaved,1200);});
+})();
+</script>
+
+<!-- ===== Wanderlist v16 cleanup rebuild ===== -->
+<style id="wl-v16-clean-style">
+  #place-recs .wl-dp2-card{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important;position:relative!important;}
+  #place-recs .wl-dp2-box[data-v16-remove="1"],#place-recs .wl-dp2-box[data-v14-dupe="1"]{display:none!important;}
+  #place-recs .wl-v10-save-stop,#place-recs .wl-v11-save-stop,#place-recs .wl-v13-save-stop,#place-recs .wl-v15-save-stop,#place-recs .wl-v16-remove-save{display:none!important;}
+  .wl-v16-save-stop{width:100%;padding:13px 16px;margin:10px 0 14px;background:var(--gold-lt);border:1.5px solid var(--gold-md);color:var(--gold);border-radius:18px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:none;}
+  .wl-v16-save-stop:disabled{opacity:.6;cursor:default;}
+  .wl-v16-source-note{background:var(--gold-lt);border:1px solid var(--gold-md);color:var(--gold);border-radius:15px;padding:10px 12px;margin:8px 0 12px;font-size:13px;font-weight:800;line-height:1.45;}
+  .wl-v16-loader-card{display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,var(--gold-lt),var(--bg4));border:1.5px solid var(--gold-md);border-radius:18px;padding:18px;margin:10px 0 14px;box-shadow:0 2px 12px rgba(184,115,10,.12);}
+  .wl-v16-loader-icon{width:50px;height:50px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;animation:wlV16Pulse 1.1s ease-in-out infinite;}
+  .wl-v16-loader-title{font-size:17px;font-weight:900;color:var(--text);line-height:1.25;}
+  .wl-v16-loader-sub{font-size:13px;color:var(--text3);line-height:1.45;margin-top:4px;}
+  @keyframes wlV16Pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+</style>
+<script id="wl-v16-clean-rebuild">
+(function(){
+  if(window.__wlV16CleanRebuild)return;window.__wlV16CleanRebuild=true;
+  function el(id){return document.getElementById(id);}function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ');}function toast(msg){try{window.toast?window.toast(msg):(window.toast2?window.toast2(msg):console.log(msg));}catch(e){}}
+  function coord(x){if(!x)return null;var lat=parseFloat(x.lat),lng=parseFloat(x.lng);return isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0)?{lat:lat,lng:lng}:null;}
+  function km(a,b){var ca=coord(a),cb=coord(b);if(!ca||!cb)return 99999;var R=6371,dLat=(cb.lat-ca.lat)*Math.PI/180,dLng=(cb.lng-ca.lng)*Math.PI/180,s=Math.sin(dLat/2)**2+Math.cos(ca.lat*Math.PI/180)*Math.cos(cb.lat*Math.PI/180)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+  function typeOf(s){var t=clean(s.type||s.category||(s.tags&&s.tags[0])||'spot').toLowerCase();if(/cocktail|bar|pub|beer|wine|night/.test(t))return 'bar';if(/cafe|coffee|restaurant|food|dining|eat|brunch|bakery|market/.test(t))return 'food';if(/park|garden|beach|trail|outdoor/.test(t))return 'park';if(/museum|gallery|sight|view|landmark|castle|culture/.test(t))return 'sightseeing';return clean(s.category||s.type||'local spot');}
+  function titleCase(s){return clean(s).replace(/_/g,' ').replace(/\b\w/g,function(m){return m.toUpperCase();});}
+  function addMin(t,m){var s=clean(t)||'11:00am',mm=s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i),h=11,mi=0;if(mm){h=parseInt(mm[1],10);mi=parseInt(mm[2]||'0',10);var ap=(mm[3]||'').toLowerCase();if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;}var d=new Date(2000,0,1,h,mi+(m||0));var hh=d.getHours(),amp=hh>=12?'pm':'am';hh=hh%12||12;return hh+':'+String(d.getMinutes()).padStart(2,'0')+amp;}
+  function walkText(a,b){var d=km(a,b);if(!isFinite(d)||d>9000)return '';var min=Math.max(2,Math.round(d/4.7*60));return min>25?min+' min, recommend Uber/taxi':min+' min walk';}
+  function savedNear(dest){return (window.S&&S.dests||[]).filter(function(x){if(!x||x.type!=='local')return false;if(x.city&&dest.name&&norm(x.city)===norm(dest.name))return true;if(x.country&&dest.country&&norm(x.country)===norm(dest.country))return true;return km(x,dest)<45;});}
+  function richDesc(s,opt){var type=typeOf(s),tags=(s.tags||[]).map(clean).filter(Boolean),area=clean(s.neighbourhood||s.city||opt.area||'');if(clean(s.description)&&!/saved spot from your wanderlist/i.test(s.description))return clean(s.description);var base=clean(s.name)+' is a saved '+titleCase(type)+' from your Wanderlist';if(area)base+=' in '+area;var detail='.';if(/bar|pub|cocktail|night/.test(type))detail=' with a drinks-led stop that fits well into a compact night out.';else if(/food|restaurant|cafe|bakery|market/.test(type))detail=' that works as a practical food stop with enough structure to anchor the route.';else if(/park|outdoor|beach|garden/.test(type))detail=' that gives the day an outdoor break and helps keep the route from feeling over-scheduled.';else if(/sight|museum|gallery|culture|landmark/.test(type))detail=' that adds sightseeing value without pulling the day away from your saved route.';if(tags.length)detail+=' Tags: '+tags.slice(0,4).join(', ')+'.';return base+detail;}
+  function budgetNote(s){var t=typeOf(s),p=clean(s.price_range||s.price||'');if(clean(s.budget_note)&&!/saved spot/i.test(s.budget_note))return clean(s.budget_note);if(/bar|pub|cocktail|night/.test(t))return p?('Expect '+p+' drinks pricing, with flexibility depending on cocktails versus beer or wine.'): 'Budget for drinks, small plates, and optional late-night snacks.';if(/food|restaurant|cafe|bakery|market/.test(t))return p?('Expect '+p+' pricing, with the final spend driven by whether this is a snack, meal, or shared plates stop.'): 'Budget as a food stop, with flexibility for coffee, snacks, or a full meal.';if(/park|outdoor|beach|garden|sight/.test(t))return 'Likely low-cost or free unless you add tickets, rentals, or food nearby.';return 'Budget depends on how long you stay and whether you add food, drinks, or tickets.';}
+  function proTip(s,i,total){if(clean(s.premium_note)&&!/your rating/i.test(s.premium_note))return clean(s.premium_note);if(clean(s.pro_tip))return clean(s.pro_tip);var t=typeOf(s);if(i===0)return 'Start here to anchor the route, then keep the next stop close so the day builds naturally.';if(i===total-1)return 'Use this as the flexible final stop, either extend if the vibe is working or cut it if the day is running long.';if(/bar|pub|cocktail|night/.test(t))return 'Check hours before going and consider booking or arriving early if it is a popular evening spot.';if(/food|restaurant/.test(t))return 'Reserve ahead if available, or use it as the meal anchor before moving to the next nearby stop.';if(/cafe|bakery/.test(t))return 'Good as a reset stop, especially if you need a lighter break between higher-energy stops.';if(/park|outdoor|beach|garden/.test(t))return 'Best used as a pacing break, especially if the previous stop was food or drinks.';return 'Keep this stop flexible and use nearby alternatives if timing or crowding is off.';}
+  function makeSavedPlan(pool,opt){opt=opt||{};var dest=opt.dest||{},anchor=opt.anchor||null,start=opt.start||'11:00am',hours=parseInt(opt.hours||6,10)||6;pool=(pool||[]).filter(function(s){return s&&s.name;});if(anchor&&!pool.some(function(s){return String(s.id)===String(anchor.id);}))pool.unshift(anchor);var base=coord(anchor)||coord(dest)||coord(pool[0]);pool=pool.slice().sort(function(a,b){if(anchor&&String(a.id)===String(anchor.id))return -1;if(anchor&&String(b.id)===String(anchor.id))return 1;return base?km(a,base)-km(b,base):0;}).slice(0,Math.min(pool.length,Math.max(1,Math.ceil(hours*1.15))));var stops=pool.map(function(s,i){var out={id:s.id,place_id:s.place_id||'',time:addMin(start,i*70),name:s.name,type:typeOf(s),description:richDesc(s,opt),address:s.address||s.formattedAddress||'',lat:s.lat,lng:s.lng,budget_note:budgetNote(s),premium_note:proTip(s,i,pool.length),tags:s.tags||[],price_range:s.price_range||''};return out;});for(var j=0;j<stops.length-1;j++)stops[j].walk_to_next=walkText(stops[j],stops[j+1]);return {title:(opt.filtered?'Filtered saved spots':'Saved spots')+' day plan',city:dest.name||'',neighbourhood:opt.area||'',start:start,hours:hours,vibe:opt.vibe||'Local',_destId:opt.destId,_source:opt.filtered?'Filtered saved spots':'Saved spots',stops:stops};}
+  function currentVibe(){var v='Local';document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){v=clean(b.textContent)||v;});return v;}
+  function selectedSaved(){var b=el('dp-use-saved');return (window._dpMode==='saved')||(b&&b.classList.contains('on'));}
+  function selectedFiltered(){return window._dpMode==='filtered'||!!(window._wlFilteredSpots&&window._wlFilteredSpots.length)||!!(window._planWithSpots&&window._planWithSpots.length);}
+  function render(plan,vibe,destId){window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}if(window.renderDayPlanHtml)window.renderDayPlanHtml(plan,vibe,destId);else if(el('place-recs'))el('place-recs').innerHTML='<pre>'+esc(JSON.stringify(plan,null,2))+'</pre>';setTimeout(cleanupPlan,50);setTimeout(cleanupPlan,350);}
+
+  var oldRun=window.runDayPlan;
+  window.runDayPlan=function(destId){var dest=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(destId);});if(!dest)return oldRun&&oldRun.apply(this,arguments);var start=el('dp-start')?el('dp-start').value:'11:00am',hours=el('dp-hours')?el('dp-hours').value:'6',area=el('dp-area')?clean(el('dp-area').value):'',vibe=currentVibe(),anchor=window._dpAnchor||window._planWithSpot||null,holder=el('place-recs');var filteredPool=window._wlFilteredSpots||window._planWithSpots||null;if(selectedFiltered()||selectedSaved()){var pool=selectedFiltered()&&filteredPool?filteredPool:savedNear(dest);if(anchor&&!pool.some(function(x){return String(x.id)===String(anchor.id);}))pool.unshift(anchor);if(holder)holder.innerHTML='<div class="wl-v16-loader-card"><div class="wl-v16-loader-icon">📍</div><div><div class="wl-v16-loader-title">Building from saved spots</div><div class="wl-v16-loader-sub">Using your selected saved spots only, then adding stronger descriptions, budget notes and pro tips.</div></div></div>';if(!pool.length){holder.innerHTML='<div class="empty-state"><p>No saved local spots are available for this source.</p></div>';return;}setTimeout(function(){render(makeSavedPlan(pool,{dest:dest,destId:destId,start:start,hours:hours,area:area,vibe:vibe,anchor:anchor,filtered:selectedFiltered()}),vibe,destId);},120);return;}return oldRun&&oldRun.apply(this,arguments);};
+
+  var oldNear=window.planDayNearSpot;
+  window.planDayNearSpot=function(spotId){var spot=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(spotId);});if(spot){window._dpAnchor=spot;window._planWithSpot=spot;window._planWithSpots=null;window._wlFilteredSpots=null;window._dpSaved=null;window._dpMode='ai';window._lockedSpotPlanning=true;}return oldNear?oldNear.apply(this,arguments):undefined;};
+
+  var oldPlanDay=window.planDay;
+  window.planDay=function(destId){if(!window._lockedSpotPlanning&&window._dpMode!=='filtered'){window._dpAnchor=null;window._planWithSpot=null;}return oldPlanDay&&oldPlanDay.apply(this,arguments);};
+
+  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('button');if(!b)return;var txt=clean(b.textContent);if((/^Plan a day in /i.test(txt)||/^Plan your day$/i.test(txt)||/^Build your day$/i.test(txt))&&window.currentPlaceId){e.preventDefault();e.stopPropagation();window._dpMode='ai';window._dpAnchor=null;window._planWithSpot=null;window._lockedSpotPlanning=false;if(window.planDay)window.planDay(window.currentPlaceId);}},true);
+
+  function isSavedStop(s){return (window.S&&S.dests||[]).some(function(d){return d.type==='local'&&(String(d.id)===String(s.id)||(norm(d.name)===norm(s.name)&&(!s.city||norm(d.city||'')===norm(s.city||''))));});}
+  window.saveStopFromPlanIndex=window.saveStopFromPlanIndex||function(i){return window.saveStopFromPlan?window.saveStopFromPlan(i):undefined;};
+  function cleanupPlan(){var root=el('place-recs');if(!root)return;root.style.width='100%';root.querySelectorAll('.wl-dp2-box').forEach(function(box){var lab=box.querySelector('.wl-dp2-label');if(lab&&/address/i.test(lab.textContent||''))box.setAttribute('data-v16-remove','1');});
+    root.querySelectorAll('button').forEach(function(btn){var t=clean(btn.textContent).toLowerCase();if(t.indexOf('save this spot')>-1||t==='+ save spot'||t.indexOf('+ save spot')>-1){btn.classList.add('wl-v16-remove-save');}});
+    root.querySelectorAll('.wl-dp2-card').forEach(function(card,i){card.style.width='100%';card.style.maxWidth='none';if(card.querySelector('.wl-v16-save-stop'))return;var stop=window.currentPlanData&&window.currentPlanData.stops&&window.currentPlanData.stops[i];if(!stop||!stop.name)return;var btn=document.createElement('button');btn.type='button';btn.className='wl-v16-save-stop';var saved=isSavedStop(stop);btn.textContent=saved?'✓ Saved to local spots':'+ Save this spot';btn.disabled=saved;btn.onclick=function(ev){ev.preventDefault();ev.stopPropagation();if(window.saveStopFromPlan)window.saveStopFromPlan(i);else if(window.saveStopFromPlanIndex)window.saveStopFromPlanIndex(i);setTimeout(cleanupPlan,80);};var title=[].slice.call(card.querySelectorAll('h1,h2,h3,.wl-dp2-name,.wl-dp2-title')).find(function(x){return clean(x.textContent).length>0;});if(title&&title.parentNode)title.parentNode.insertBefore(btn,title.nextSibling);else card.insertBefore(btn,card.firstChild);});
+    var tweaks=root.querySelectorAll('.wl-dp2-tweak');if(tweaks.length>1){for(var j=0;j<tweaks.length-1;j++)tweaks[j].remove();}}
+  var oldRender=window.renderDayPlanHtml;window.renderDayPlanHtml=function(plan,vibe,destId){if(plan&&Array.isArray(plan.stops)){plan.stops.forEach(function(s,i){s.description=richDesc(s,{area:plan.neighbourhood||'',vibe:vibe});s.budget_note=budgetNote(s);s.premium_note=proTip(s,i,plan.stops.length);});for(var k=0;k<plan.stops.length-1;k++){plan.stops[k].walk_to_next=walkText(plan.stops[k],plan.stops[k+1])||plan.stops[k].walk_to_next;}}var r=oldRender&&oldRender.apply(this,arguments);setTimeout(cleanupPlan,40);setTimeout(cleanupPlan,250);setTimeout(cleanupPlan,900);return r;};
+
+  // Keep pins permanent and set a wider initial map view like the requested North Atlantic view.
+  function wideMapView(){try{if(!window.map)return;if(window.mapMode==='google'||(window.google&&map.setCenter)){map.setOptions&&map.setOptions({minZoom:2});map.setCenter({lat:25,lng:-28});map.setZoom(3);}else if(map.setMinZoom){map.setMinZoom(2);map.setView([25,-28],3,{animate:false});}}catch(e){}}
+  var oldSw=window.swScreen;window.swScreen=function(id){var r=oldSw&&oldSw.apply(this,arguments);if(id==='s-map')setTimeout(function(){try{if(map.invalidateSize)map.invalidateSize();if(window.syncMap)syncMap();wideMapView();}catch(e){}},160);return r;};
+  var oldSync=window.syncMap;window.syncMap=function(){var r=oldSync&&oldSync.apply(this,arguments);setTimeout(function(){try{if(window.drawHomePin)window.drawHomePin();}catch(e){}},250);return r;};
+  window.addEventListener('load',function(){setTimeout(function(){if(el('s-map')&&el('s-map').classList.contains('on'))wideMapView();try{window.syncMap&&syncMap();}catch(e){}cleanupPlan();},1200);});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){try{window.syncMap&&syncMap();}catch(e){}}});
+})();
+</script>
+
+<!-- ===== Wanderlist v17 Final Fixes ===== -->
+<script id="wl-v17-final-fixes">
+(function(){
+  if(window.__wlV17Final)return;window.__wlV17Final=true;
+
+  function g(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function clean(s){return String(s||'').trim();}
+  function toastSafe(m){try{(window.toast||window.toast2||console.log)(m);}catch(e){}}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+
+  /* ─── AI helper: retry on overload, haiku fallback ─── */
+  var MDLS=['claude-sonnet-4-5','claude-haiku-4-5-20251001'];
+  function aiRetry(prompt,sys,maxTok,holder,seq,seqRef,cb){
+    var key=localStorage.getItem('wl_apikey');
+    if(!key){cb('No API key — add one in Settings.',null);return;}
+    var mIdx=0,tries=0,MAX=3;
+    function busy(s,sw){
+      if(!holder||seq!==seqRef[0])return;
+      holder.innerHTML='<div class="wl-v14-refresh-load"><div class="wl-v14-refresh-icon">🧭</div>'
+        +'<div class="wl-v14-refresh-title">Finding spots\u2026</div>'
+        +'<div class="wl-v14-refresh-sub">'+(sw?'Switching to faster model\u2026':'Server busy \u2014 retrying in '+s+'s')+'</div>'
+        +'<div class="wl-v14-bar" style="width:88%"></div><div class="wl-v14-bar" style="width:66%"></div></div>';
+    }
+    function call(){
+      if(seq!==seqRef[0])return;
+      var body={model:MDLS[mIdx],max_tokens:maxTok||2400,messages:[{role:'user',content:prompt}]};
+      if(sys)body.system=sys;
+      fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify(body)
+      }).then(function(r){return r.json();}).then(function(d){
+        if(seq!==seqRef[0])return;
+        if(d.error){
+          var msg=String(d.error.message||d.error.type||'Error'),low=msg.toLowerCase();
+          var ovl=d.error.type==='overloaded_error'||low.indexOf('overload')>-1||low.indexOf('rate')>-1;
+          var bad=low.indexOf('model')>-1||low.indexOf('not found')>-1;
+          if(bad&&mIdx<MDLS.length-1){mIdx++;tries=0;call();return;}
+          if(ovl&&tries<MAX){tries++;var w=5+tries*5;busy(w,false);setTimeout(call,w*1000);return;}
+          if(ovl&&mIdx<MDLS.length-1){mIdx++;tries=0;busy(0,true);setTimeout(call,1500);return;}
+          cb('server_busy',null);return;
+        }
+        var txt=(d.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('').trim();
+        cb(null,txt);
+      }).catch(function(e){
+        if(seq!==seqRef[0])return;
+        if(tries<2){tries++;var w=3+tries*3;busy(w,false);setTimeout(call,w*1000);return;}
+        cb(e&&e.message?e.message:String(e),null);
+      });
+    }
+    call();
+  }
+
+  function parseRecs(txt){
+    if(window.safeParseAIJsonArray)return window.safeParseAIJsonArray(txt);
+    var s=String(txt||'').replace(/```json|```/g,'').trim();
+    var a=s.indexOf('['),b=s.lastIndexOf(']');
+    return JSON.parse(a>-1&&b>a?s.slice(a,b+1):s);
+  }
+  function parseObj(txt){
+    if(window.safeParseAIJsonObject)return window.safeParseAIJsonObject(txt);
+    var s=String(txt||'').replace(/```json|```/g,'').trim();
+    var a=s.indexOf('{'),b=s.lastIndexOf('}');
+    return JSON.parse(a>-1&&b>a?s.slice(a,b+1):s);
+  }
+
+  /* ─── Recent spot tracking ─── */
+  var SPOT_TTL=7*24*3600*1000;
+  function getRecentSpots(){
+    try{
+      var r=JSON.parse(localStorage.getItem('wl_recent_spots')||'{}'),now=Date.now(),out=[];
+      Object.keys(r).forEach(function(k){if(now-r[k]<SPOT_TTL)out.push(k);});
+      return out;
+    }catch(e){return [];}
+  }
+  function addRecentSpots(names){
+    try{
+      var r=JSON.parse(localStorage.getItem('wl_recent_spots')||'{}'),now=Date.now();
+      (names||[]).forEach(function(n){if(n)r[n]=now;});
+      localStorage.setItem('wl_recent_spots',JSON.stringify(r));
+    }catch(e){}
+  }
+  function recentAvoidClause(){
+    var recent=getRecentSpots().slice(0,20);
+    return recent.length?'VARIETY RULE: Avoid recommending these recently shown spots (pick genuinely different places): '+recent.join(', ')+'. Seed: '+Date.now()+'.':('Seed: '+Date.now()+'.');
+  }
+
+  /* ─── Loading HTML ─── */
+  function planLoadHTML(title,sub){
+    return '<div class="wl-v14-refresh-load"><div class="wl-v14-refresh-icon">🧭</div>'
+      +'<div class="wl-v14-refresh-title">'+esc(title)+'</div>'
+      +'<div class="wl-v14-refresh-sub">'+esc(sub)+'</div>'
+      +'<div class="wl-v14-bar" style="width:92%"></div>'
+      +'<div class="wl-v14-bar" style="width:74%"></div>'
+      +'<div class="wl-v14-bar" style="width:55%"></div></div>';
+  }
+  function busyCard(){
+    return '<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:12px;padding:14px;margin:8px 0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:4px">AI is busy</div>'
+      +'<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px">High demand. Tap Retry \u2014 usually clears in seconds.</div>'
+      +'<button class="action-btn" onclick="refreshExploreSuggestions()">\u21bb Retry</button></div>';
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 1 — Explore refresh: same loading style as plan-a-day,
+     spot tracking to prevent repetition, retry on overload.
+  ═══════════════════════════════════════════════════════ */
+  var _rSeq=[0];
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId||(typeof currentPlaceId!=='undefined'?currentPlaceId:null);
+    var d=(window.S&&S.dests||[]).find(function(x){return String(x.id)===String(id);});
+    var holder=g('place-recs');if(!d){toastSafe('Open a destination first');return;}
+    _rSeq[0]++;var seq=_rSeq[0];
+    /* Bust AI cache */
+    try{var rm=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.startsWith('wl_ai_'))rm.push(k);}rm.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});}catch(e){}
+    if(window.placeRecs)delete window.placeRecs[id];
+    /* Filter hint */
+    var af=window.placeFilter||'all',fh='';
+    if(af==='restaurant')fh='Show ONLY food: restaurants, cafes, bakeries. ';
+    else if(af==='bar')fh='Show ONLY drinks: bars, cocktail bars, wine bars, pubs. ';
+    else if(af==='park')fh='Show ONLY outdoor: parks, gardens, viewpoints. ';
+    else if(af==='activity')fh='Show ONLY activities/culture: museums, galleries, landmarks, tours. ';
+    else if(af==='budget')fh='Show ONLY budget-friendly options ($ or free). ';
+    /* Loading with plan-a-day style */
+    if(holder)holder.innerHTML=planLoadHTML('Finding spots in '+d.name+'\u2026','Checking what\u2019s open now.');
+    var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var prompt='Respond in '+lang+'. Give 12 real currently open recommendations for '+d.name+(d.country?', '+d.country:'')+'. '+fh
+      +'CRITICAL: ONLY include places that are currently open and operating. No permanently closed venues. '
+      +recentAvoidClause()+'\n'
+      +'For each place assign 1-3 tags from: "Cafe","Beer/pub","Cocktails","Patio","Fine dining","Cheap eats","Park","Sightseeing","Culture","Shopping","Beach","Nightlife","Activity","Viewpoint"\n'
+      +'Return ONLY valid JSON array: [{"name":"Exact business name","type":"restaurant|bar|cafe|park|activity","tags":["Cafe"],"description":"1-2 specific sentences about this place","budget":true|false,"emoji":"","price_range":"$|$$|$$$"}]';
+    aiRetry(prompt,'Return only valid JSON arrays. No markdown.',2600,holder,seq,_rSeq,function(err,txt){
+      if(seq!==_rSeq[0])return;
+      if(err){if(holder)holder.innerHTML=busyCard();return;}
+      try{
+        var recs=parseRecs(txt);
+        addRecentSpots(recs.map(function(r){return r.name;}));
+        (window.placeRecs=window.placeRecs||{})[id]=recs;
+        if(window.renderPlaceRecs)window.renderPlaceRecs(id);
+        else if(typeof renderPlaceRecs==='function')renderPlaceRecs(id);
+        toastSafe('Explore refreshed \u2713');
+      }catch(e){if(seq===_rSeq[0]&&holder)holder.innerHTML=busyCard();}
+    });
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 2 — sendTweak: bypass the broken runDayPlan chain.
+     Send the current plan + user request directly to AI
+     and render the modified plan. Also tracks shown spots.
+  ═══════════════════════════════════════════════════════ */
+  var _twkSeq=[0];
+  window.sendTweak=function(){
+    var inp=g('tweak-inp');if(!inp)return;
+    var msg=clean(inp.value);if(!msg)return;
+    inp.value='';
+    var plan=window.currentPlanData;
+    if(!plan||!plan.stops||!plan.stops.length){toastSafe('Build a plan first, then tweak it.');return;}
+    var key=localStorage.getItem('wl_apikey');if(!key){toastSafe('No API key in Settings.');return;}
+    var recs=g('place-recs');
+    if(recs)recs.innerHTML=planLoadHTML('Applying your tweak\u2026',msg.slice(0,80)+(msg.length>80?'\u2026':''));
+    _twkSeq[0]++;var seq=_twkSeq[0];
+    var planSummary=JSON.stringify({
+      city:plan.city,vibe:plan.vibe,start:plan.start,hours:plan.hours,
+      neighbourhood:plan.neighbourhood,
+      stops:(plan.stops||[]).map(function(s){return{time:s.time,name:s.name,type:s.type,description:s.description,walk_to_next:s.walk_to_next,budget_note:s.budget_note,premium_note:s.premium_note};})
+    });
+    var prompt='Modify this day plan to apply the user request. Return the modified plan with the SAME JSON structure.\nCURRENT PLAN:\n'+planSummary+'\nUSER REQUEST: "'+msg+'"\nRULES: Use only REAL currently-open places. If replacing stops, pick places near the existing neighbourhood. Keep same start time and hours unless user asks to change. Return ONLY valid JSON object.';
+    var mIdx=0,tries=0;
+    function call(){
+      if(seq!==_twkSeq[0])return;
+      var body={model:MDLS[mIdx],max_tokens:4000,messages:[{role:'user',content:prompt}],system:'You modify day plans. Return only valid JSON. No markdown.'};
+      fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify(body)
+      }).then(function(r){return r.json();}).then(function(d){
+        if(seq!==_twkSeq[0])return;
+        if(d.error){
+          var msg2=String(d.error.message||d.error.type||'Error'),low=msg2.toLowerCase();
+          var ovl=d.error.type==='overloaded_error'||low.indexOf('overload')>-1;
+          var bad=low.indexOf('model')>-1||low.indexOf('not found')>-1;
+          if(bad&&mIdx<MDLS.length-1){mIdx++;call();return;}
+          if(ovl&&tries<3){tries++;if(recs)recs.innerHTML=planLoadHTML('Server busy\u2026','Retrying in '+(5+tries*5)+'s\u2026');setTimeout(call,(5+tries*5)*1000);return;}
+          if(ovl&&mIdx<MDLS.length-1){mIdx++;tries=0;call();return;}
+          if(recs)recs.innerHTML='<p style="font-size:13px;color:var(--text3);padding:12px">Could not apply tweak. Try again.</p>';return;
+        }
+        var txt=(d.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('').trim();
+        try{
+          var newPlan=parseObj(txt);
+          newPlan._destId=plan._destId;newPlan._settings=plan._settings;newPlan._source=plan._source;
+          window.currentPlanData=newPlan;try{currentPlanData=newPlan;}catch(e){}
+          addRecentSpots((newPlan.stops||[]).map(function(s){return s.name;}));
+          if(window.renderDayPlanHtml)window.renderDayPlanHtml(newPlan,newPlan.vibe||plan.vibe,plan._destId);
+        }catch(e){if(recs)recs.innerHTML='<p style="font-size:13px;color:var(--text3);padding:12px">Could not apply tweak. Try again.</p>';}
+      }).catch(function(e){
+        if(seq!==_twkSeq[0])return;
+        if(tries<2){tries++;setTimeout(call,4000);return;}
+        if(recs)recs.innerHTML='<p style="font-size:13px;color:var(--text3);padding:12px">Network error. Check connection and try again.</p>';
+      });
+    }
+    call();
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 3 — sendExploreTweak: retry + spot tracking
+  ═══════════════════════════════════════════════════════ */
+  var _tSeq=[0];
+  window.sendExploreTweak=function(){
+    var inp=g('explore-chat-inp');if(!inp)return;
+    var msg=clean(inp.value);
+    if(!msg)msg='Fresh different mix \u2014 new categories, new neighbourhoods. '+recentAvoidClause();
+    inp.value='';
+    var id=window.currentPlaceId||(typeof currentPlaceId!=='undefined'?currentPlaceId:null);
+    var d=(S.dests||[]).find(function(x){return x.id===id;});if(!d)return;
+    _tSeq[0]++;var seq=_tSeq[0];
+    if(typeof window.activeToken!=='undefined')window.activeToken++;
+    if(typeof window.__wlV14ActiveToken!=='undefined')window.__wlV14ActiveToken=(window.__wlV14ActiveToken||0)+1;
+    var holder=g('place-recs');if(!holder)return;
+    holder.innerHTML=planLoadHTML('Applying request\u2026',msg.slice(0,80)+(msg.length>80?'\u2026':''));
+    var existing=((window.placeRecs||{})[id]||[]).map(function(r){return r.name;}).join(', ');
+    var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var prompt='Respond in '+lang+'. Update local recommendations for '+d.name+(d.country?', '+d.country:'')+' based on: "'+msg+'"\n'
+      +(existing?'Currently showing: '+existing+'. Use DIFFERENT places.\n':'')
+      +'CRITICAL: Only include CURRENTLY OPEN places. No permanently closed venues.\n'
+      +recentAvoidClause()+'\n'
+      +'Give 12 updated verified recommendations.\nAssign 1-3 tags from: "Cafe","Beer/pub","Cocktails","Patio","Fine dining","Cheap eats","Park","Sightseeing","Culture","Shopping","Beach","Nightlife","Activity","Viewpoint"\n'
+      +'Return ONLY valid JSON: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["Cafe"],"description":"1-2 sentences","budget":true|false,"emoji":"","price_range":"$|$$|$$$"}]';
+    aiRetry(prompt,'Return only valid JSON arrays. No markdown.',2200,holder,seq,_tSeq,function(err,txt){
+      if(seq!==_tSeq[0])return;
+      if(err){if(holder)holder.innerHTML=busyCard();return;}
+      try{
+        var recs=parseRecs(txt);
+        addRecentSpots(recs.map(function(r){return r.name;}));
+        (window.placeRecs=window.placeRecs||{})[id]=recs;
+        if(window.renderPlaceRecs)window.renderPlaceRecs(id);
+        setTimeout(function(){
+          if(!g('explore-chat-inp')&&window.wlTweakBox){
+            var body=g('place-body');
+            if(body)body.innerHTML+=window.wlTweakBox('Tweak these suggestions','explore-chat-inp','e.g. more hidden gems, less touristy, add rooftops','sendExploreTweak()','');
+          }
+        },250);
+      }catch(e){if(seq===_tSeq[0]&&holder)holder.innerHTML=busyCard();}
+    });
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 4 — renderDayPlanHtml: remove duplicate explore tweak box
+     and track recently shown spots.
+  ═══════════════════════════════════════════════════════ */
+  var _origRDPH=window.renderDayPlanHtml;
+  window.renderDayPlanHtml=function(plan,vibe,destId){
+    var r=_origRDPH&&_origRDPH.apply(this,arguments);
+    /* Track spots shown in this plan */
+    addRecentSpots((plan&&plan.stops||[]).map(function(s){return s.name;}));
+    /* Remove the explore "Tweak these suggestions" box — plan already has one at top */
+    setTimeout(function(){
+      var body=g('place-body');if(!body)return;
+      var exploreTweak=body.querySelector('#explore-chat-inp');
+      if(exploreTweak){
+        var w=exploreTweak.parentElement;
+        while(w&&w!==body&&!w.contains(g('place-recs'))){var p=w.parentElement;if(p===body){p.removeChild(w);break;}w=p;}
+      }
+      var planBtn=g('place-plan-btn-wrap');if(planBtn)planBtn.style.display='none';
+    },80);
+    return r;
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 5 — drawHomePin: SAFE eachLayer usage.
+     Collect layers to remove FIRST, remove AFTER iteration.
+     (Removing inside eachLayer corrupts Leaflet's layer state
+     causing map filter toggles to stop working.)
+  ═══════════════════════════════════════════════════════ */
+  var _origDHP=window.drawHomePin;
+  window.drawHomePin=function(){
+    if(_origDHP)_origDHP.apply(this,arguments);
+    try{
+      var raw=localStorage.getItem('wl_homecoords');if(!raw)return;
+      var hc=JSON.parse(raw);if(!hc)return;
+      var hlat=parseFloat(hc.lat),hlng=parseFloat(hc.lng);
+      if(!isFinite(hlat)||!isFinite(hlng))return;
+
+      /* Leaflet: collect first, remove after */
+      var toRemove=[];
+      if(window.L&&window.map&&map.eachLayer){
+        map.eachLayer(function(layer){
+          if(!layer.getLatLng)return;
+          var ll=layer.getLatLng();
+          if(Math.abs(ll.lat-hlat)<0.002&&Math.abs(ll.lng-hlng)<0.002){
+            /* Skip home emoji pin */
+            try{var el=layer._icon;if(el&&el.querySelector&&el.querySelector('.wl-v14-home-pin'))return;}catch(e){}
+            toRemove.push(layer);
+          }
+        });
+        /* Remove OUTSIDE iteration — safe */
+        toRemove.forEach(function(l){try{map.removeLayer(l);}catch(e){}});
+      }
+
+      /* Google Maps: same collect-then-remove pattern */
+      if(window.mkrs&&window.mkrs.length){
+        var gmRemove=[];
+        window.mkrs.forEach(function(m){
+          try{if(!m.getPosition)return;var pos=m.getPosition();if(Math.abs(pos.lat()-hlat)<0.002&&Math.abs(pos.lng()-hlng)<0.002)gmRemove.push(m);}catch(e){}
+        });
+        gmRemove.forEach(function(m){try{m.setMap(null);}catch(e){}});
+      }
+    }catch(e){}
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 6 — flyToHome: safe fitBounds suppression.
+     The bug: previous v17 had restore inside try{}, so if
+     syncMap threw, fitBounds stayed as no-op permanently,
+     breaking all future filter toggle renders.
+     Fix: restore is OUTSIDE try{} so it always runs.
+  ═══════════════════════════════════════════════════════ */
+  window.flyToHome=function(lat,lng){
+    lat=parseFloat(lat);lng=parseFloat(lng);if(!isFinite(lat)||!isFinite(lng))return;
+    /* Switch screen manually (bypasses swScreen which calls syncMap+setMapOpeningView) */
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
+    document.querySelectorAll('.tabbtn').forEach(function(b){b.classList.remove('on');});
+    var ms=g('s-map');if(ms)ms.classList.add('on');
+    var mt=g('tb-map');if(mt)mt.classList.add('on');
+    setTimeout(function(){
+      if(!window.map)return;
+      try{if(map.invalidateSize)map.invalidateSize();}catch(e){}
+      S.mapFilter='local';
+      document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
+      var lb=g('mf-local');if(lb)lb.classList.add('on');
+      /* Suppress fitBounds during syncMap so flyTo isn't fought */
+      var _fb=window.map.fitBounds;
+      window.map.fitBounds=function(){};
+      try{if(window.syncMap)syncMap();}catch(e){}
+      window.map.fitBounds=_fb; /* ALWAYS restored — outside try{} */
+      try{if(map.flyTo)map.flyTo([lat,lng],14,{duration:1.5,easeLinearity:0.1});
+          else if(map.setCenter){map.setCenter({lat:lat,lng:lng});map.setZoom(14);}}catch(e){}
+      setTimeout(function(){try{if(window.drawHomePin)window.drawHomePin();}catch(e){}},1600);
+    },160);
+  };
+
+  window.goHome=function(){
+    var hc=localStorage.getItem('wl_homecity');
+    if(!hc){if(window.openProfile)openProfile();toastSafe('Set your home city in Settings first');return;}
+    var cached=localStorage.getItem('wl_homecoords');
+    if(cached){try{var co=JSON.parse(cached);window.flyToHome(co.lat,co.lng);return;}catch(e){}}
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
+    document.querySelectorAll('.tabbtn').forEach(function(b){b.classList.remove('on');});
+    var ms=g('s-map');if(ms)ms.classList.add('on');var mt=g('tb-map');if(mt)mt.classList.add('on');
+    toastSafe('Finding your home city\u2026');
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(hc)+'&format=json&limit=1',{headers:{'Accept-Language':'en'}})
+    .then(function(r){return r.json();}).then(function(res){
+      if(!res||!res.length){toastSafe('Could not find your home city');return;}
+      var lt=parseFloat(res[0].lat),ln=parseFloat(res[0].lon);
+      localStorage.setItem('wl_homecoords',JSON.stringify({lat:lt,lng:ln}));
+      window.flyToHome(lt,ln);
+    }).catch(function(){toastSafe('Could not geocode home city');});
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 7 — planDayForSpot: open standard plan-a-day UI
+     with selected spot as anchor (first stop) in AI mode.
+     User can switch to "My saved spots" in the UI.
+  ═══════════════════════════════════════════════════════ */
+  window.planDayForSpot=function(id,e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    var spot=(S.dests||[]).find(function(x){return x.id===id;});if(!spot)return;
+    /* _lockedSpotPlanning=true prevents planDay from clearing the anchor */
+    window._lockedSpotPlanning=true;
+    window._dpMode='ai'; /* default: AI fills stops after anchor */
+    /* planDayNearSpot sets _dpAnchor, creates temp dest, opens plan UI */
+    if(window.planDayNearSpot){window.planDayNearSpot(id);return;}
+    /* Fallback if planDayNearSpot not available */
+    var city=window.getPlaceCity?window.getPlaceCity(spot):spot.city||spot.country||spot.name||'';
+    var dest=(S.dests||[]).find(function(x){return x.type==='dest'&&norm(x.name)===norm(city);});
+    if(!dest){dest={id:'_tmp_pds_'+spot.id+'_'+Date.now(),name:city||spot.name,country:spot.country||'',lat:parseFloat(spot.lat||0),lng:parseFloat(spot.lng||0),type:'dest'};S.dests.push(dest);setTimeout(function(){S.dests=S.dests.filter(function(x){return x.id!==dest.id;});},90000);}
+    window._dpAnchor=spot;window._planWithSpot=spot;window._planWithSpots=null;
+    setTimeout(function(){if(window.openPlaceDetail)window.openPlaceDetail(dest.id,true);},60);
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 8 — Collection picker: add visible Cancel button.
+  ═══════════════════════════════════════════════════════ */
+  var _origSCP=window.showCollectionPicker;
+  window.showCollectionPicker=function(item){
+    if(_origSCP)_origSCP.apply(this,arguments);
+    setTimeout(function(){
+      var content=g('coll-modal-content');if(!content)return;
+      if(content.querySelector('.v17-coll-cancel'))return;
+      var btn=document.createElement('button');
+      btn.className='v17-coll-cancel';
+      btn.style.cssText='width:100%;margin-top:14px;padding:13px;background:none;border:1.5px solid var(--border);border-radius:14px;font-size:14px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit';
+      btn.textContent='Cancel';
+      btn.onclick=function(){if(window.closeCollModal)window.closeCollModal();};
+      content.appendChild(btn);
+    },60);
+  };
+
+})();
+</script>
+
 </body>
 </html>
