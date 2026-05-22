@@ -11571,5 +11571,339 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
 })();
 </script>
 
+<!-- ===== Wanderlist v18 Targeted Fixes ===== -->
+<script id="wl-v18-fixes">
+(function(){
+  if(window.__wlV18)return; window.__wlV18=true;
+
+  function g(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function clean(s){return String(s||'').trim();}
+  function norm(s){return clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 1 — Map initial view: include home coords in fitBounds
+     so the view shows the world (home + all destinations),
+     not zoomed in to the destination cluster.
+     Also caps maxZoom so world view is always preserved.
+  ═══════════════════════════════════════════════════════ */
+  var _origSyncMap = window.syncMap;
+  window.syncMap = function(){
+    var r = _origSyncMap && _origSyncMap.apply(this, arguments);
+    /* After syncMap runs, check if we need to re-fit to include home */
+    try{
+      var hcRaw = localStorage.getItem('wl_homecoords');
+      if(!hcRaw||!window.map)return r;
+      var hc = JSON.parse(hcRaw);
+      var hlat=parseFloat(hc.lat),hlng=parseFloat(hc.lng);
+      if(!isFinite(hlat)||!isFinite(hlng))return r;
+      var dests=(window.S&&S.dests||[]).filter(function(d){
+        var lat=parseFloat(d.lat),lng=parseFloat(d.lng);
+        return d.type==='dest'&&isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0);
+      });
+      if(!dests.length)return r;
+      /* Build bounds including home */
+      if(window.mapMode==='google'||(window.google&&window.map&&map.fitBounds&&map.getZoom)){
+        var b=new google.maps.LatLngBounds();
+        b.extend({lat:hlat,lng:hlng});
+        dests.forEach(function(d){b.extend({lat:parseFloat(d.lat),lng:parseFloat(d.lng)});});
+        map.fitBounds(b,{padding:60});
+        setTimeout(function(){try{if(map.getZoom&&map.getZoom()>5)map.setZoom(5);}catch(e){}},100);
+      } else if(window.L&&map.fitBounds){
+        var pts=[[hlat,hlng]].concat(dests.map(function(d){return[parseFloat(d.lat),parseFloat(d.lng)];}));
+        map.fitBounds(L.latLngBounds(pts).pad(0.25),{maxZoom:5});
+      }
+    }catch(e){}
+    return r;
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 2 — Home icon: hide the orange destination pin for
+     the home city so only the 🏠 emoji shows. Runs after
+     drawHomePin. SAFE: collect layers, remove after iteration.
+  ═══════════════════════════════════════════════════════ */
+  var _origDHP = window.drawHomePin;
+  window.drawHomePin = function(){
+    if(_origDHP) _origDHP.apply(this, arguments);
+    setTimeout(function(){
+      try{
+        var hcRaw=localStorage.getItem('wl_homecoords');
+        var hcName=(localStorage.getItem('wl_homecity')||'').split(',')[0].toLowerCase().trim();
+        if(!hcRaw||!window.map)return;
+        var hc=JSON.parse(hcRaw);
+        var hlat=parseFloat(hc.lat),hlng=parseFloat(hc.lng);
+        if(!isFinite(hlat)||!isFinite(hlng))return;
+
+        /* Leaflet: collect markers to remove, remove after */
+        if(window.L&&map.eachLayer){
+          var toRm=[];
+          map.eachLayer(function(layer){
+            if(!layer.getLatLng)return;
+            var ll=layer.getLatLng();
+            if(Math.abs(ll.lat-hlat)<0.003&&Math.abs(ll.lng-hlng)<0.003){
+              /* Keep the home emoji pin itself */
+              try{var el=layer._icon;if(el&&el.querySelector&&el.querySelector('.wl-v14-home-pin'))return;}catch(e){}
+              toRm.push(layer);
+            }
+          });
+          toRm.forEach(function(l){try{map.removeLayer(l);}catch(e){}});
+        }
+
+        /* Google Maps: mark home city dest markers invisible */
+        if(window.mkrs){
+          window.mkrs.forEach(function(m){
+            try{
+              if(!m.getPosition)return;
+              var pos=m.getPosition();
+              var titleMatch=hcName&&(m.getTitle&&m.getTitle()||'').toLowerCase().indexOf(hcName)===0;
+              if(Math.abs(pos.lat()-hlat)<0.003&&Math.abs(pos.lng()-hlng)<0.003||titleMatch){
+                /* Only hide if it's an orange dest pin (not already the home emoji) */
+                if(m.getLabel&&m.getLabel()&&(m.getLabel().text||'').indexOf('🏠')>-1)return;
+                m.setMap(null);
+              }
+            }catch(e){}
+          });
+        }
+      }catch(e){}
+    },300);
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 3 — Saved tab: continent grouping for destinations.
+     Groups dests by continent using a country→continent map.
+  ═══════════════════════════════════════════════════════ */
+  var CONTINENT_MAP={
+    'Afghanistan':'Asia','Albania':'Europe','Algeria':'Africa','Angola':'Africa','Argentina':'South America',
+    'Armenia':'Asia','Australia':'Oceania','Austria':'Europe','Azerbaijan':'Asia','Bahrain':'Asia',
+    'Bangladesh':'Asia','Belarus':'Europe','Belgium':'Europe','Bolivia':'South America',
+    'Bosnia and Herzegovina':'Europe','Brazil':'South America','Bulgaria':'Europe','Cambodia':'Asia',
+    'Cameroon':'Africa','Canada':'North America','Chile':'South America','China':'Asia','Colombia':'South America',
+    'Costa Rica':'Central America','Croatia':'Europe','Cuba':'Caribbean','Cyprus':'Europe',
+    'Czech Republic':'Europe','Denmark':'Europe','Dominican Republic':'Caribbean','Ecuador':'South America',
+    'Egypt':'Africa','Estonia':'Europe','Ethiopia':'Africa','Finland':'Europe','France':'Europe',
+    'Georgia':'Asia','Germany':'Europe','Ghana':'Africa','Greece':'Europe','Guatemala':'Central America',
+    'Honduras':'Central America','Hungary':'Europe','Iceland':'Europe','India':'Asia','Indonesia':'Asia',
+    'Iran':'Asia','Iraq':'Asia','Ireland':'Europe','Israel':'Asia','Italy':'Europe','Jamaica':'Caribbean',
+    'Japan':'Asia','Jordan':'Asia','Kazakhstan':'Asia','Kenya':'Africa','South Korea':'Asia',
+    'Kosovo':'Europe','Kuwait':'Asia','Kyrgyzstan':'Asia','Latvia':'Europe','Lebanon':'Asia',
+    'Lithuania':'Europe','Luxembourg':'Europe','Malaysia':'Asia','Malta':'Europe','Mexico':'North America',
+    'Moldova':'Europe','Mongolia':'Asia','Montenegro':'Europe','Morocco':'Africa','Myanmar':'Asia',
+    'Nepal':'Asia','Netherlands':'Europe','New Zealand':'Oceania','Nicaragua':'Central America',
+    'Nigeria':'Africa','North Macedonia':'Europe','Norway':'Europe','Oman':'Asia','Pakistan':'Asia',
+    'Panama':'Central America','Paraguay':'South America','Peru':'South America','Philippines':'Asia',
+    'Poland':'Europe','Portugal':'Europe','Puerto Rico':'Caribbean','Qatar':'Asia','Romania':'Europe',
+    'Russia':'Europe','Rwanda':'Africa','Saudi Arabia':'Asia','Senegal':'Africa','Serbia':'Europe',
+    'Singapore':'Asia','Slovakia':'Europe','Slovenia':'Europe','South Africa':'Africa','Spain':'Europe',
+    'Sri Lanka':'Asia','Sweden':'Europe','Switzerland':'Europe','Taiwan':'Asia','Tanzania':'Africa',
+    'Thailand':'Asia','Tunisia':'Africa','Turkey':'Europe','UAE':'Asia','Uganda':'Africa',
+    'Ukraine':'Europe','United Arab Emirates':'Asia','United Kingdom':'Europe','United States':'North America',
+    'Uruguay':'South America','Uzbekistan':'Asia','Venezuela':'South America','Vietnam':'Asia',
+    'Zambia':'Africa','Zimbabwe':'Africa'
+  };
+  var CONTINENT_ORDER=['North America','South America','Central America','Caribbean','Europe','Africa','Asia','Oceania','Other'];
+
+  function getCont(d){
+    var country=clean(d.country||'');
+    if(!country)return 'Other';
+    /* direct match */
+    if(CONTINENT_MAP[country])return CONTINENT_MAP[country];
+    /* partial match */
+    var cl=country.toLowerCase();
+    for(var k in CONTINENT_MAP){if(cl===k.toLowerCase()||cl.indexOf(k.toLowerCase())>-1||k.toLowerCase().indexOf(cl)>-1)return CONTINENT_MAP[k];}
+    return 'Other';
+  }
+
+  /* Override the syncList from the IIFE that doesn't do continent grouping */
+  var _origSyncList = window.syncList;
+  window.syncList = function(){
+    /* Let the original run first to handle the 'local' filter correctly */
+    var el2=g('dlist');
+    var cnt=g('dcnt');
+
+    var allDests=(window.S&&S.dests)||[];
+    var listFilter2=typeof listFilter!=='undefined'?listFilter:'all';
+
+    /* For local-only view, use the original */
+    if(listFilter2==='local'){if(_origSyncList)_origSyncList();return;}
+
+    var filtered=allDests.filter(function(d){
+      if(listFilter2==='dest')return d.type==='dest';
+      return true; /* 'all' */
+    });
+
+    if(cnt)cnt.textContent=allDests.length+' saved';
+    if(!el2)return;
+
+    if(!filtered.length){
+      if(_origSyncList)_origSyncList();
+      return;
+    }
+
+    /* Separate dests and locals */
+    var dests=filtered.filter(function(d){return d.type==='dest';});
+    var locals=filtered.filter(function(d){return d.type==='local';});
+
+    /* Group dests by continent */
+    var groups={};
+    dests.forEach(function(d){
+      var cont=getCont(d);
+      if(!groups[cont])groups[cont]=[];
+      groups[cont].push(d);
+    });
+
+    var html='';
+    CONTINENT_ORDER.forEach(function(cont){
+      if(!groups[cont]||!groups[cont].length)return;
+      html+='<div class="continent-hdr">'+cont+'</div>';
+      groups[cont].forEach(function(d,_ci){
+        html+='<div class="dest-item card-anim" onclick="openPlaceDetail(\''+d.id+'\')">'+
+          '<div class="dest-icon dest">\u2708\uFE0F</div>'+
+          '<div class="dest-info"><div class="dest-name">'+esc(d.name)+'</div>'+
+          '<div class="dest-meta">'+esc(window.getPlaceMeta?window.getPlaceMeta(d):(d.country||''))+'</div></div>'+
+          '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
+          '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button></div>';
+      });
+    });
+
+    /* Append local spots if showing all */
+    if(listFilter2==='all'&&locals.length){
+      if(html)html+='<div class="continent-hdr">Local Spots</div>';
+      locals.forEach(function(d){
+        var tags=window.localTagValues?window.localTagValues(d):[];
+        var tagsHtml=tags.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">'+tags.map(function(t){return'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600">'+esc(t)+'</span>';}).join('')+'</div>':'';
+        html+='<div class="dest-item card-anim" onclick="openPlaceDetail(\''+d.id+'\')">'+
+          '<div class="dest-icon local">\uD83D\uDCCD</div>'+
+          '<div class="dest-info"><div class="dest-name">'+esc(d.name)+'</div>'+
+          '<div class="dest-meta">'+esc(window.getPlaceMeta?window.getPlaceMeta(d):(d.country||''))+'</div>'+tagsHtml+'</div>'+
+          '<button class="dest-fly" onclick="event.stopPropagation();flyTo(\''+d.id+'\')">Map</button>'+
+          '<button class="dest-rm" onclick="event.stopPropagation();rmDest(\''+d.id+'\')">×</button></div>';
+      });
+    }
+
+    if(!html){if(_origSyncList)_origSyncList();return;}
+    el2.innerHTML=html;
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 4 — Explore: add ☕ Cafe filter pill + filtering logic.
+  ═══════════════════════════════════════════════════════ */
+  /* Inject Cafe pill after the existing filter pills are rendered */
+  function injectCafePill(){
+    var pills=g('place-pills');if(!pills)return;
+    if(pills.querySelector('[data-filter="cafe"]'))return; /* already added */
+    /* Find the Drinks pill and insert Cafe after Food */
+    var btns=[].slice.call(pills.querySelectorAll('.filter-pill'));
+    var foodBtn=btns.find(function(b){return b.textContent.indexOf('Food')>-1;});
+    var cafePill=document.createElement('button');
+    cafePill.className='filter-pill';
+    cafePill.setAttribute('data-filter','cafe');
+    cafePill.textContent='\u2615 Cafe';
+    cafePill.onclick=function(){setPlaceFilter('cafe',cafePill);};
+    if(foodBtn&&foodBtn.nextSibling)pills.insertBefore(cafePill,foodBtn.nextSibling);
+    else pills.appendChild(cafePill);
+  }
+
+  /* Patch setPlaceFilter to handle 'cafe' */
+  var _origSPF=window.setPlaceFilter;
+  window.setPlaceFilter=function(f,el){
+    if(_origSPF)_origSPF.apply(this,arguments);
+    /* Ensure cafe filter is also stored and re-renders */
+    if(f==='cafe'){
+      window.placeFilter='cafe';
+      document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
+      if(el)el.classList.add('on');
+      var id=window.currentPlaceId;
+      if(id&&window.placeRecs&&window.placeRecs[id])renderPlaceRecs(id);
+    }
+  };
+
+  /* Patch filterRec to handle cafe type */
+  var _origFilterRec=window.filterRec;
+  window.filterRec=function(r){
+    if(typeof window.placeFilter!=='undefined'&&window.placeFilter==='cafe'){
+      return r.type==='cafe'||(r.tags&&r.tags.some&&r.tags.some(function(t){return/cafe|coffee|☕/i.test(t);}));
+    }
+    return _origFilterRec?_origFilterRec.apply(this,arguments):true;
+  };
+
+  /* Inject pill whenever openPlaceDetail renders the sheet */
+  var _origOPD=window.openPlaceDetail;
+  window.openPlaceDetail=function(id,autoPlanDay){
+    var r=_origOPD&&_origOPD.apply(this,arguments);
+    setTimeout(injectCafePill,80);
+    return r;
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 5 — Newly opened spots: stronger prompt emphasis.
+     Override the explore fetch to include "newly opened" ask.
+  ═══════════════════════════════════════════════════════ */
+  /* The prompt in openPlaceDetail (line ~1297) already has some text.
+     We patch it by overriding the AI call function when it contains the
+     old explore prompt, replacing with a stronger version. */
+  var _origAI=window.ai;
+  window.ai=function(msgs,cb,maxTok,sys){
+    /* Detect the explore recommendations call */
+    if(msgs&&msgs[0]&&msgs[0].content&&msgs[0].content.indexOf('Give me 12 top local recommendations')>-1){
+      var strengthened=msgs[0].content.replace(
+        'Prioritize trendy, popular spots that opened or became popular in 2022-2025.',
+        'IMPORTANT: Specifically look for places that are NEWLY OPENED (2023\u20132025) or recently became trendy. Include at least 2-3 spots that opened within the last 1-2 years. Avoid tourist staples that have been around for 10+ years unless they are still the best of their category. Prioritise rising and buzzy venues.'
+      );
+      msgs=[{role:'user',content:strengthened}];
+    }
+    return _origAI&&_origAI.apply(this,[msgs,cb,maxTok,sys]);
+  };
+
+  /* ═══════════════════════════════════════════════════════
+     FIX 6 — Plan a Day: after renderDayPlanHtml, hide:
+       • the filter pills (#place-pills)
+       • the "Plan a day here" button (#place-plan-btn-wrap)
+       • the explore "Tweak these suggestions" box
+     The plan card already has its own tweak input at the top.
+  ═══════════════════════════════════════════════════════ */
+  var _origRDPH=window.renderDayPlanHtml;
+  window.renderDayPlanHtml=function(plan,vibe,destId){
+    var r=_origRDPH&&_origRDPH.apply(this,arguments);
+    setTimeout(function(){
+      /* Hide explore filter pills */
+      var pills=g('place-pills');
+      if(pills)pills.style.display='none';
+      /* Hide "Plan a day here" button section */
+      var planBtnWrap=g('place-plan-btn-wrap');
+      if(planBtnWrap)planBtnWrap.style.display='none';
+      /* Hide explore "Tweak these suggestions" (explore-chat-inp wrapper) */
+      var explorerTweak=g('explore-chat-inp');
+      if(explorerTweak){
+        var wrapper=explorerTweak.parentElement;
+        /* Walk up until we find the gold-bordered wlTweakBox wrapper */
+        while(wrapper&&wrapper.id!=='place-body'){
+          if(wrapper.style&&(wrapper.style.background||'').indexOf('gold')>-1||(wrapper.style&&wrapper.style.border&&wrapper.style.border.indexOf('gold')>-1)||(wrapper.className&&wrapper.className.indexOf&&wrapper.className.indexOf('tweak')>-1)){
+            wrapper.style.display='none';break;
+          }
+          wrapper=wrapper.parentElement;
+        }
+        /* Simpler fallback: just hide by parent */
+        if(explorerTweak.parentElement)explorerTweak.parentElement.parentElement.style.display='none';
+      }
+    },50);
+    return r;
+  };
+
+  /* Ensure pills are re-shown when navigating back to explore view */
+  var _origRPR=window.renderPlaceRecs;
+  window.renderPlaceRecs=function(id){
+    /* Show pills again when explore recs render (not plan) */
+    var pills=g('place-pills');
+    var planWrap=g('place-plan-btn-wrap');
+    if(pills)pills.style.display='';
+    if(planWrap)planWrap.style.display='';
+    /* Re-inject cafe pill */
+    setTimeout(injectCafePill,60);
+    return _origRPR&&_origRPR.apply(this,arguments);
+  };
+
+})();
+</script>
+
 </body>
 </html>
