@@ -11785,54 +11785,13 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   };
 
   /* ═══════════════════════════════════════════════════════
-     FIX 4 — Explore: add ☕ Cafe filter pill + filtering logic.
+     FIX 4 — superseded. The Cafe filter pill, setPlaceFilter,
+     and openPlaceDetail hook are now owned by the final
+     consolidated Explore/Filter/Search block at the end of
+     this file, which builds the full pill row (including Cafe)
+     directly. This block is intentionally left inert to avoid
+     inserting a duplicate pill.
   ═══════════════════════════════════════════════════════ */
-  /* Inject Cafe pill after the existing filter pills are rendered */
-  function injectCafePill(){
-    var pills=g('place-pills');if(!pills)return;
-    if(pills.querySelector('[data-filter="cafe"]'))return; /* already added */
-    /* Find the Drinks pill and insert Cafe after Food */
-    var btns=[].slice.call(pills.querySelectorAll('.filter-pill'));
-    var foodBtn=btns.find(function(b){return b.textContent.indexOf('Food')>-1;});
-    var cafePill=document.createElement('button');
-    cafePill.className='filter-pill';
-    cafePill.setAttribute('data-filter','cafe');
-    cafePill.textContent='\u2615 Cafe';
-    cafePill.onclick=function(){setPlaceFilter('cafe',cafePill);};
-    if(foodBtn&&foodBtn.nextSibling)pills.insertBefore(cafePill,foodBtn.nextSibling);
-    else pills.appendChild(cafePill);
-  }
-
-  /* Patch setPlaceFilter to handle 'cafe' */
-  var _origSPF=window.setPlaceFilter;
-  window.setPlaceFilter=function(f,el){
-    if(_origSPF)_origSPF.apply(this,arguments);
-    /* Ensure cafe filter is also stored and re-renders */
-    if(f==='cafe'){
-      window.placeFilter='cafe';
-      document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
-      if(el)el.classList.add('on');
-      var id=window.currentPlaceId;
-      if(id&&window.placeRecs&&window.placeRecs[id])renderPlaceRecs(id);
-    }
-  };
-
-  /* Patch filterRec to handle cafe type */
-  var _origFilterRec=window.filterRec;
-  window.filterRec=function(r){
-    if(typeof window.placeFilter!=='undefined'&&window.placeFilter==='cafe'){
-      return r.type==='cafe'||(r.tags&&r.tags.some&&r.tags.some(function(t){return/cafe|coffee|☕/i.test(t);}));
-    }
-    return _origFilterRec?_origFilterRec.apply(this,arguments):true;
-  };
-
-  /* Inject pill whenever openPlaceDetail renders the sheet */
-  var _origOPD=window.openPlaceDetail;
-  window.openPlaceDetail=function(id,autoPlanDay){
-    var r=_origOPD&&_origOPD.apply(this,arguments);
-    setTimeout(injectCafePill,80);
-    return r;
-  };
 
   /* ═══════════════════════════════════════════════════════
      FIX 5 — Newly opened spots: stronger prompt emphasis.
@@ -11889,17 +11848,381 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     return r;
   };
 
-  /* Ensure pills are re-shown when navigating back to explore view */
+  /* Ensure pills are re-shown when navigating back to explore view.
+     (Cafe pill re-injection removed — the final consolidated block
+     below owns the full pill row now, Cafe included.) */
   var _origRPR=window.renderPlaceRecs;
   window.renderPlaceRecs=function(id){
-    /* Show pills again when explore recs render (not plan) */
     var pills=g('place-pills');
     var planWrap=g('place-plan-btn-wrap');
     if(pills)pills.style.display='';
     if(planWrap)planWrap.style.display='';
-    /* Re-inject cafe pill */
-    setTimeout(injectCafePill,60);
     return _origRPR&&_origRPR.apply(this,arguments);
+  };
+
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   WANDERLIST — EXPLORE / FILTER / SEARCH — FINAL CONSOLIDATED VERSION
+   This block is the single source of truth for the Explore tab's
+   filter pills and place search. It runs last, so it defines the
+   real, final version of every function below — superseding any
+   stale versions defined earlier in this file. Nothing above this
+   block should be relied on for explore/filter/search behaviour.
+
+   Data source priority for every filter:
+     1. Google Places (if a key is saved) — real, verified places,
+        real coordinates, live open/closed status, ratings, and
+        (when available) opening hours. Queried FRESH per filter,
+        so "Drinks" actually searches bars and "Food" actually
+        searches restaurants, rather than bucketing one mixed list.
+     2. Claude (web-search enabled on the backend call) — used only
+        when there's no Google key, as a fallback.
+     3. Claude "color pass" — once Google results come back, a
+        single lightweight Claude call adds a one-line vibe
+        description + a tag to each result. This never overwrites
+        Google's name/address/rating/hours — only adds flavour text.
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+
+  // ---- Filter definitions --------------------------------------------
+  // key: internal filter id · label: pill text · gq: Google Places query
+  // fragment · type test: used only for the AI-only fallback path.
+  var FILTERS = [
+    {key:'all',        label:'All',            gq:'best restaurants bars cafes parks attractions'},
+    {key:'restaurant',label:'🍽 Food',          gq:'best restaurants'},
+    {key:'bar',        label:'🍸 Drinks',        gq:'best bars cocktail bars pubs'},
+    {key:'cafe',       label:'☕ Cafe',          gq:'best cafes coffee shops'},
+    {key:'park',       label:'🌳 Parks',         gq:'best parks green spaces'},
+    {key:'activity',   label:'🎯 Activities',    gq:'best things to do activities attractions'},
+    {key:'budget',     label:'💰 Budget',        gq:'best cheap eats budget friendly restaurants'}
+  ];
+
+  function byKey(k){for(var i=0;i<FILTERS.length;i++)if(FILTERS[i].key===k)return FILTERS[i];return FILTERS[0];}
+
+  // ---- Shared helpers ---------------------------------------------------
+  function g2(id){return document.getElementById(id);}
+  function esc2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  function googleKeyFinal(){
+    return localStorage.getItem('wl_google_places_key')||
+           localStorage.getItem('wl_google_maps_key')||
+           localStorage.getItem('wl_google_key')||
+           localStorage.getItem('wl_google_api_key')||
+           (window.GOOGLE_MAPS_API_KEY||'');
+  }
+
+  function coordsFinal(p){
+    if(!p)return null;
+    var lat=parseFloat(p.lat),lng=parseFloat(p.lng!=null?p.lng:p.lon);
+    if(isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&!(lat===0&&lng===0))return{lat:lat,lng:lng};
+    if(p.geometry&&p.geometry.location){
+      var l=p.geometry.location;
+      var la=typeof l.lat==='function'?l.lat():l.lat, ln=typeof l.lng==='function'?l.lng():l.lng;
+      if(isFinite(la)&&isFinite(ln))return{lat:la,lng:ln};
+    }
+    return null;
+  }
+
+  function isOpenStatusFinal(status){return status!=='CLOSED_PERMANENTLY'&&status!=='CLOSED_TEMPORARILY';}
+
+  var _placesLoading=false;
+  function loadGooglePlacesFinal(cb){
+    var k=googleKeyFinal();
+    if(!k){cb('No Google key');return;}
+    if(window.google&&window.google.maps&&window.google.maps.places){cb(null);return;}
+    if(_placesLoading){setTimeout(function(){loadGooglePlacesFinal(cb);},250);return;}
+    _placesLoading=true;
+    window.__wlFinalPlacesReady=function(){_placesLoading=false;cb(null);};
+    var s=document.createElement('script');
+    s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&libraries=places&callback=__wlFinalPlacesReady';
+    s.async=true;s.defer=true;
+    s.onerror=function(){_placesLoading=false;cb('Google Places failed to load');};
+    document.head.appendChild(s);
+  }
+
+  function emojiForType(t){
+    return t==='bar'?'🍸':t==='cafe'?'☕':t==='park'?'🌳':t==='restaurant'?'🍽':'📍';
+  }
+
+  // Runs a single Google Places text search for a given filter around a destination.
+  function googleSearchFilter(filterKey,dest,cb){
+    loadGooglePlacesFinal(function(err){
+      if(err){cb(err,[]);return;}
+      var f=byKey(filterKey);
+      var svc=new google.maps.places.PlacesService(document.createElement('div'));
+      var req={
+        query:f.gq+' in '+dest.name+(dest.country?', '+dest.country:''),
+        fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','opening_hours','price_level']
+      };
+      var c=coordsFinal(dest);
+      if(c){req.location=new google.maps.LatLng(c.lat,c.lng);req.radius=6000;}
+      svc.textSearch(req,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results){cb(status||'No results',[]);return;}
+        var out=results
+          .filter(function(r){return isOpenStatusFinal(r.business_status)&&coordsFinal(r);})
+          .slice(0,18)
+          .map(function(r){
+            var c2=coordsFinal(r);
+            var isOpenNow=null;
+            if(r.opening_hours&&typeof r.opening_hours.isOpen==='function'){
+              try{isOpenNow=r.opening_hours.isOpen();}catch(e){isOpenNow=null;}
+            } else if(r.opening_hours&&typeof r.opening_hours.open_now==='boolean'){
+              isOpenNow=r.opening_hours.open_now;
+            }
+            return{
+              name:r.name,
+              type:filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey,
+              tags:[],
+              description:'',                       // filled in by the Claude color pass
+              budget:(r.price_level!=null&&r.price_level<=1),
+              emoji:emojiForType(filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey),
+              price_range:r.price_level!=null?Array(r.price_level+1).join('$')||'$':'',
+              lat:c2.lat,lng:c2.lng,
+              address:r.formatted_address||'',
+              rating:r.rating||'',
+              ratings_count:r.user_ratings_total||0,
+              place_id:r.place_id,
+              open_now:isOpenNow,
+              _google:true
+            };
+          });
+        cb(null,out);
+      });
+    });
+  }
+
+  function guessTypeFromGoogleTypes(types){
+    var t=(types||[]).join(' ');
+    if(/bar|night_club|liquor|pub|brewery/.test(t))return'bar';
+    if(/cafe|bakery|coffee/.test(t))return'cafe';
+    if(/restaurant|meal_takeaway|meal_delivery|food/.test(t))return'restaurant';
+    if(/park|natural_feature|beach/.test(t))return'park';
+    return'activity';
+  }
+
+  // Claude "color pass": adds a one-line vibe description + a tag to each
+  // Google result. Never touches name/address/rating/lat/lng — additive only.
+  function addClaudeColor(dest,filterKey,places,cb){
+    if(!places.length){cb(places);return;}
+    if(typeof window.ai!=='function'){cb(places);return;}
+    var names=places.map(function(p,i){return (i+1)+'. '+p.name+(p.address?' — '+p.address:'');}).join('\n');
+    var prompt='Respond in '+((window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English')+
+      '. Here is a real, verified list of places in '+dest.name+(dest.country?', '+dest.country:'')+
+      ' (already confirmed to exist and be open — do not change or invent any of them):\n'+names+
+      '\nFor each numbered place, in the SAME order, write one short punchy vibe/color sentence (max 16 words, no filler like "a great place to") '+
+      'and pick exactly one tag from this list: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint".'+
+      '\nReturn ONLY a valid JSON array, same order, same length: [{"description":"...","tag":"..."}]';
+    var timedOut=false;
+    var timer=setTimeout(function(){timedOut=true;cb(places);},6000);
+    window.ai([{role:'user',content:prompt}],function(err,text){
+      if(timedOut)return;
+      clearTimeout(timer);
+      if(err){cb(places);return;}
+      try{
+        var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
+        places.forEach(function(p,i){
+          if(arr[i]){
+            if(arr[i].description)p.description=arr[i].description;
+            if(arr[i].tag)p.tags=[arr[i].tag];
+          }
+        });
+      }catch(e){/* keep places as-is, no color */}
+      cb(places);
+    },900);
+  }
+
+  // AI-only fallback path (no Google key saved) — same shape output.
+  function aiOnlySearch(dest,filterKey,cb){
+    var f=byKey(filterKey);
+    var scope=filterKey==='all'?'top local recommendations spanning food, drinks, parks and activities':
+      (f.gq);
+    var prompt='Respond in '+((window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English')+
+      '. Give me 12 REAL, currently open, currently operating '+scope+' in '+dest.name+(dest.country?', '+dest.country:'')+
+      '. It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+
+      '. Do NOT invent names — only established, verifiable venues. Include a short vibe description for each.'+
+      '\nReturn ONLY valid JSON array: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1 short sentence","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+    window.ai([{role:'user',content:prompt}],function(err,text){
+      if(err){cb(err,[]);return;}
+      try{
+        var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
+        cb(null,arr);
+      }catch(e){cb('Could not parse recommendations',[]);}
+    },4000);
+  }
+
+  // ---- Core: run a search for the currently active filter ----------------
+  window.placeFilter='all';
+  window._exploreCache=window._exploreCache||{}; // { destId: { filterKey: [places] } }
+  var _searchToken=0;
+
+  function runFilterSearch(destId,filterKey,force){
+    var dest=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(destId);});
+    if(!dest)return;
+    window._exploreCache[destId]=window._exploreCache[destId]||{};
+    var cache=window._exploreCache[destId];
+
+    if(!force&&cache[filterKey]){
+      renderExploreResults(destId,filterKey,cache[filterKey]);
+      return;
+    }
+
+    var myToken=++_searchToken;
+    var holder=g2('place-recs');
+    if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Finding '+esc2(byKey(filterKey).label.replace(/^[^\w]+/,'').trim()||'spots')+' in '+esc2(dest.name)+'…</div></div>';
+
+    var hasGoogle=!!googleKeyFinal();
+
+    if(hasGoogle){
+      googleSearchFilter(filterKey,dest,function(err,places){
+        if(myToken!==_searchToken)return; // a newer filter/search superseded this one
+        if(err||!places.length){
+          // Google returned nothing usable — fall back to Claude for this filter
+          aiOnlySearch(dest,filterKey,function(e2,arr){
+            if(myToken!==_searchToken)return;
+            if(e2||!arr||!arr.length){
+              cache[filterKey]=[];
+              renderExploreResults(destId,filterKey,[]);
+              return;
+            }
+            cache[filterKey]=arr;
+            renderExploreResults(destId,filterKey,arr);
+          });
+          return;
+        }
+        // Got real Google results — render immediately, then enrich with color
+        cache[filterKey]=places;
+        renderExploreResults(destId,filterKey,places);
+        addClaudeColor(dest,filterKey,places,function(colored){
+          if(myToken!==_searchToken)return;
+          cache[filterKey]=colored;
+          renderExploreResults(destId,filterKey,colored);
+        });
+      });
+    } else {
+      aiOnlySearch(dest,filterKey,function(err,arr){
+        if(myToken!==_searchToken)return;
+        if(err||!arr||!arr.length){
+          cache[filterKey]=[];
+          renderExploreResults(destId,filterKey,[]);
+          return;
+        }
+        cache[filterKey]=arr;
+        renderExploreResults(destId,filterKey,arr);
+      });
+    }
+  }
+
+  // ---- Render ------------------------------------------------------------
+  function renderExploreResults(destId,filterKey,places){
+    var el=g2('place-recs');if(!el)return;
+    if(window.placeFilter!==filterKey)return; // stale render guard
+    if(!places||!places.length){
+      el.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">No results for this filter. Try Refresh or a different filter.</p>';
+      return;
+    }
+    window._recStore=window._recStore||{};
+    var storeKey=destId+'_recs_'+filterKey;
+    window._recStore[storeKey]=places;
+    el.innerHTML=places.map(function(r,ri){
+      var tagsHtml=(r.tags&&r.tags.length?r.tags:[]).map(function(t){
+        return '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);font-weight:600;margin-right:3px">'+esc2(t)+'</span>';
+      }).join('');
+      var meta=[];
+      if(r.rating)meta.push('★ '+r.rating+(r.ratings_count?' ('+r.ratings_count+')':''));
+      if(r.open_now===true)meta.push('<span style="color:var(--green)">Open now</span>');
+      if(r.open_now===false)meta.push('<span style="color:var(--red)">Closed now</span>');
+      var metaHtml=meta.length?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+meta.join(' · ')+'</div>':'';
+      return '<div class="rec-card">'+
+        '<span class="rec-icon">'+esc2(r.emoji||'📍')+'</span>'+
+        '<div class="rec-info">'+
+          '<div class="rec-name">'+esc2(r.name)+(r.price_range?' <span style="font-size:11px;color:var(--text3)">'+esc2(r.price_range)+'</span>':'')+'</div>'+
+          '<div style="margin:3px 0">'+tagsHtml+'</div>'+
+          '<div class="rec-detail">'+(esc2(r.description)||'<span style="color:var(--text3)">Loading details…</span>')+'</div>'+
+          (r.address?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+esc2(r.address)+'</div>':'')+
+          metaHtml+
+        '</div>'+
+        '<button class="rec-add" onclick="saveRecByIndex(\''+destId+'\',\''+storeKey+'\','+ri+')">+ Save</button>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ---- Filter pills — build once, wire up correctly -----------------------
+  function ensurePillsHtml(destId){
+    var pills=g2('place-pills');
+    if(!pills)return;
+    pills.innerHTML=FILTERS.map(function(f){
+      return '<button class="filter-pill'+(f.key==='all'?' on':'')+'" data-filter="'+f.key+'" onclick="window.setPlaceFilter(\''+f.key+'\',this)">'+esc2(f.label)+'</button>';
+    }).join('');
+  }
+
+  window.setPlaceFilter=function(filterKey,el){
+    window.placeFilter=filterKey;
+    document.querySelectorAll('#place-pills .filter-pill').forEach(function(b){b.classList.remove('on');});
+    if(el)el.classList.add('on');
+    else{
+      var match=document.querySelector('#place-pills [data-filter="'+filterKey+'"]');
+      if(match)match.classList.add('on');
+    }
+    var id=window.currentPlaceId;
+    if(id)runFilterSearch(id,filterKey,false);
+  };
+
+  window.renderPlaceRecs=function(id){
+    // Kept for backward-compat with any other code calling renderPlaceRecs(id)
+    // directly (e.g. after loading placeRecs[id] from an older code path).
+    var filterKey=window.placeFilter||'all';
+    ensurePillsHtml(id);
+    var cache=(window._exploreCache&&window._exploreCache[id])||{};
+    if(cache[filterKey]){renderExploreResults(id,filterKey,cache[filterKey]);return;}
+    // Legacy placeRecs[id] (set by old code) — seed cache so we don't refetch needlessly
+    if(window.placeRecs&&window.placeRecs[id]&&window.placeRecs[id].length){
+      window._exploreCache=window._exploreCache||{};
+      window._exploreCache[id]=window._exploreCache[id]||{};
+      window._exploreCache[id][filterKey]=window.placeRecs[id].filter(function(r){
+        if(filterKey==='all')return true;
+        if(filterKey==='budget')return r.budget===true;
+        return r.type===filterKey;
+      });
+      renderExploreResults(id,filterKey,window._exploreCache[id][filterKey]);
+      return;
+    }
+    runFilterSearch(id,filterKey,false);
+  };
+
+  window.refreshExploreSuggestions=function(){
+    var id=window.currentPlaceId;
+    if(!id){if(window.toast2)toast2('Open a destination first');else if(window.toast)toast('Open a destination first');return;}
+    var filterKey=window.placeFilter||'all';
+    runFilterSearch(id,filterKey,true); // force=true bypasses cache
+  };
+
+  // ---- Hook into openPlaceDetail so Explore always starts clean -----------
+  var _prevOpenPlaceDetail=window.openPlaceDetail;
+  window.openPlaceDetail=function(id,autoPlanDay){
+    var r=_prevOpenPlaceDetail?_prevOpenPlaceDetail.apply(this,arguments):undefined;
+    if(autoPlanDay)return r; // day-planning flow — not the explore/filter screen
+    window.placeFilter='all';
+    _searchToken++; // invalidate any in-flight search from a previously opened place
+    setTimeout(function(){
+      ensurePillsHtml(id);
+      var pills=g2('place-pills');if(pills)pills.style.display='';
+      var planWrap=g2('place-plan-btn-wrap');if(planWrap)planWrap.style.display='';
+      runFilterSearch(id,'all',false);
+    },30);
+    return r;
+  };
+
+  // renderDayPlanHtml still hides the explore chrome while a day plan is shown —
+  // preserved from the earlier fix, unrelated to search/filter logic.
+  var _prevRenderDayPlanHtml=window.renderDayPlanHtml;
+  window.renderDayPlanHtml=function(plan,vibe,destId){
+    var r=_prevRenderDayPlanHtml?_prevRenderDayPlanHtml.apply(this,arguments):undefined;
+    setTimeout(function(){
+      var pills=g2('place-pills');if(pills)pills.style.display='none';
+      var planBtnWrap=g2('place-plan-btn-wrap');if(planBtnWrap)planBtnWrap.style.display='none';
+    },50);
+    return r;
   };
 
 })();
