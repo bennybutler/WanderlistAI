@@ -12225,6 +12225,529 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     return r;
   };
 
+  // ---- Tweak box: applies the user's free-text request to the CURRENT
+  // filter's results. Uses Google Places for a fast re-query when a key
+  // is saved (so this responds quickly, not a full AI regeneration), then
+  // runs the Claude color pass with the tweak text folded in as explicit
+  // style guidance.
+  window.sendExploreTweak=function(){
+    var inp=g2('explore-chat-inp');if(!inp)return;
+    var msg=(inp.value||'').trim();
+    inp.value='';
+    if(!msg)msg='fresh, different mix — new neighbourhoods and categories';
+    var id=window.currentPlaceId;
+    var dest=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(id);});
+    if(!dest)return;
+    var filterKey=window.placeFilter||'all';
+    var myToken=++_searchToken;
+    var holder=g2('place-recs');
+    if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Applying: '+esc2(msg.slice(0,60))+(msg.length>60?'…':'')+'</div></div>';
+
+    var prevNames=((window._exploreCache[id]&&window._exploreCache[id][filterKey])||[]).map(function(r){return r.name;});
+    var hasGoogle=!!googleKeyFinal();
+    var f=byKey(filterKey);
+
+    function reAppendTweakBox(){
+      setTimeout(function(){
+        if(!g2('explore-chat-inp')){
+          var body=g2('place-body');
+          if(body&&window.wlTweakBox)body.innerHTML+=window.wlTweakBox('Tweak these suggestions','explore-chat-inp','e.g. more hidden gems, less touristy, add rooftops','sendExploreTweak()','');
+        }
+      },200);
+    }
+
+    function finish(places){
+      if(myToken!==_searchToken)return;
+      window._exploreCache[id]=window._exploreCache[id]||{};
+      window._exploreCache[id][filterKey]=places;
+      renderExploreResults(id,filterKey,places);
+      reAppendTweakBox();
+    }
+
+    if(hasGoogle){
+      // Fold the tweak text directly into the Google query — e.g.
+      // "best bars pubs cocktail bars in Lisbon, more hidden gems, less touristy"
+      loadGooglePlacesFinal(function(err){
+        if(err){tweakViaAiOnly();return;}
+        var svc=new google.maps.places.PlacesService(document.createElement('div'));
+        var req={
+          query:f.gq+', '+msg+' in '+dest.name+(dest.country?', '+dest.country:''),
+          fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','opening_hours','price_level']
+        };
+        var c=coordsFinal(dest);
+        if(c){req.location=new google.maps.LatLng(c.lat,c.lng);req.radius=6500;}
+        svc.textSearch(req,function(results,status){
+          if(myToken!==_searchToken)return;
+          if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){tweakViaAiOnly();return;}
+          var places=results
+            .filter(function(r){return isOpenStatusFinal(r.business_status)&&coordsFinal(r);})
+            .slice(0,18)
+            .map(function(r){
+              var c2=coordsFinal(r);
+              var isOpenNow=null;
+              if(r.opening_hours&&typeof r.opening_hours.isOpen==='function'){try{isOpenNow=r.opening_hours.isOpen();}catch(e){}}
+              else if(r.opening_hours&&typeof r.opening_hours.open_now==='boolean'){isOpenNow=r.opening_hours.open_now;}
+              return{
+                name:r.name,
+                type:filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey,
+                tags:[],description:'',
+                budget:(r.price_level!=null&&r.price_level<=1),
+                emoji:emojiForType(filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey),
+                price_range:r.price_level!=null?Array(r.price_level+1).join('$')||'$':'',
+                lat:c2.lat,lng:c2.lng,address:r.formatted_address||'',
+                rating:r.rating||'',ratings_count:r.user_ratings_total||0,
+                place_id:r.place_id,open_now:isOpenNow,_google:true
+              };
+            });
+          if(!places.length){tweakViaAiOnly();return;}
+          // Render immediately with real places, then let Claude add
+          // vibe copy that specifically reflects the tweak request.
+          finish(places);
+          addTweakedColor(dest,msg,places,function(colored){
+            if(myToken!==_searchToken)return;
+            window._exploreCache[id][filterKey]=colored;
+            renderExploreResults(id,filterKey,colored);
+          });
+        });
+      });
+    } else {
+      tweakViaAiOnly();
+    }
+
+    function tweakViaAiOnly(){
+      if(typeof window.ai!=='function'){finish([]);return;}
+      var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+      var prompt='Respond in '+lang+'. Give me 12 REAL, currently open '+f.gq+' in '+dest.name+(dest.country?', '+dest.country:'')+
+        ' that specifically satisfy this request: "'+msg+'".'+
+        (prevNames.length?' Do NOT repeat any of these: '+prevNames.join(', ')+'.':'')+
+        ' Only established, verifiable venues — do not invent names.'+
+        '\nReturn ONLY valid JSON array: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1 short sentence reflecting the request","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
+      window.ai([{role:'user',content:prompt}],function(err,text){
+        if(myToken!==_searchToken)return;
+        if(err){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">Could not apply that. Try again.</p>';return;}
+        try{
+          var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
+          finish(arr);
+        }catch(e){if(holder)holder.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">Could not apply that. Try again.</p>';}
+      },4000);
+    }
+  };
+
+  // Same idea as addClaudeColor, but folds the user's tweak text into the
+  // instruction so descriptions actually reflect what they asked for
+  // (e.g. "more hidden gems" → descriptions lean into local/under-the-radar framing).
+  function addTweakedColor(dest,tweakMsg,places,cb){
+    if(!places.length){cb(places);return;}
+    if(typeof window.ai!=='function'){cb(places);return;}
+    var names=places.map(function(p,i){return (i+1)+'. '+p.name+(p.address?' — '+p.address:'');}).join('\n');
+    var prompt='Respond in '+((window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English')+
+      '. Here is a real, verified list of places in '+dest.name+(dest.country?', '+dest.country:'')+
+      ' (already confirmed to exist and be open — do not change or invent any of them):\n'+names+
+      '\nThe user asked for: "'+tweakMsg+'". For each numbered place, in the SAME order, write one short vibe sentence (max 16 words) that reflects this request where relevant, '+
+      'and pick exactly one tag from: "☕ Cafe","🍺 Beer/pub","🍸 Cocktails","🌿 Patio","🍽 Fine dining","🥙 Cheap eats","🌳 Park","🏛 Sightseeing","🎭 Culture","🛍 Shopping","🏖 Beach","🌃 Nightlife","🏃 Activity","📸 Viewpoint".'+
+      '\nReturn ONLY a valid JSON array, same order, same length: [{"description":"...","tag":"..."}]';
+    var timedOut=false;
+    var timer=setTimeout(function(){timedOut=true;cb(places);},6000);
+    window.ai([{role:'user',content:prompt}],function(err,text){
+      if(timedOut)return;
+      clearTimeout(timer);
+      if(err){cb(places);return;}
+      try{
+        var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
+        places.forEach(function(p,i){if(arr[i]){if(arr[i].description)p.description=arr[i].description;if(arr[i].tag)p.tags=[arr[i].tag];}});
+      }catch(e){}
+      cb(places);
+    },900);
+  }
+
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   WANDERLIST — PLAN A DAY — FINAL CONSOLIDATED VERSION
+   Single source of truth for runDayPlan, renderDayPlanHtml,
+   refreshDayPlan, and sendTweak (day-plan tweak — distinct from the
+   Explore tweak box above). Runs last, so it wins over every earlier
+   conflicting version of these four functions.
+
+   Address / closed-venue accuracy fix:
+     Stops now come from verified Google Places candidates (same
+     verify-then-color pattern as Explore) instead of letting Claude
+     invent place names and addresses freely, and instead of a second,
+     less reliable Nominatim geocoding pass. Claude's job is reduced to
+     sequencing + writing color copy for real, address-verified places.
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+
+  function g3(id){return document.getElementById(id);}
+  function esc3(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function normStr(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+
+  function savedNearFinal(dest){
+    return (window.S&&window.S.dests||[]).filter(function(x){
+      if(!x||x.type!=='local')return false;
+      if(x.city&&dest.name&&normStr(x.city)===normStr(dest.name))return true;
+      if(x.country&&dest.country&&normStr(x.country)===normStr(dest.country))return true;
+      return false;
+    });
+  }
+
+  // Vibe → Google query terms (same intent as the original vibeInstructions)
+  var VIBE_TERMS={
+    '🗺 Sightseeing':'museums landmarks viewpoints historic sites markets',
+    '🏘 Local':'neighbourhood cafes local bars local restaurants markets',
+    '🍽 Food tour':'restaurants food markets bakeries wine bars tasting',
+    '🌳 Outdoors':'parks gardens waterfront trails outdoor markets',
+    '🍸 Nightlife':'cocktail bars pubs live music nightlife bars',
+    '💑 Date night':'romantic restaurants cocktail bars wine bars scenic viewpoints'
+  };
+  function vibeTerms(vibe){return VIBE_TERMS[vibe]||'restaurants cafes bars parks attractions';}
+
+  // ---- Google Places verification (same pattern as Explore's search) ------
+  function verifiedCandidates(dest,query,cb){
+    if(typeof window._wlGoogleSearchInternal==='function'){
+      window._wlGoogleSearchInternal(query,dest,cb);
+      return;
+    }
+    // Local, self-contained Google Places search + Details verification.
+    var key=localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_maps_key')||
+             localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||(window.GOOGLE_MAPS_API_KEY||'');
+    if(!key){cb('No Google key',[]);return;}
+    function load(cb2){
+      if(window.google&&window.google.maps&&window.google.maps.places){cb2(null);return;}
+      if(window.__wlDPPlacesLoading){setTimeout(function(){load(cb2);},250);return;}
+      window.__wlDPPlacesLoading=true;
+      window.__wlDPPlacesReady=function(){window.__wlDPPlacesLoading=false;cb2(null);};
+      var s=document.createElement('script');
+      s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&libraries=places&callback=__wlDPPlacesReady';
+      s.async=true;s.defer=true;s.onerror=function(){window.__wlDPPlacesLoading=false;cb2('Google Places failed to load');};
+      document.head.appendChild(s);
+    }
+    load(function(err){
+      if(err){cb(err,[]);return;}
+      var svc=new google.maps.places.PlacesService(document.createElement('div'));
+      var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating']};
+      var lat=parseFloat(dest.lat),lng=parseFloat(dest.lng);
+      if(isFinite(lat)&&isFinite(lng)){req.location=new google.maps.LatLng(lat,lng);req.radius=6000;}
+      svc.textSearch(req,function(results,status){
+        if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){cb(status||'No results',[]);return;}
+        // First pass: keep anything not explicitly closed
+        var candidates=results.filter(function(r){
+          return r.business_status!=='CLOSED_PERMANENTLY'&&r.business_status!=='CLOSED_TEMPORARILY'&&r.geometry&&r.geometry.location;
+        });
+        // Second pass: for any candidate WITHOUT a clear business_status
+        // (Text Search often omits it), verify with a Details call before
+        // trusting it — this is what actually catches closed venues that
+        // slip through Text Search.
+        var toVerify=candidates.filter(function(r){return !r.business_status;}).slice(0,12);
+        var verifiedOk={};
+        var remaining=toVerify.length;
+        if(!remaining){finish();return;}
+        toVerify.forEach(function(r){
+          svc.getDetails({placeId:r.place_id,fields:['business_status']},function(details,st){
+            if(st===google.maps.places.PlacesServiceStatus.OK&&details&&details.business_status==='CLOSED_PERMANENTLY'){
+              verifiedOk[r.place_id]=false;
+            } else {
+              verifiedOk[r.place_id]=true; // OPERATIONAL, or Details had no data — Text Search result stands
+            }
+            if(--remaining===0)finish();
+          });
+        });
+        function finish(){
+          var out=candidates.filter(function(r){
+            return r.business_status||verifiedOk[r.place_id]!==false;
+          }).map(function(r){
+            var loc=r.geometry.location;
+            return{
+              name:r.name,place_id:r.place_id,
+              lat:typeof loc.lat==='function'?loc.lat():loc.lat,
+              lng:typeof loc.lng==='function'?loc.lng():loc.lng,
+              address:r.formatted_address||'',rating:r.rating||'',
+              types:r.types||[]
+            };
+          });
+          cb(null,out);
+        }
+      });
+    });
+  }
+
+  function typeFromGoogleTypesDP(types){
+    var t=(types||[]).join(' ');
+    if(/bar|night_club|liquor|pub|brewery/.test(t))return'drinks';
+    if(/restaurant|cafe|bakery|meal|food/.test(t))return'food';
+    if(/museum|gallery|tourist_attraction|art_gallery/.test(t))return'culture';
+    if(/store|shopping_mall/.test(t))return'shopping';
+    if(/park|natural_feature|beach/.test(t))return'nature';
+    return'culture';
+  }
+
+  // ---- OSRM walk/transit time between two verified stops -------------------
+  function routeTimeBetween(a,b,cb){
+    if(!a||!b||!isFinite(a.lat)||!isFinite(b.lat)){cb('');return;}
+    var url='https://router.project-osrm.org/route/v1/foot/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=false';
+    fetch(url).then(function(r){return r.json();}).then(function(data){
+      var route=data&&data.routes&&data.routes[0];
+      if(!route){cb('');return;}
+      var mins=Math.max(1,Math.round(route.duration/60));
+      var dist=Math.round(route.distance);
+      cb(mins+' min walk'+(dist<1000?' ('+dist+'m)':' ('+(Math.round(dist/100)/10)+'km)'));
+    }).catch(function(){cb('');});
+  }
+
+  function addWalkTimes(stops,cb){
+    var i=0;
+    function next(){
+      if(i>=stops.length-1){cb();return;}
+      routeTimeBetween(stops[i],stops[i+1],function(txt){
+        if(txt)stops[i].walk_to_next=txt;
+        i++;next();
+      });
+    }
+    next();
+  }
+
+  // ---- Build a plan from a pool of verified real places (AI sequences + writes color) ----
+  function buildPlanFromCandidates(dest,candidates,opts,cb){
+    var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var listing=candidates.map(function(c,i){return (i+1)+'. '+c.name+' ('+typeFromGoogleTypesDP(c.types)+') — '+c.address;}).join('\n');
+    var prompt='Respond in '+lang+'. Build a '+opts.hours+'-hour day itinerary for '+dest.name+(dest.country?', '+dest.country:'')+
+      ' using ONLY places from this verified real list (do not invent or substitute any place — pick a subset and put them in a sensible order):\n'+listing+
+      '\nVIBE: '+opts.vibe+'. Start time: '+opts.start+'.'+
+      (opts.area?' Focus on the '+opts.area+' area if any of the list is there.':'')+
+      (opts.anchorName?' The first stop MUST be "'+opts.anchorName+'" if it is in the list above.':'')+
+      (opts.tweak?' IMPORTANT — apply this feedback on the previous plan: "'+opts.tweak+'".':'')+
+      ' Choose 4-7 stops that make a logical, walkable sequence for the vibe and hours given. For each stop write a short specific description (1-2 sentences) and a short budget_note (e.g. "$15-25").'+
+      '\nReturn ONLY valid JSON: {"title":"...","city":"'+dest.name+'","start":"'+opts.start+'","hours":'+opts.hours+',"vibe":"'+opts.vibe+'",'+
+      '"stops":[{"name":"EXACT name from the list","time":"11:00am","description":"...","budget_note":"$15-25"}]}';
+    window.ai([{role:'user',content:prompt}],function(err,text){
+      if(err){cb(err,null);return;}
+      try{
+        var plan=window.safeParseAIJsonObject?window.safeParseAIJsonObject(text):JSON.parse(String(text).replace(/```json|```/g,''));
+        // Re-attach verified data (lat/lng/address/place_id/type) by exact name match —
+        // this guarantees every stop's address/coords are real, never AI-written.
+        var byName={};
+        candidates.forEach(function(c){byName[normStr(c.name)]=c;});
+        plan.stops=(plan.stops||[]).map(function(s){
+          var match=byName[normStr(s.name)];
+          if(!match){
+            // fuzzy fallback: substring match
+            var k=Object.keys(byName).find(function(nk){return nk.indexOf(normStr(s.name))>-1||normStr(s.name).indexOf(nk)>-1;});
+            match=k?byName[k]:null;
+          }
+          if(!match)return null; // drop any stop AI invented outside the verified list
+          return{
+            time:s.time||'',name:match.name,type:typeFromGoogleTypesDP(match.types),
+            description:s.description||'',budget_note:s.budget_note||'',premium_note:s.premium_note||'',
+            address:match.address,lat:match.lat,lng:match.lng,place_id:match.place_id,
+            walk_to_next:''
+          };
+        }).filter(Boolean);
+        cb(null,plan);
+      }catch(e){cb('Could not parse the day plan',null);}
+    },4500);
+  }
+
+  // ---- Build a plan from the user's saved local spots only -----------------
+  function buildPlanFromSaved(dest,spots,opts){
+    var start=opts.start,hours=parseInt(opts.hours,10)||6;
+    var perStop=Math.max(45,Math.round((hours*60)/Math.max(1,Math.min(spots.length,6))));
+    var stops=spots.slice(0,6).map(function(s){
+      return{
+        time:'',name:s.name,type:(s.category||(s.tags&&s.tags[0])||'local'),
+        description:'From your saved local spots.',budget_note:'',premium_note:'',
+        address:s.country||'',lat:s.lat,lng:s.lng,place_id:s.place_id||'',walk_to_next:''
+      };
+    });
+    // Assign sequential times starting from opts.start
+    var t=parseTimeToMinutes(start);
+    stops.forEach(function(s){s.time=minutesToTimeLabel(t);t+=perStop;});
+    return{title:'Day in '+dest.name+' (saved spots)',city:dest.name,start:start,hours:hours,vibe:opts.vibe,stops:stops};
+  }
+  function parseTimeToMinutes(t){
+    var m=/(\d+):(\d+)\s*(am|pm)/i.exec(t||'11:00am');if(!m)return 11*60;
+    var h=parseInt(m[1],10)%12; if(/pm/i.test(m[3]))h+=12;
+    return h*60+parseInt(m[2],10);
+  }
+  function minutesToTimeLabel(mins){
+    mins=((mins%1440)+1440)%1440;
+    var h=Math.floor(mins/60),m=mins%60;
+    var ap=h>=12?'pm':'am',h12=h%12===0?12:h%12;
+    return h12+':'+(m<10?'0':'')+m+ap;
+  }
+
+  // ---- Core entry point ------------------------------------------------------
+  window._dpConfig=window._dpConfig||null; // {destId,start,hours,vibe,area,useSaved,anchorId}
+
+  window.runDayPlan=function(destId){
+    var dest=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(destId);});
+    if(!dest)return;
+    var start=g3('dp-start')?g3('dp-start').value:(window._dpConfig&&window._dpConfig.start)||'11:00am';
+    var hours=g3('dp-hours')?g3('dp-hours').value:(window._dpConfig&&window._dpConfig.hours)||'6';
+    var area=g3('dp-area')?(g3('dp-area').value||'').trim():((window._dpConfig&&window._dpConfig.area)||'');
+    var vibe='';
+    document.querySelectorAll('#dp-vibes .filter-pill.on').forEach(function(b){vibe=b.textContent.trim();});
+    if(!vibe)vibe=(window._dpConfig&&window._dpConfig.vibe)||'🏘 Local';
+    var useSaved=(g3('dp-use-saved')&&g3('dp-use-saved').classList.contains('on'))||(window._dpConfig&&window._dpConfig.useSaved);
+    var anchor=window._planWithSpot||window._dpAnchor||null;
+
+    window._dpConfig={destId:destId,start:start,hours:hours,vibe:vibe,area:area,useSaved:!!useSaved,anchorId:anchor&&anchor.id};
+
+    var holder=g3('place-recs');
+    if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Building your '+esc3(vibe.replace(/^\S+\s*/,'')||'day')+' plan…</div></div>';
+
+    if(useSaved){
+      var pool=window._wlFilteredSpots&&window._wlFilteredSpots.length?window._wlFilteredSpots:savedNearFinal(dest);
+      if(anchor&&!pool.some(function(x){return String(x.id)===String(anchor.id);}))pool=[anchor].concat(pool);
+      if(!pool.length){if(holder)holder.innerHTML='<div class="empty-state"><p>No saved local spots found for this destination. Save some spots first, or use AI recommendations.</p></div>';return;}
+      var plan=buildPlanFromSaved(dest,pool,{start:start,hours:hours,vibe:vibe});
+      plan._destId=destId;
+      window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}
+      addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});
+      return;
+    }
+
+    var query=vibeTerms(vibe)+' near '+(anchor?anchor.name+', ':'')+dest.name+(dest.country?', '+dest.country:'')+(area?' '+area:'');
+    verifiedCandidates(dest,query,function(err,candidates){
+      if(err||!candidates.length){
+        if(anchor){
+          // Even with no other verified candidates, still build a plan
+          // anchored on the saved spot itself.
+          candidates=[];
+        } else {
+          if(holder)holder.innerHTML='<div class="empty-state"><p>Could not find verified places'+(err?' ('+esc3(err)+')':'')+'. Check your Google Places key in Settings, or try a different vibe.</p></div>';
+          return;
+        }
+      }
+      // Guarantee the anchor spot is in the candidate pool — it's already
+      // a real, user-saved place, so it doesn't need Google verification.
+      // Without this, Claude could only make it the first stop by luck
+      // (if it happened to also surface in the generic vibe search).
+      if(anchor){
+        var anchorCandidate={
+          name:anchor.name,place_id:anchor.place_id||'',
+          lat:anchor.lat,lng:anchor.lng,address:anchor.country||anchor.city||'',
+          rating:'',types:[anchor.category||(anchor.tags&&anchor.tags[0])||'']
+        };
+        candidates=candidates.filter(function(c){return normStr(c.name)!==normStr(anchor.name);});
+        candidates.unshift(anchorCandidate);
+      }
+      buildPlanFromCandidates(dest,candidates,{start:start,hours:hours,vibe:vibe,area:area,anchorName:anchor&&anchor.name},function(err2,plan){
+        if(err2||!plan||!plan.stops||!plan.stops.length){
+          if(holder)holder.innerHTML='<div class="empty-state"><p>Could not build the day plan. Try again.</p></div>';
+          return;
+        }
+        // Hard guarantee — not just a prompt request — that the anchor is
+        // stop #1, regardless of what order Claude returned.
+        if(anchor){
+          var idx=plan.stops.findIndex(function(s){return normStr(s.name)===normStr(anchor.name);});
+          if(idx>0){
+            var a=plan.stops.splice(idx,1)[0];
+            plan.stops.unshift(a);
+          } else if(idx===-1){
+            plan.stops.unshift({
+              time:start,name:anchor.name,type:typeFromGoogleTypesDP([anchor.category||'']),
+              description:'Your saved starting point for today.',budget_note:'',premium_note:'',
+              address:anchor.country||anchor.city||'',lat:anchor.lat,lng:anchor.lng,place_id:anchor.place_id||'',walk_to_next:''
+            });
+          }
+        }
+        plan._destId=destId;
+        window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}
+        addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});
+      });
+    });
+  };
+
+  window.refreshDayPlan=function(tweakMsg){
+    var cfg=window._dpConfig;
+    var plan=window.currentPlanData;
+    var destId=(cfg&&cfg.destId)||(plan&&plan._destId);
+    if(!destId){if(window.toast)toast('Open Plan a day first');return;}
+    if(tweakMsg){
+      // A tweak on an EXISTING plan re-sequences from the same verified
+      // candidate pool with the tweak folded in — it does not restart
+      // the whole setup screen.
+      var dest=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(destId);});
+      if(!dest)return;
+      var anchor=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(cfg.anchorId);})||null;
+      var holder=g3('place-recs');
+      if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Applying: '+esc3(tweakMsg.slice(0,60))+'…</div></div>';
+      var query=vibeTerms(cfg.vibe)+' near '+(anchor?anchor.name+', ':'')+dest.name+(dest.country?', '+dest.country:'')+(cfg.area?' '+cfg.area:'')+', '+tweakMsg;
+      verifiedCandidates(dest,query,function(err,candidates){
+        if(err||!candidates.length){
+          if(anchor){candidates=[];}
+          else{if(holder)holder.innerHTML='<div class="empty-state"><p>Could not apply that. Try again.</p></div>';return;}
+        }
+        if(anchor){
+          candidates=candidates.filter(function(c){return normStr(c.name)!==normStr(anchor.name);});
+          candidates.unshift({name:anchor.name,place_id:anchor.place_id||'',lat:anchor.lat,lng:anchor.lng,address:anchor.country||anchor.city||'',rating:'',types:[anchor.category||(anchor.tags&&anchor.tags[0])||'']});
+        }
+        buildPlanFromCandidates(dest,candidates,{start:cfg.start,hours:cfg.hours,vibe:cfg.vibe,area:cfg.area,tweak:tweakMsg,anchorName:anchor&&anchor.name},function(err2,newPlan){
+          if(err2||!newPlan||!newPlan.stops.length){if(holder)holder.innerHTML='<div class="empty-state"><p>Could not apply that. Try again.</p></div>';return;}
+          if(anchor){
+            var idx=newPlan.stops.findIndex(function(s){return normStr(s.name)===normStr(anchor.name);});
+            if(idx>0){var a=newPlan.stops.splice(idx,1)[0];newPlan.stops.unshift(a);}
+            else if(idx===-1){
+              newPlan.stops.unshift({time:cfg.start,name:anchor.name,type:typeFromGoogleTypesDP([anchor.category||'']),description:'Your saved starting point for today.',budget_note:'',premium_note:'',address:anchor.country||anchor.city||'',lat:anchor.lat,lng:anchor.lng,place_id:anchor.place_id||'',walk_to_next:''});
+            }
+          }
+          newPlan._destId=destId;
+          window.currentPlanData=newPlan;try{currentPlanData=newPlan;}catch(e){}
+          addWalkTimes(newPlan.stops,function(){window.renderDayPlanHtml(newPlan,cfg.vibe,destId);});
+        });
+      });
+      return;
+    }
+    window.runDayPlan(destId);
+  };
+
+  window.sendTweak=function(){
+    var inp=g3('tweak-inp');if(!inp)return;
+    var msg=(inp.value||'').trim();if(!msg)return;
+    inp.value='';
+    window.refreshDayPlan(msg);
+  };
+
+  // ---- Renderer --------------------------------------------------------------
+  var TYPE_COLORS={'food':'#BA7517','drinks':'#1a6eb5','culture':'#7A4A00','shopping':'#A32D2D','nature':'#3B6D11','default':'#BA7517'};
+
+  window.renderDayPlanHtml=function(plan,vibe,destId){
+    if(!plan){return;}
+    var html='<div style="background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:var(--rsm);padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'+
+      '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc3(plan.title||'Day plan')+'</div>'+
+      '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc3(plan.start||'')+' · '+esc3(String(plan.hours||''))+' hours · '+esc3(plan.vibe||vibe||'')+'</div></div>'+
+      '<div style="display:flex;gap:5px;flex-shrink:0">'+
+        '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="window.refreshDayPlan()">↻ Refresh</button>'+
+        '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="window.saveDayPlan&&window.saveDayPlan()">💾 Save</button>'+
+      '</div></div>'+
+      '<div style="display:flex;gap:7px;margin-bottom:14px;background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border)">'+
+        '<input id="tweak-inp" type="text" placeholder="Tweak this plan… e.g. \'more budget\', \'skip touristy spots\'" style="flex:1;padding:8px 12px;background:var(--bg4);border:1.5px solid var(--border);border-radius:20px;font-size:13px;color:var(--text);outline:none;font-family:inherit" onkeydown="if(event.key===\'Enter\')window.sendTweak()">'+
+        '<button onclick="window.sendTweak()" style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;color:#fff;cursor:pointer;font-size:16px;flex-shrink:0">→</button>'+
+      '</div>';
+    (plan.stops||[]).forEach(function(s,i){
+      var c2=TYPE_COLORS[s.type]||TYPE_COLORS.default;
+      html+='<div style="display:flex;gap:10px;margin-bottom:10px;">'+
+        '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:3px;">'+
+          '<div style="width:9px;height:9px;border-radius:50%;background:'+c2+';flex-shrink:0"></div>'+
+          (i<(plan.stops.length-1)?'<div style="width:1px;flex:1;background:rgba(186,117,23,.2);margin-top:4px;min-height:20px"></div>':'')+
+        '</div>'+
+        '<div style="flex:1;min-width:0;padding-bottom:2px;">'+
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:1px">'+esc3(s.time||'')+(s.type?' · '+esc3(s.type):'')+'</div>'+
+          '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">'+esc3(s.name||'')+'</div>'+
+          (s.address?'<div style="font-size:11px;color:var(--text3);margin-bottom:3px">'+esc3(s.address)+'</div>':'')+
+          '<div style="font-size:13px;color:var(--text2);line-height:1.5">'+esc3(s.description||'')+'</div>'+
+          (s.budget_note?'<div style="font-size:11px;color:var(--green);margin-top:4px">💰 '+esc3(s.budget_note)+'</div>':'')+
+          (s.premium_note?'<div style="font-size:11px;color:var(--gold);margin-top:2px">✨ '+esc3(s.premium_note)+'</div>':'')+
+          (s.walk_to_next?'<div style="font-size:11px;color:var(--blue);margin-top:5px;font-weight:500">🚶 '+esc3(s.walk_to_next)+'</div>':'')+
+        '</div></div>';
+    });
+    var holder=g3('place-recs');if(holder)holder.innerHTML=html;
+    // Keep Explore's own chrome hidden while a plan is shown (behaviour
+    // preserved from the earlier Explore fix).
+    var pills=g3('place-pills');if(pills)pills.style.display='none';
+    var planBtnWrap=g3('place-plan-btn-wrap');if(planBtnWrap)planBtnWrap.style.display='none';
+  };
+
 })();
 </script>
 
