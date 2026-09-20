@@ -3275,6 +3275,15 @@ window.aiWithTools=function(msgs,cb,maxTok,sys,tools,_retry){
   var body={model:'claude-sonnet-4-6',max_tokens:maxTok||4000,messages:msgs};
   if(sys)body.system=sys;
   if(tools&&tools.length)body.tools=tools;
+  var settled=false;
+  // Hard client-side timeout — web search can occasionally hang far
+  // longer than a normal response; fail fast and visibly instead of
+  // leaving the UI stuck on a spinner with no feedback.
+  var timeoutMs=tools&&tools.length?45000:20000;
+  var timer=setTimeout(function(){
+    if(settled)return;settled=true;
+    cb('Request took too long (web search may be slow right now). Try again.',null);
+  },timeoutMs);
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{
@@ -3286,18 +3295,34 @@ window.aiWithTools=function(msgs,cb,maxTok,sys,tools,_retry){
     body:JSON.stringify(body)
   }).then(function(r){return r.json();})
     .then(function(d){
+      if(settled)return;
       if(d.error){
         if(d.error.type==='overloaded_error'&&!_retry){
+          clearTimeout(timer);settled=true;
           setTimeout(function(){window.aiWithTools(msgs,cb,maxTok,sys,tools,true);},8000);
           return;
         }
+        clearTimeout(timer);settled=true;
         cb(d.error.message,null);
         return;
       }
+      if(d.stop_reason==='max_tokens'){
+        // Response was cut off mid-generation — almost always breaks JSON
+        // parsing downstream. Surface this distinctly rather than letting
+        // it silently fail as "no results".
+        clearTimeout(timer);settled=true;
+        cb('Response was cut off (ran out of tokens) before finishing. Try again.',null);
+        return;
+      }
       var text=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n');
+      clearTimeout(timer);settled=true;
       cb(null,text);
     })
-    .catch(function(e){cb(e.message,null);});
+    .catch(function(e){
+      if(settled)return;
+      clearTimeout(timer);settled=true;
+      cb(e.message,null);
+    });
 };
 
 // ── Helpers ───────────────────────────────────────────────
@@ -12091,7 +12116,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
         var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
         cb(null,arr);
       }catch(e){cb('Could not parse recommendations',[]);}
-    },3000,null,[{type:'web_search_20250305',name:'web_search',max_uses:6}]);
+    },8000,null,[{type:'web_search_20250305',name:'web_search',max_uses:4}]);
   }
 
   // ---- STEP 2: verify each Claude pick against Google Places -----------------
@@ -12107,33 +12132,40 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       var out=[];
       var remaining=picks.length;
       if(!remaining){cb([]);return;}
+      var finished=false;
+      function done(){
+        if(--remaining>0)return;
+        if(finished)return;finished=true;
+        cb(out);
+      }
       picks.forEach(function(pick){
         var q=pick.name+(pick.address?', '+pick.address:', '+dest.name+(dest.country?', '+dest.country:''));
         svc.textSearch({query:q,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','opening_hours','price_level']},function(results,status){
-          done();
-          if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length)return;
+          if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){done();return;}
           var r=results[0];
-          if(!r.geometry||!r.geometry.location)return;
-          if(r.business_status==='CLOSED_PERMANENTLY'||r.business_status==='CLOSED_TEMPORARILY')return;
+          if(!r.geometry||!r.geometry.location){done();return;}
+          if(r.business_status==='CLOSED_PERMANENTLY'||r.business_status==='CLOSED_TEMPORARILY'){done();return;}
           function commit(status2){
-            if(status2===false)return; // verified closed — drop it
-            var loc=r.geometry.location;
-            var isOpenNow=null;
-            if(r.opening_hours&&typeof r.opening_hours.isOpen==='function'){try{isOpenNow=r.opening_hours.isOpen();}catch(e){}}
-            else if(r.opening_hours&&typeof r.opening_hours.open_now==='boolean'){isOpenNow=r.opening_hours.open_now;}
-            out.push({
-              name:pick.name, // keep Claude's name (already what web search surfaced)
-              type:filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey,
-              tags:[],description:pick.why||'',
-              budget:(r.price_level!=null&&r.price_level<=1),
-              emoji:emojiForType(filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey),
-              price_range:r.price_level!=null?Array(r.price_level+1).join('$')||'$':'',
-              lat:typeof loc.lat==='function'?loc.lat():loc.lat,
-              lng:typeof loc.lng==='function'?loc.lng():loc.lng,
-              address:r.formatted_address||pick.address||'',
-              rating:r.rating||'',ratings_count:r.user_ratings_total||0,
-              place_id:r.place_id,open_now:isOpenNow,_google:true
-            });
+            if(status2!==false){
+              var loc=r.geometry.location;
+              var isOpenNow=null;
+              if(r.opening_hours&&typeof r.opening_hours.isOpen==='function'){try{isOpenNow=r.opening_hours.isOpen();}catch(e){}}
+              else if(r.opening_hours&&typeof r.opening_hours.open_now==='boolean'){isOpenNow=r.opening_hours.open_now;}
+              out.push({
+                name:pick.name, // keep Claude's name (already what web search surfaced)
+                type:filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey,
+                tags:[],description:pick.why||'',
+                budget:(r.price_level!=null&&r.price_level<=1),
+                emoji:emojiForType(filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey),
+                price_range:r.price_level!=null?Array(r.price_level+1).join('$')||'$':'',
+                lat:typeof loc.lat==='function'?loc.lat():loc.lat,
+                lng:typeof loc.lng==='function'?loc.lng():loc.lng,
+                address:r.formatted_address||pick.address||'',
+                rating:r.rating||'',ratings_count:r.user_ratings_total||0,
+                place_id:r.place_id,open_now:isOpenNow,_google:true
+              });
+            }
+            done(); // only decrement/finish once this pick is fully resolved
           }
           // Text Search sometimes omits business_status even for closed
           // places — double-check with Details when it's missing.
@@ -12146,13 +12178,10 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
           }
         });
       });
-      function done(){if(--remaining<=0)finishOnce();}
-      var finished=false;
-      function finishOnce(){
-        if(finished)return;finished=true;
-        // small delay lets the last commit() (possibly async via getDetails) land
-        setTimeout(function(){cb(out);},350);
-      }
+      // Safety net: if some Google calls never resolve (rate limit, hung
+      // request), don't leave the UI stuck forever — return whatever
+      // verified successfully after 12s.
+      setTimeout(function(){if(!finished){finished=true;cb(out);}},12000);
     });
   }
 
@@ -12192,14 +12221,14 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       if(myToken!==_searchToken)return;
       if(err||!picks.length){
         cache[filterKey]=[];
-        renderExploreResults(destId,filterKey,[]);
+        renderExploreResults(destId,filterKey,[],err);
         return;
       }
       verifyPicksWithGoogle(dest,filterKey,picks,function(verified){
         if(myToken!==_searchToken)return;
         if(!verified.length){
           cache[filterKey]=[];
-          renderExploreResults(destId,filterKey,[]);
+          renderExploreResults(destId,filterKey,[],'Found results but could not verify any as currently open. This can happen if Google Places is rate-limited.');
           return;
         }
         cache[filterKey]=verified;
@@ -12220,11 +12249,12 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   }
 
   // ---- Render ------------------------------------------------------------
-  function renderExploreResults(destId,filterKey,places){
+  function renderExploreResults(destId,filterKey,places,errMsg){
     var el=g2('place-recs');if(!el)return;
     if(window.placeFilter!==filterKey)return; // stale render guard
     if(!places||!places.length){
-      el.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">No results for this filter. Try Refresh or a different filter.</p>';
+      el.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">'+
+        (errMsg?esc2(errMsg):'No results for this filter.')+' <a href="#" onclick="window.refreshExploreSuggestions();return false;" style="color:var(--gold);font-weight:600">Try again</a></p>';
       return;
     }
     window._recStore=window._recStore||{};
@@ -12531,7 +12561,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       }catch(e){cb('Could not parse recommendations',[]);return;}
       if(!picks.length){cb('No results',[]);return;}
       verifyPicksForPlan(dest,picks,cb);
-    },3000,null,[{type:'web_search_20250305',name:'web_search',max_uses:6}]);
+    },8000,null,[{type:'web_search_20250305',name:'web_search',max_uses:4}]);
   }
 
   // Verifies Claude's picks against Google Places and returns the shape
@@ -12592,6 +12622,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
           }
         });
       });
+      setTimeout(function(){if(!finished){finished=true;cb(null,out);}},12000);
     });
   }
 
