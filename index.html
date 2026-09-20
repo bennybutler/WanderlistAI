@@ -3262,6 +3262,44 @@ function ai(msgs,cb,maxTok,sys,_retry){
     .catch(function(e){cb(e.message,null);});
 }
 
+// window.aiWithTools — same request shape as ai(), but supports the
+// web_search tool. Kept separate from ai() so every existing call site
+// of ai() throughout the app is completely unaffected.
+// When Claude uses the web_search tool, the response can contain
+// multiple content blocks (tool_use, tool_result, text) rather than a
+// single text block — this extracts and joins all text blocks, and
+// exposes citations/search results if present for future use.
+window.aiWithTools=function(msgs,cb,maxTok,sys,tools,_retry){
+  var key=localStorage.getItem('wl_apikey');
+  if(!key){cb('No API key. Go to ⚙ Settings to add your Anthropic API key.',null);openProfile();return;}
+  var body={model:'claude-sonnet-4-6',max_tokens:maxTok||4000,messages:msgs};
+  if(sys)body.system=sys;
+  if(tools&&tools.length)body.tools=tools;
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify(body)
+  }).then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){
+        if(d.error.type==='overloaded_error'&&!_retry){
+          setTimeout(function(){window.aiWithTools(msgs,cb,maxTok,sys,tools,true);},8000);
+          return;
+        }
+        cb(d.error.message,null);
+        return;
+      }
+      var text=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n');
+      cb(null,text);
+    })
+    .catch(function(e){cb(e.message,null);});
+};
+
 // ── Helpers ───────────────────────────────────────────────
 function g(id){return document.getElementById(id);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -12002,7 +12040,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   }
 
   // Claude "color pass": adds a one-line vibe description + a tag to each
-  // Google result. Never touches name/address/rating/lat/lng — additive only.
+  // verified result. Never touches name/address/rating/lat/lng — additive only.
   function addClaudeColor(dest,filterKey,places,cb){
     if(!places.length){cb(places);return;}
     if(typeof window.ai!=='function'){cb(places);return;}
@@ -12032,23 +12070,99 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     },900);
   }
 
-  // AI-only fallback path (no Google key saved) — same shape output.
-  function aiOnlySearch(dest,filterKey,cb){
+  // ---- STEP 1: Claude + live web search picks the actual recommendations ----
+  // This replaces Google Places as the picker. Google Places is now used
+  // ONLY afterward, to verify each pick is real/open and get its exact
+  // address + coordinates (STEP 2, below).
+  function aiWebSearchPicks(dest,filterKey,extraInstruction,cb){
+    if(typeof window.aiWithTools!=='function'){cb('AI not available',[]);return;}
     var f=byKey(filterKey);
-    var scope=filterKey==='all'?'top local recommendations spanning food, drinks, parks and activities':
-      (f.gq);
-    var prompt='Respond in '+((window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English')+
-      '. Give me 12 REAL, currently open, currently operating '+scope+' in '+dest.name+(dest.country?', '+dest.country:'')+
-      '. It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+
-      '. Do NOT invent names — only established, verifiable venues. Include a short vibe description for each.'+
-      '\nReturn ONLY valid JSON array: [{"name":"...","type":"restaurant|bar|cafe|park|activity","tags":["☕ Cafe"],"description":"1 short sentence","budget":true|false,"emoji":"...","price_range":"$|$$|$$$"}]';
-    window.ai([{role:'user',content:prompt}],function(err,text){
+    var scope=filterKey==='all'?'restaurants, bars, cafes, parks and things to do':f.gq;
+    var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var prompt='Respond in '+lang+'. Search the web for current, well-regarded '+scope+' in '+dest.name+(dest.country?', '+dest.country:'')+
+      '. Use recent local guides, food/travel writeups, and review sites — not just generic tourist lists. Prioritize places that are genuinely well-regarded right now, including newer openings and local favorites, over the most obvious tourist-trap options.'+
+      (extraInstruction?' Specifically: '+extraInstruction+'.':'')+
+      ' It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+
+      '. Give me 14 real, specific venue names (not neighborhoods or categories) with their street address if you can find it.'+
+      '\nReturn ONLY a valid JSON array, nothing else, no markdown fences: [{"name":"exact venue name","address":"street address if known, else empty string","why":"one short reason this made the list"}]';
+    window.aiWithTools([{role:'user',content:prompt}],function(err,text){
       if(err){cb(err,[]);return;}
       try{
         var arr=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
         cb(null,arr);
       }catch(e){cb('Could not parse recommendations',[]);}
-    },4000);
+    },3000,null,[{type:'web_search_20250305',name:'web_search',max_uses:6}]);
+  }
+
+  // ---- STEP 2: verify each Claude pick against Google Places -----------------
+  // Confirms it's real and currently open, and fetches exact address/coords.
+  // Any pick Google can't find, or flags as permanently/temporarily closed,
+  // is dropped rather than shown with guessed details.
+  function verifyPicksWithGoogle(dest,filterKey,picks,cb){
+    var key=googleKeyFinal();
+    if(!key||!picks.length){cb(picks.map(function(p){return{name:p.name,address:p.address||'',description:p.why||'',lat:null,lng:null,_unverified:true};}));return;}
+    loadGooglePlacesFinal(function(err){
+      if(err){cb(picks.map(function(p){return{name:p.name,address:p.address||'',description:p.why||'',lat:null,lng:null,_unverified:true};}));return;}
+      var svc=new google.maps.places.PlacesService(document.createElement('div'));
+      var out=[];
+      var remaining=picks.length;
+      if(!remaining){cb([]);return;}
+      picks.forEach(function(pick){
+        var q=pick.name+(pick.address?', '+pick.address:', '+dest.name+(dest.country?', '+dest.country:''));
+        svc.textSearch({query:q,fields:['name','place_id','formatted_address','geometry','business_status','types','rating','user_ratings_total','opening_hours','price_level']},function(results,status){
+          done();
+          if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length)return;
+          var r=results[0];
+          if(!r.geometry||!r.geometry.location)return;
+          if(r.business_status==='CLOSED_PERMANENTLY'||r.business_status==='CLOSED_TEMPORARILY')return;
+          function commit(status2){
+            if(status2===false)return; // verified closed — drop it
+            var loc=r.geometry.location;
+            var isOpenNow=null;
+            if(r.opening_hours&&typeof r.opening_hours.isOpen==='function'){try{isOpenNow=r.opening_hours.isOpen();}catch(e){}}
+            else if(r.opening_hours&&typeof r.opening_hours.open_now==='boolean'){isOpenNow=r.opening_hours.open_now;}
+            out.push({
+              name:pick.name, // keep Claude's name (already what web search surfaced)
+              type:filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey,
+              tags:[],description:pick.why||'',
+              budget:(r.price_level!=null&&r.price_level<=1),
+              emoji:emojiForType(filterKey==='all'?guessTypeFromGoogleTypes(r.types):filterKey),
+              price_range:r.price_level!=null?Array(r.price_level+1).join('$')||'$':'',
+              lat:typeof loc.lat==='function'?loc.lat():loc.lat,
+              lng:typeof loc.lng==='function'?loc.lng():loc.lng,
+              address:r.formatted_address||pick.address||'',
+              rating:r.rating||'',ratings_count:r.user_ratings_total||0,
+              place_id:r.place_id,open_now:isOpenNow,_google:true
+            });
+          }
+          // Text Search sometimes omits business_status even for closed
+          // places — double-check with Details when it's missing.
+          if(r.business_status){commit(true);}
+          else{
+            svc.getDetails({placeId:r.place_id,fields:['business_status']},function(details,st){
+              if(st===google.maps.places.PlacesServiceStatus.OK&&details&&details.business_status==='CLOSED_PERMANENTLY')commit(false);
+              else commit(true);
+            });
+          }
+        });
+      });
+      function done(){if(--remaining<=0)finishOnce();}
+      var finished=false;
+      function finishOnce(){
+        if(finished)return;finished=true;
+        // small delay lets the last commit() (possibly async via getDetails) land
+        setTimeout(function(){cb(out);},350);
+      }
+    });
+  }
+
+  function aiOnlySearch(dest,filterKey,cb){
+    aiWebSearchPicks(dest,filterKey,null,function(err,picks){
+      if(err||!picks.length){cb(err||'No results',[]);return;}
+      verifyPicksWithGoogle(dest,filterKey,picks,function(verified){
+        cb(null,verified);
+      });
+    });
   }
 
   // ---- Core: run a search for the currently active filter ----------------
@@ -12069,48 +12183,40 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
 
     var myToken=++_searchToken;
     var holder=g2('place-recs');
-    if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Finding '+esc2(byKey(filterKey).label.replace(/^[^\w]+/,'').trim()||'spots')+' in '+esc2(dest.name)+'…</div></div>';
+    if(holder)holder.innerHTML='<div style="text-align:center;padding:32px 0"><div style="width:36px;height:36px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px"></div><div style="font-size:15px;font-weight:600;color:var(--text2)">Searching the web for '+esc2(byKey(filterKey).label.replace(/^[^\w]+/,'').trim()||'spots')+' in '+esc2(dest.name)+'…</div></div>';
 
-    var hasGoogle=!!googleKeyFinal();
-
-    if(hasGoogle){
-      googleSearchFilter(filterKey,dest,function(err,places){
-        if(myToken!==_searchToken)return; // a newer filter/search superseded this one
-        if(err||!places.length){
-          // Google returned nothing usable — fall back to Claude for this filter
-          aiOnlySearch(dest,filterKey,function(e2,arr){
-            if(myToken!==_searchToken)return;
-            if(e2||!arr||!arr.length){
-              cache[filterKey]=[];
-              renderExploreResults(destId,filterKey,[]);
-              return;
-            }
-            cache[filterKey]=arr;
-            renderExploreResults(destId,filterKey,arr);
-          });
-          return;
-        }
-        // Got real Google results — render immediately, then enrich with color
-        cache[filterKey]=places;
-        renderExploreResults(destId,filterKey,places);
-        addClaudeColor(dest,filterKey,places,function(colored){
-          if(myToken!==_searchToken)return;
-          cache[filterKey]=colored;
-          renderExploreResults(destId,filterKey,colored);
-        });
-      });
-    } else {
-      aiOnlySearch(dest,filterKey,function(err,arr){
+    // Claude + web search always picks the recommendations now. Google
+    // Places (if a key is saved) is used only afterward, to verify each
+    // pick is real/open and to get exact address + coordinates.
+    aiWebSearchPicks(dest,filterKey,null,function(err,picks){
+      if(myToken!==_searchToken)return;
+      if(err||!picks.length){
+        cache[filterKey]=[];
+        renderExploreResults(destId,filterKey,[]);
+        return;
+      }
+      verifyPicksWithGoogle(dest,filterKey,picks,function(verified){
         if(myToken!==_searchToken)return;
-        if(err||!arr||!arr.length){
+        if(!verified.length){
           cache[filterKey]=[];
           renderExploreResults(destId,filterKey,[]);
           return;
         }
-        cache[filterKey]=arr;
-        renderExploreResults(destId,filterKey,arr);
+        cache[filterKey]=verified;
+        renderExploreResults(destId,filterKey,verified);
+        // Only run the color pass for picks that didn't already get a
+        // description from Claude's web-search step (they usually did,
+        // via "why" — this just smooths formatting/consistency).
+        var needsColor=verified.filter(function(p){return !p.description;});
+        if(needsColor.length){
+          addClaudeColor(dest,filterKey,verified,function(colored){
+            if(myToken!==_searchToken)return;
+            cache[filterKey]=colored;
+            renderExploreResults(destId,filterKey,colored);
+          });
+        }
       });
-    }
+    });
   }
 
   // ---- Render ------------------------------------------------------------
@@ -12403,15 +12509,44 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   function vibeTerms(vibe){return VIBE_TERMS[vibe]||'restaurants cafes bars parks attractions';}
 
   // ---- Google Places verification (same pattern as Explore's search) ------
+  // Candidate pool for Plan a Day now comes from Claude + live web search
+  // (same picker used by Explore), verified against Google Places for
+  // real address/coordinates/open-status before being handed to the
+  // itinerary builder. `query` carries the vibe/area/tweak context that
+  // used to be a raw Google Places query string — it's now used as
+  // extra instruction text for the web-search picker instead.
   function verifiedCandidates(dest,query,cb){
-    if(typeof window._wlGoogleSearchInternal==='function'){
-      window._wlGoogleSearchInternal(query,dest,cb);
-      return;
-    }
-    // Local, self-contained Google Places search + Details verification.
+    if(typeof window.aiWithTools!=='function'){cb('AI not available',[]);return;}
+    var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var prompt='Respond in '+lang+'. Search the web for well-regarded restaurants, bars, cafes, parks and things to do in '+dest.name+(dest.country?', '+dest.country:'')+
+      ' that fit this brief: "'+query+'". Use recent local guides and writeups, not just generic tourist lists — prioritize genuinely well-regarded, currently-open places over obvious tourist traps.'+
+      ' It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+
+      '. Give me 16 real, specific venue names with their street address if you can find it.'+
+      '\nReturn ONLY a valid JSON array, nothing else, no markdown fences: [{"name":"exact venue name","address":"street address if known, else empty string","why":"one short reason"}]';
+    window.aiWithTools([{role:'user',content:prompt}],function(err,text){
+      if(err){cb(err,[]);return;}
+      var picks;
+      try{
+        picks=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
+      }catch(e){cb('Could not parse recommendations',[]);return;}
+      if(!picks.length){cb('No results',[]);return;}
+      verifyPicksForPlan(dest,picks,cb);
+    },3000,null,[{type:'web_search_20250305',name:'web_search',max_uses:6}]);
+  }
+
+  // Verifies Claude's picks against Google Places and returns the shape
+  // buildPlanFromCandidates expects: {name,place_id,lat,lng,address,rating,types}.
+  // Anything Google can't find, or confirms is closed, is dropped.
+  function verifyPicksForPlan(dest,picks,cb){
     var key=localStorage.getItem('wl_google_places_key')||localStorage.getItem('wl_google_maps_key')||
              localStorage.getItem('wl_google_key')||localStorage.getItem('wl_google_api_key')||(window.GOOGLE_MAPS_API_KEY||'');
-    if(!key){cb('No Google key',[]);return;}
+    if(!key){
+      // No Google key — trust Claude's picks as-is (no address/coord
+      // verification possible). walk-time and map-pin accuracy will
+      // suffer without a key; buildPlanFromCandidates still works off names.
+      cb(null,picks.map(function(p){return{name:p.name,place_id:'',lat:null,lng:null,address:p.address||'',rating:'',types:[],_unverified:true};}));
+      return;
+    }
     function load(cb2){
       if(window.google&&window.google.maps&&window.google.maps.places){cb2(null);return;}
       if(window.__wlDPPlacesLoading){setTimeout(function(){load(cb2);},250);return;}
@@ -12425,48 +12560,37 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     load(function(err){
       if(err){cb(err,[]);return;}
       var svc=new google.maps.places.PlacesService(document.createElement('div'));
-      var req={query:query,fields:['name','place_id','formatted_address','geometry','business_status','types','rating']};
-      var lat=parseFloat(dest.lat),lng=parseFloat(dest.lng);
-      if(isFinite(lat)&&isFinite(lng)){req.location=new google.maps.LatLng(lat,lng);req.radius=6000;}
-      svc.textSearch(req,function(results,status){
-        if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){cb(status||'No results',[]);return;}
-        // First pass: keep anything not explicitly closed
-        var candidates=results.filter(function(r){
-          return r.business_status!=='CLOSED_PERMANENTLY'&&r.business_status!=='CLOSED_TEMPORARILY'&&r.geometry&&r.geometry.location;
-        });
-        // Second pass: for any candidate WITHOUT a clear business_status
-        // (Text Search often omits it), verify with a Details call before
-        // trusting it — this is what actually catches closed venues that
-        // slip through Text Search.
-        var toVerify=candidates.filter(function(r){return !r.business_status;}).slice(0,12);
-        var verifiedOk={};
-        var remaining=toVerify.length;
-        if(!remaining){finish();return;}
-        toVerify.forEach(function(r){
-          svc.getDetails({placeId:r.place_id,fields:['business_status']},function(details,st){
-            if(st===google.maps.places.PlacesServiceStatus.OK&&details&&details.business_status==='CLOSED_PERMANENTLY'){
-              verifiedOk[r.place_id]=false;
-            } else {
-              verifiedOk[r.place_id]=true; // OPERATIONAL, or Details had no data — Text Search result stands
+      var out=[];
+      var remaining=picks.length;
+      if(!remaining){cb(null,[]);return;}
+      var finished=false;
+      function done(){if(--remaining<=0&&!finished){finished=true;setTimeout(function(){cb(null,out);},350);}}
+      picks.forEach(function(pick){
+        var q=pick.name+(pick.address?', '+pick.address:', '+dest.name+(dest.country?', '+dest.country:''));
+        svc.textSearch({query:q,fields:['name','place_id','formatted_address','geometry','business_status','types','rating']},function(results,status){
+          if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results.length){done();return;}
+          var r=results[0];
+          if(!r.geometry||!r.geometry.location){done();return;}
+          if(r.business_status==='CLOSED_PERMANENTLY'||r.business_status==='CLOSED_TEMPORARILY'){done();return;}
+          function commit(ok){
+            if(ok){
+              var loc=r.geometry.location;
+              out.push({
+                name:pick.name,place_id:r.place_id,
+                lat:typeof loc.lat==='function'?loc.lat():loc.lat,
+                lng:typeof loc.lng==='function'?loc.lng():loc.lng,
+                address:r.formatted_address||pick.address||'',rating:r.rating||'',types:r.types||[]
+              });
             }
-            if(--remaining===0)finish();
-          });
+            done();
+          }
+          if(r.business_status){commit(true);}
+          else{
+            svc.getDetails({placeId:r.place_id,fields:['business_status']},function(details,st){
+              commit(!(st===google.maps.places.PlacesServiceStatus.OK&&details&&details.business_status==='CLOSED_PERMANENTLY'));
+            });
+          }
         });
-        function finish(){
-          var out=candidates.filter(function(r){
-            return r.business_status||verifiedOk[r.place_id]!==false;
-          }).map(function(r){
-            var loc=r.geometry.location;
-            return{
-              name:r.name,place_id:r.place_id,
-              lat:typeof loc.lat==='function'?loc.lat():loc.lat,
-              lng:typeof loc.lng==='function'?loc.lng():loc.lng,
-              address:r.formatted_address||'',rating:r.rating||'',
-              types:r.types||[]
-            };
-          });
-          cb(null,out);
-        }
       });
     });
   }
