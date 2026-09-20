@@ -357,8 +357,7 @@ textarea::placeholder{color:var(--text3);}
   <div class="screen on" id="s-map">
     <div id="map"></div>
     <div class="map-filters">
-      <button class="mf-btn on" id="mf-all" onclick="setFilter('all',this)">All</button>
-      <button class="mf-btn" id="mf-dest" onclick="setFilter('dest',this)">📍 Destinations</button>
+      <button class="mf-btn on" id="mf-dest" onclick="setFilter('dest',this)">📍 Destinations</button>
       <button class="mf-btn" id="mf-routes" onclick="setFilter('routes',this)">✈ Trip routes</button>
       <button class="mf-btn" id="mf-local" onclick="setFilter('local',this)">🍽 Local</button>
     </div>
@@ -771,7 +770,7 @@ textarea::placeholder{color:var(--text3);}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var S={dests:[],itins:[],found:{},chatHistory:[],chatFilter:'all',placeType:'dest',mapFilter:'all'};
+var S={dests:[],itins:[],found:{},chatHistory:[],chatFilter:'all',placeType:'dest',mapFilter:'dest'};
 var map,mkrs=[],imgb64=null,imgmime=null,acTimer=null,acResults=[];
 
 // ── Storage ───────────────────────────────────────────────
@@ -969,10 +968,25 @@ function setFilter(f,el){
   if(el)el.classList.add('on');
   syncMap();
   if(f==='routes'){showRoutePicker();}
+  if(f==='local'){
+    // Selecting Local zooms into the user's home city, same as the
+    // Home button, so nearby saved spots are actually visible rather
+    // than scattered across whatever the map's previous zoom level was.
+    var cached=localStorage.getItem('wl_homecoords');
+    if(cached){
+      try{
+        var co=JSON.parse(cached);
+        setTimeout(function(){
+          if(window.map&&map.flyTo)map.flyTo([co.lat,co.lng],16,{duration:1.2,easeLinearity:0.1});
+          else if(window.map&&map.setCenter){map.setCenter({lat:co.lat,lng:co.lng});map.setZoom(16);}
+        },80);
+      }catch(e){}
+    }
+  }
 }
 function showRoutePicker(){
   var trips=S.itins.filter(function(it){return(it._type||'trip')==='trip';});
-  if(!trips.length){toast('No trips yet — generate some first');setFilter('all',g('mf-all'));return;}
+  if(!trips.length){toast('No trips yet — generate some first');setFilter('dest',g('mf-dest'));return;}
   if(trips.length===1){drawRouteLines(trips[0]);return;}
   var el2=document.getElementById('route-picker');if(el2)el2.remove();
   var div=document.createElement('div');
@@ -988,7 +1002,7 @@ function showRoutePicker(){
   });
   var btn=document.createElement('button');
   btn.style.cssText='width:100%;margin-top:6px;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit';
-  btn.textContent='Cancel';btn.addEventListener('click',function(){div.remove();setFilter('all',g('mf-all'));});
+  btn.textContent='Cancel';btn.addEventListener('click',function(){div.remove();setFilter('dest',g('mf-dest'));});
   div.appendChild(btn);
   document.getElementById('s-map').appendChild(div);
   setTimeout(function(){
@@ -11568,8 +11582,8 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       window.map.fitBounds=function(){};
       try{if(window.syncMap)syncMap();}catch(e){}
       window.map.fitBounds=_fb; /* ALWAYS restored — outside try{} */
-      try{if(map.flyTo)map.flyTo([lat,lng],14,{duration:1.5,easeLinearity:0.1});
-          else if(map.setCenter){map.setCenter({lat:lat,lng:lng});map.setZoom(14);}}catch(e){}
+      try{if(map.flyTo)map.flyTo([lat,lng],16,{duration:1.5,easeLinearity:0.1});
+          else if(map.setCenter){map.setCenter({lat:lat,lng:lng});map.setZoom(16);}}catch(e){}
       setTimeout(function(){try{if(window.drawHomePin)window.drawHomePin();}catch(e){}},1600);
     },160);
   };
@@ -12205,7 +12219,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     window._exploreCache[destId]=window._exploreCache[destId]||{};
     var cache=window._exploreCache[destId];
 
-    if(!force&&cache[filterKey]){
+    if(!force&&cache[filterKey]&&cache[filterKey].length){
       renderExploreResults(destId,filterKey,cache[filterKey]);
       return;
     }
@@ -12249,14 +12263,22 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   }
 
   // ---- Render ------------------------------------------------------------
+  var _lastRenderedFor={}; // {destId: filterKey} — the last thing actually shown
   function renderExploreResults(destId,filterKey,places,errMsg){
     var el=g2('place-recs');if(!el)return;
-    if(window.placeFilter!==filterKey)return; // stale render guard
+    if(window.placeFilter!==filterKey)return; // stale render guard (wrong filter)
+    if(String(window.currentPlaceId)!==String(destId))return; // stale render guard (wrong destination)
     if(!places||!places.length){
+      // Never let an empty result silently replace already-visible real
+      // results for this same destination+filter — that produces exactly
+      // the "loads, then vanishes" symptom when a slower/failed request
+      // resolves after a faster/successful one already rendered.
+      if(_lastRenderedFor[destId]===filterKey&&el.querySelector('.rec-card'))return;
       el.innerHTML='<p style="font-size:13px;color:var(--text3);padding:8px 0">'+
         (errMsg?esc2(errMsg):'No results for this filter.')+' <a href="#" onclick="window.refreshExploreSuggestions();return false;" style="color:var(--gold);font-weight:600">Try again</a></p>';
       return;
     }
+    _lastRenderedFor[destId]=filterKey;
     window._recStore=window._recStore||{};
     var storeKey=destId+'_recs_'+filterKey;
     window._recStore[storeKey]=places;
@@ -12310,7 +12332,10 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     var filterKey=window.placeFilter||'all';
     ensurePillsHtml(id);
     var cache=(window._exploreCache&&window._exploreCache[id])||{};
-    if(cache[filterKey]){renderExploreResults(id,filterKey,cache[filterKey]);return;}
+    // Only trust the cache here if it actually has results — an empty
+    // array (left behind by an earlier failed search) should trigger a
+    // fresh attempt, not a re-render of "no results" over real content.
+    if(cache[filterKey]&&cache[filterKey].length){renderExploreResults(id,filterKey,cache[filterKey]);return;}
     // Legacy placeRecs[id] (set by old code) — seed cache so we don't refetch needlessly
     if(window.placeRecs&&window.placeRecs[id]&&window.placeRecs[id].length){
       window._exploreCache=window._exploreCache||{};
@@ -12560,7 +12585,16 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
         picks=window.safeParseAIJsonArray?window.safeParseAIJsonArray(text):JSON.parse(String(text).replace(/```json|```/g,''));
       }catch(e){cb('Could not parse recommendations',[]);return;}
       if(!picks.length){cb('No results',[]);return;}
-      verifyPicksForPlan(dest,picks,cb);
+      verifyPicksForPlan(dest,picks,function(err2,verified){
+        if(err2){cb(err2,[]);return;}
+        if(verified&&verified.length){cb(null,verified);return;}
+        // Google verification found nothing usable (rate-limited, name
+        // mismatches, etc.) even though Claude's picks were real — fall
+        // back to Claude's own names/addresses rather than failing the
+        // whole plan. Coordinates will be missing for these until a
+        // later geocoding pass fills them in.
+        cb(null,picks.map(function(p){return{name:p.name,place_id:'',lat:null,lng:null,address:p.address||'',rating:'',types:[],_unverified:true};}));
+      });
     },8000,null,[{type:'web_search_20250305',name:'web_search',max_uses:4}]);
   }
 
@@ -12769,7 +12803,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
           // anchored on the saved spot itself.
           candidates=[];
         } else {
-          if(holder)holder.innerHTML='<div class="empty-state"><p>Could not find verified places'+(err?' ('+esc3(err)+')':'')+'. Check your Google Places key in Settings, or try a different vibe.</p></div>';
+          if(holder)holder.innerHTML='<div class="empty-state"><p>'+(err?esc3(err):'Could not find any places for this vibe')+'. <a href="#" onclick="window.runDayPlan(\''+destId+'\');return false;" style="color:var(--gold);font-weight:600">Try again</a></p></div>';
           return;
         }
       }
@@ -12873,6 +12907,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       '<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc3(plan.start||'')+' · '+esc3(String(plan.hours||''))+' hours · '+esc3(plan.vibe||vibe||'')+'</div></div>'+
       '<div style="display:flex;gap:5px;flex-shrink:0">'+
         '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="window.refreshDayPlan()">↻ Refresh</button>'+
+        '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="window.viewDayPlanOnMap&&window.viewDayPlanOnMap()">🗺 Map</button>'+
         '<button style="padding:5px 9px;background:var(--gold-lt);border:1px solid var(--gold-md);border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--gold);font-weight:600" onclick="window.saveDayPlan&&window.saveDayPlan()">💾 Save</button>'+
       '</div></div>'+
       '<div style="display:flex;gap:7px;margin-bottom:14px;background:var(--bg2);border-radius:var(--rsm);padding:10px;border:1px solid var(--border)">'+
@@ -12901,7 +12936,82 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     // preserved from the earlier Explore fix).
     var pills=g3('place-pills');if(pills)pills.style.display='none';
     var planBtnWrap=g3('place-plan-btn-wrap');if(planBtnWrap)planBtnWrap.style.display='none';
+    // Plot the plan's stops on the map automatically. Reuses the
+    // existing viewDayPlanOnMap (route + numbered pins, Google or
+    // Leaflet) rather than duplicating map-drawing logic here — that
+    // function already handles bounds-fitting and polylines correctly.
+    if(typeof window.viewDayPlanOnMap==='function'){
+      try{window.viewDayPlanOnMap.call(this,true);}catch(e){}
+    }
   };
+
+  // Small wrapper so the plan header's "View on map" button doesn't
+  // force a screen switch away from the plan itself unless the user
+  // explicitly asks to — auto-plotting on render just draws the pins
+  // in the background so they're ready when the user switches tabs.
+  var _origViewOnMap=window.viewDayPlanOnMap;
+  window.viewDayPlanOnMap=function(background){
+    if(!_origViewOnMap)return;
+    if(background){
+      // Draw markers without forcing swScreen('s-map') — done by
+      // temporarily no-op'ing swScreen for the duration of the call.
+      var savedSwScreen=window.swScreen;
+      window.swScreen=function(){};
+      try{_origViewOnMap();}finally{
+        setTimeout(function(){window.swScreen=savedSwScreen;},50);
+      }
+      return;
+    }
+    _origViewOnMap();
+  };
+
+  // Auto-generate a day plan immediately when starting from a saved
+  // spot ("Plan a day near here"), using default settings — vibe
+  // Local, starting now, 6 hours — with that spot locked as stop 1.
+  // Supersedes every earlier planDayNearSpot, which opened the
+  // Explore screen instead of actually building a plan.
+  window.planDayNearSpot=function(spotId){
+    var spot=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(spotId);});
+    if(!spot){if(window.toast2)toast2('Saved spot not found');else if(window.toast)toast('Saved spot not found');return;}
+    window._planWithSpot=spot;
+    window._dpAnchor=spot;
+    window._dpMode='ai';
+    window._wlFilteredSpots=null;
+    window._planWithSpots=null;
+    // Find (or create a temporary) destination the spot belongs to,
+    // so runDayPlan has a `dest` with a name/country/coords to search around.
+    var dest=(window.S&&window.S.dests||[]).find(function(x){
+      return x.type==='dest'&&((spot.city&&normStr(x.name)===normStr(spot.city))||(spot.country&&normStr(x.country)===normStr(spot.country))||kmDist(x,spot)<35);
+    });
+    if(!dest){
+      dest={id:'_tmp_anchor_'+spotId,name:spot.city||spot.country||spot.name,country:spot.country||'',lat:spot.lat,lng:spot.lng,type:'dest'};
+      window.S.dests.push(dest);
+      setTimeout(function(){window.S.dests=window.S.dests.filter(function(x){return x.id!==dest.id;});},20000);
+    }
+    try{if(window.closePlaceDetail)closePlaceDetail();}catch(e){}
+    // Open the place sheet in day-plan mode (hides Explore chrome) and
+    // immediately run the plan with sensible defaults — no setup screen,
+    // per the intended flow: this should feel instant.
+    setTimeout(function(){
+      if(window.openPlaceDetail)window.openPlaceDetail(dest.id,true);
+      window._dpConfig={destId:dest.id,start:currentTimeLabel(),hours:'6',vibe:'🏘 Local',area:'',useSaved:false,anchorId:spot.id};
+      setTimeout(function(){window.runDayPlan(dest.id);},60);
+    },80);
+  };
+
+  function kmDist(a,b){
+    if(!a||!b)return Infinity;
+    var lat1=parseFloat(a.lat),lng1=parseFloat(a.lng),lat2=parseFloat(b.lat),lng2=parseFloat(b.lng);
+    if(!isFinite(lat1)||!isFinite(lng1)||!isFinite(lat2)||!isFinite(lng2))return Infinity;
+    var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+    var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+  }
+  function currentTimeLabel(){
+    var d=new Date(),h=d.getHours(),m=d.getMinutes();
+    var ap=h>=12?'pm':'am',h12=h%12===0?12:h%12;
+    return h12+':'+(m<10?'0':'')+m+ap;
+  }
 
 })();
 </script>
