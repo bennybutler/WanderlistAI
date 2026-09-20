@@ -1077,10 +1077,12 @@ function syncMap(){
       });
       var popupHtml='<div style="min-width:160px;font-family:DM Sans,system-ui,sans-serif"><b style="font-size:14px;color:#18181A">'+esc(d.name)+'</b>'+(d.category?'<span style="font-size:10px;color:#888;margin-left:5px">'+esc(d.category)+'</span>':'')+'<br><small style="color:#888">'+esc(d.country||'')+'</small><div style="margin-top:8px;display:flex;gap:5px"><button onclick="openPlaceDetail(\''+d.id+'\');if(map&&map.closePopup)map.closePopup()" style="flex:1;padding:5px 0;background:#BA7517;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Explore</button><button onclick="openPlaceDetail(\''+d.id+'\',true);if(map&&map.closePopup)map.closePopup()" style="flex:1;padding:5px 0;background:#FAEEDA;color:#BA7517;border:1px solid #FAC775;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Plan day</button></div></div>';
       marker.addListener('click',function(){googleInfoWindow.setContent(popupHtml);googleInfoWindow.open(map,marker);});
+      marker.__wlDestId=d.id;
       return marker;
     }
     var icon=L.divIcon({html:'<div style="width:28px;height:36px;position:relative;filter:drop-shadow(0 3px 5px rgba(0,0,0,.38))"><div style="position:absolute;left:4px;top:0;width:20px;height:20px;background:'+mc+';border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);"><span style="position:absolute;left:5px;top:5px;width:5px;height:5px;background:#fff;border-radius:50%;display:block"></span></div></div>',iconSize:[26,32],iconAnchor:[13,30],popupAnchor:[0,-30],className:''});
     var m=L.marker([lat,lng],{icon:icon}).addTo(map);
+    m.__wlDestId=d.id;
     var popupEl=document.createElement('div');
     popupEl.style.minWidth='150px';
     popupEl.innerHTML='<b style="font-size:14px">'+esc(d.name)+'</b>'+(d.category?'<span style="font-size:10px;color:#888;margin-left:5px">'+esc(d.category)+'</span>':'')+'<br><small style="color:#888">'+esc(d.country||'')+'</small><div style="margin-top:8px;display:flex;gap:5px"><button class="mp-exp" style="flex:1;padding:5px 0;background:#BA7517;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Explore</button><button class="mp-day" style="flex:1;padding:5px 0;background:#FAEEDA;color:#BA7517;border:1px solid #FAC775;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Plan day</button></div>';
@@ -11047,11 +11049,24 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       var lm=L.marker([c.lat,c.lng],{icon:icon}).addTo(map);lm.bindPopup(localPopup(item,!!opts.unsaved,opts.unsavedIndex||0),{maxWidth:240});persistent.push(lm);return lm;
     }
   }
-  function currentFilterAllows(d){var f=(window.S&&S.mapFilter)||'all';return f==='all'||f==='routes'||d.type===f;}
+  function currentFilterAllows(d){var f=(window.S&&S.mapFilter)||'dest';if(f==='routes')return d.type==='dest';return d.type===f;}
   function renderPersistentPins(){
     if(!window.S||!S.dests||!window.map)return;clearPersistent();
     var seen={};
-    (S.dests||[]).forEach(function(d){var c=co(d);if(!c)return;var k=d.id||norm(d.name)+'|'+c.lat+'|'+c.lng;if(seen[k])return;seen[k]=1;if(currentFilterAllows(d))return;addMarker(d,{color:d.type==='local'?'#1a6eb5':'#B8730A'});});
+    (S.dests||[]).forEach(function(d){
+      var c=co(d);if(!c)return;
+      var k=d.id||norm(d.name)+'|'+c.lat+'|'+c.lng;if(seen[k])return;seen[k]=1;
+      // This function exists to catch pins that finished geocoding
+      // AFTER syncMap()'s own pass already ran (e.g. a spot whose
+      // coordinates were still loading). It must respect the current
+      // filter exactly like syncMap does — never draw something the
+      // filter excludes, or Local spots leak onto the Destinations
+      // view (and vice versa). It also must not duplicate a marker
+      // syncMap already drew for this same item.
+      if(!currentFilterAllows(d))return;
+      if(window.mkrs&&window.mkrs.some(function(m){return m.__wlDestId&&m.__wlDestId===d.id;}))return;
+      addMarker(d,{color:d.type==='local'?'#1a6eb5':'#B8730A'});
+    });
     renderUnsavedPlanMarkers(false);
   }
   function geocodeMissingSavedPins(){
@@ -12695,6 +12710,29 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     next();
   }
 
+  // Fills in coordinates for any stop that came out of the plan-building
+  // pipeline without them (e.g. the Google-verification fallback, which
+  // trusts Claude's name/address but has no lat/lng). Without this, walk
+  // times between stops silently disappear since routeTimeBetween can't
+  // compute a distance with missing coordinates.
+  function geocodeMissingStops(dest,stops,cb){
+    var missing=stops.filter(function(s){return !isFinite(parseFloat(s.lat))||!isFinite(parseFloat(s.lng));});
+    if(!missing.length){cb();return;}
+    var i=0;
+    function next(){
+      if(i>=missing.length){cb();return;}
+      var s=missing[i++];
+      var q=[s.name,s.address,dest.name,dest.country].filter(Boolean).join(', ');
+      fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}})
+        .then(function(r){return r.json();})
+        .then(function(res){
+          if(res&&res[0]){s.lat=parseFloat(res[0].lat);s.lng=parseFloat(res[0].lon);}
+          setTimeout(next,120);
+        }).catch(function(){setTimeout(next,120);});
+    }
+    next();
+  }
+
   // ---- Build a plan from a pool of verified real places (AI sequences + writes color) ----
   function buildPlanFromCandidates(dest,candidates,opts,cb){
     var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
@@ -12791,7 +12829,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       var plan=buildPlanFromSaved(dest,pool,{start:start,hours:hours,vibe:vibe});
       plan._destId=destId;
       window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}
-      addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});
+      geocodeMissingStops(dest,plan.stops,function(){addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});});
       return;
     }
 
@@ -12842,7 +12880,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
         }
         plan._destId=destId;
         window.currentPlanData=plan;try{currentPlanData=plan;}catch(e){}
-        addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});
+        geocodeMissingStops(dest,plan.stops,function(){addWalkTimes(plan.stops,function(){window.renderDayPlanHtml(plan,vibe,destId);});});
       });
     });
   };
@@ -12882,7 +12920,7 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
           }
           newPlan._destId=destId;
           window.currentPlanData=newPlan;try{currentPlanData=newPlan;}catch(e){}
-          addWalkTimes(newPlan.stops,function(){window.renderDayPlanHtml(newPlan,cfg.vibe,destId);});
+          geocodeMissingStops(dest,newPlan.stops,function(){addWalkTimes(newPlan.stops,function(){window.renderDayPlanHtml(newPlan,cfg.vibe,destId);});});
         });
       });
       return;
@@ -12973,6 +13011,11 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   window.planDayNearSpot=function(spotId){
     var spot=(window.S&&window.S.dests||[]).find(function(x){return String(x.id)===String(spotId);});
     if(!spot){if(window.toast2)toast2('Saved spot not found');else if(window.toast)toast('Saved spot not found');return;}
+    if(!isFinite(parseFloat(spot.lat))||!isFinite(parseFloat(spot.lng))){
+      if(window.toast2)toast2('This saved spot is missing a location — try re-saving it');
+      else if(window.toast)toast('This saved spot is missing a location — try re-saving it');
+      return;
+    }
     window._planWithSpot=spot;
     window._dpAnchor=spot;
     window._dpMode='ai';
@@ -12993,9 +13036,20 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     // immediately run the plan with sensible defaults — no setup screen,
     // per the intended flow: this should feel instant.
     setTimeout(function(){
-      if(window.openPlaceDetail)window.openPlaceDetail(dest.id,true);
-      window._dpConfig={destId:dest.id,start:currentTimeLabel(),hours:'6',vibe:'🏘 Local',area:'',useSaved:false,anchorId:spot.id};
-      setTimeout(function(){window.runDayPlan(dest.id);},60);
+      try{
+        if(window.openPlaceDetail)window.openPlaceDetail(dest.id,true);
+        window._dpConfig={destId:dest.id,start:currentTimeLabel(),hours:'6',vibe:'🏘 Local',area:'',useSaved:false,anchorId:spot.id};
+        setTimeout(function(){
+          try{window.runDayPlan(dest.id);}
+          catch(e){
+            var holder=g3('place-recs');
+            if(holder)holder.innerHTML='<div class="empty-state"><p>Something went wrong building the plan ('+esc3(e.message||String(e))+'). <a href="#" onclick="window.runDayPlan(\''+dest.id+'\');return false;" style="color:var(--gold);font-weight:600">Try again</a></p></div>';
+          }
+        },60);
+      }catch(e){
+        if(window.toast2)toast2('Could not open plan a day: '+(e.message||e));
+        else if(window.toast)toast('Could not open plan a day: '+(e.message||e));
+      }
     },80);
   };
 
