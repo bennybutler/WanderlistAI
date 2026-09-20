@@ -11592,14 +11592,28 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       S.mapFilter='local';
       document.querySelectorAll('.mf-btn').forEach(function(b){b.classList.remove('on');});
       var lb=g('mf-local');if(lb)lb.classList.add('on');
-      /* Suppress fitBounds during syncMap so flyTo isn't fought */
+      /* Suppress fitBounds during syncMap so flyTo isn't fought. Several
+         OTHER parts of the app (applyMapCap's periodic timer, the
+         persistent-pins re-render, etc.) also trigger syncMap-adjacent
+         re-fits shortly after this runs — a brief suppression window
+         isn't enough, since those fire on their own delayed timers
+         (up to ~1.2s later) well after this function returns. Keep
+         fitBounds suppressed for a longer window covering those. */
       var _fb=window.map.fitBounds;
       window.map.fitBounds=function(){};
+      window.__wlHomeZoomLock=true;
       try{if(window.syncMap)syncMap();}catch(e){}
-      window.map.fitBounds=_fb; /* ALWAYS restored — outside try{} */
       try{if(map.flyTo)map.flyTo([lat,lng],16,{duration:1.5,easeLinearity:0.1});
           else if(map.setCenter){map.setCenter({lat:lat,lng:lng});map.setZoom(16);}}catch(e){}
       setTimeout(function(){try{if(window.drawHomePin)window.drawHomePin();}catch(e){}},1600);
+      // Restore real fitBounds after the delayed re-render timers
+      // (persistent pins, map-cap enforcement) have all had their chance
+      // to run and been suppressed. 2.2s comfortably covers the longest
+      // of those (700ms + 1200ms interval tick + margin).
+      setTimeout(function(){
+        window.map.fitBounds=_fb;
+        window.__wlHomeZoomLock=false;
+      },2200);
     },160);
   };
 
@@ -12585,13 +12599,22 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   // itinerary builder. `query` carries the vibe/area/tweak context that
   // used to be a raw Google Places query string — it's now used as
   // extra instruction text for the web-search picker instead.
+  function coordsFinalDP(o){
+    if(!o)return null;
+    var lat=parseFloat(o.lat),lng=parseFloat(o.lng!=null?o.lng:o.lon);
+    return isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0)?{lat:lat,lng:lng}:null;
+  }
+
   function verifiedCandidates(dest,query,cb){
     if(typeof window.aiWithTools!=='function'){cb('AI not available',[]);return;}
     var lang=(window.LANG_NAMES&&window.LANG_NAMES[window.getLang&&window.getLang()||'en'])||'English';
+    var c=coordsFinalDP(dest);
     var prompt='Respond in '+lang+'. Search the web for well-regarded restaurants, bars, cafes, parks and things to do in '+dest.name+(dest.country?', '+dest.country:'')+
       ' that fit this brief: "'+query+'". Use recent local guides and writeups, not just generic tourist lists — prioritize genuinely well-regarded, currently-open places over obvious tourist traps.'+
+      ' CRITICAL geographic constraint: this is for a single walkable day itinerary, not a city-wide list. All picks MUST be within roughly a 15-20 minute walk of each other — clustered in ONE neighbourhood or a couple of adjacent blocks, not scattered across the city.'+
+      (c?' Center the search specifically around these coordinates: '+c.lat.toFixed(4)+', '+c.lng.toFixed(4)+'.':'')+
       ' It is currently '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})+
-      '. Give me 16 real, specific venue names with their street address if you can find it.'+
+      '. Give me 16 real, specific venue names, all within that one walkable area, with their street address if you can find it.'+
       '\nReturn ONLY a valid JSON array, nothing else, no markdown fences: [{"name":"exact venue name","address":"street address if known, else empty string","why":"one short reason"}]';
     window.aiWithTools([{role:'user',content:prompt}],function(err,text){
       if(err){cb(err,[]);return;}
@@ -12602,13 +12625,30 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
       if(!picks.length){cb('No results',[]);return;}
       verifyPicksForPlan(dest,picks,function(err2,verified){
         if(err2){cb(err2,[]);return;}
-        if(verified&&verified.length){cb(null,verified);return;}
-        // Google verification found nothing usable (rate-limited, name
-        // mismatches, etc.) even though Claude's picks were real — fall
-        // back to Claude's own names/addresses rather than failing the
-        // whole plan. Coordinates will be missing for these until a
-        // later geocoding pass fills them in.
-        cb(null,picks.map(function(p){return{name:p.name,place_id:'',lat:null,lng:null,address:p.address||'',rating:'',types:[],_unverified:true};}));
+        // Enforce walkability in code, not just in the prompt — asking
+        // nicely isn't enough (this is exactly what produced the
+        // opposite-side-of-the-city picks). Anchor the cluster on
+        // whichever verified pick is closest to the destination's own
+        // coordinates (or the anchor spot, if this came from "Plan a
+        // day near here"), then drop anything too far from THAT pick —
+        // not from the city center, which can be miles from where the
+        // good candidates actually clustered.
+        var pool=(verified&&verified.length)?verified:picks.map(function(p){return{name:p.name,place_id:'',lat:null,lng:null,address:p.address||'',rating:'',types:[],_unverified:true};});
+        var withCoords=pool.filter(function(p){return isFinite(parseFloat(p.lat))&&isFinite(parseFloat(p.lng));});
+        if(withCoords.length>=3){
+          var center=c||{lat:parseFloat(withCoords[0].lat),lng:parseFloat(withCoords[0].lng)};
+          // Use the median-ish pick (closest to the average position of
+          // all verified picks) as the cluster center, rather than the
+          // destination's city-wide center point, since "the city
+          // center" and "where the good picks actually are" often differ.
+          var avgLat=withCoords.reduce(function(s,p){return s+parseFloat(p.lat);},0)/withCoords.length;
+          var avgLng=withCoords.reduce(function(s,p){return s+parseFloat(p.lng);},0)/withCoords.length;
+          var clusterCenter={lat:avgLat,lng:avgLng};
+          var MAX_KM=1.6; // ~20 min walk
+          var filtered=withCoords.filter(function(p){return kmDist(clusterCenter,{lat:parseFloat(p.lat),lng:parseFloat(p.lng)})<=MAX_KM;});
+          if(filtered.length>=3)pool=filtered;
+        }
+        cb(null,pool);
       });
     },8000,null,[{type:'web_search_20250305',name:'web_search',max_uses:4}]);
   }
@@ -12689,11 +12729,23 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
   function routeTimeBetween(a,b,cb){
     if(!a||!b||!isFinite(a.lat)||!isFinite(b.lat)){cb('');return;}
     var url='https://router.project-osrm.org/route/v1/foot/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=false';
-    fetch(url).then(function(r){return r.json();}).then(function(data){
+    fetch(url).then(function(r){
+      if(r.status===429){cb('__RATE_LIMITED__');return null;}
+      return r.json();
+    }).then(function(data){
+      if(data===null)return; // already handled 429 above
       var route=data&&data.routes&&data.routes[0];
       if(!route){cb('');return;}
       var mins=Math.max(1,Math.round(route.duration/60));
       var dist=Math.round(route.distance);
+      if(mins>15){
+        // Over a 15 minute walk — show a taxi/rideshare estimate instead,
+        // using a rough 3x speed-up over walking pace as an approximation
+        // for door-to-door driving time (no separate driving API call).
+        var driveMins=Math.max(2,Math.round(mins/3));
+        cb('🚕 ~'+driveMins+' min drive ('+(Math.round(dist/100)/10)+'km)');
+        return;
+      }
       cb(mins+' min walk'+(dist<1000?' ('+dist+'m)':' ('+(Math.round(dist/100)/10)+'km)'));
     }).catch(function(){cb('');});
   }
@@ -12703,8 +12755,24 @@ var RAPIDAPI_KEY='5f5570858emsh64e9159e6e991e1p1fdfbejsne1072290010d';
     function next(){
       if(i>=stops.length-1){cb();return;}
       routeTimeBetween(stops[i],stops[i+1],function(txt){
+        if(txt==='__RATE_LIMITED__'){
+          // OSRM's public demo server caps requests at 1/second. Back off
+          // and retry this same pair once rather than silently giving up
+          // and showing nothing — a bare empty walk time was the actual
+          // bug here, not missing coordinates.
+          setTimeout(function(){
+            routeTimeBetween(stops[i],stops[i+1],function(txt2){
+              if(txt2&&txt2!=='__RATE_LIMITED__')stops[i].walk_to_next=txt2;
+              i++;setTimeout(next,1100);
+            });
+          },1200);
+          return;
+        }
         if(txt)stops[i].walk_to_next=txt;
-        i++;next();
+        i++;
+        // Space out requests to stay under OSRM's public 1 req/sec limit —
+        // firing them back-to-back is what was silently triggering 429s.
+        setTimeout(next,1100);
       });
     }
     next();
